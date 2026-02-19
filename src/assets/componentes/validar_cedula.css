@@ -1,0 +1,203 @@
+/* Contenedor principal del login */
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #5D4E37 0%, #928C7A 50%, #C19A6B 100%);
+  padding: 20px;
+  position: relative;
+}
+
+/* Logo texto de Crepes & Waffles */
+.logo-texto {
+  position: unset;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 36px;
+  font-weight: 900;
+  color: #F5EBE0;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  z-index: 5;
+  margin: 0;
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  font-family: 'Arial Black', 'Arial Bold', sans-serif;
+}
+
+/* Tarjeta del formulario */
+.login-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  padding: 40px;
+  width: 100%;
+  max-width: 400px;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Icono principal */
+.icon-login-principal {
+  font-size: 60px;
+  color: #5D4E37;
+  display: block;
+  margin: 0 auto 20px;
+}
+
+/* Título del módulo */
+.login-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #5D4E37;
+  text-align: center;
+  margin-top: 0;
+  margin-bottom: 30px;
+}
+
+/* Formulario */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Grupo del formulario */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Label del formulario */
+.form-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-label {
+  font-size: 18px;
+  color: #5D4E37;
+}
+
+/* Input del formulario */
+.form-input {
+  padding: 12px 16px;
+  font-size: 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  outline: none;
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+.form-input:focus {
+  border-color: #5D4E37;
+  box-shadow: 0 0 0 3px rgba(93, 78, 55, 0.1);
+}
+
+.form-input:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.form-input::placeholder {
+  color: #aaa;
+}
+
+/* Mensajes de error */
+.error-message {
+  padding: 12px;
+  background-color: #fee;
+  border: 1px solid #fcc;
+  border-radius: 8px;
+  color: #c33;
+  font-size: 14px;
+  text-align: center;
+  animation: shake 0.3s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* Mensajes de éxito */
+.success-message {
+  padding: 12px;
+  background-color: #efe;
+  border: 1px solid #cfc;
+  border-radius: 8px;
+  color: #3a3;
+  font-size: 14px;
+  text-align: center;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Botón de envío */
+.submit-button {
+  padding: 14px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #F5EBE0;
+  background: linear-gradient(135deg, #5D4E37 0%, #928C7A 100%);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 10px;
+  font-family: inherit;
+}
+
+.submit-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(93, 78, 55, 0.4);
+}
+
+.submit-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.submit-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .login-card {
+    padding: 30px 20px;
+  }
+
+  .login-title {
+    font-size: 24px;
+  }
+
+  .form-input,
+  .submit-button {
+    font-size: 14px;
+  }
+}
