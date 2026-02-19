@@ -54,13 +54,13 @@ const Bienvenida = ({ onContinuar, onVolver }) => {
       if (onContinuar) {
         onContinuar();
       }
-    }, 3000);
+    }, 5000);
 
     return () => clearTimeout(timer);
   }, [onContinuar]);
 
   return (
-    
+    <div className="bienvenida-container">
       <div className="bienvenida-card">
         
         <div className="foto-container">
@@ -85,15 +85,12 @@ const Bienvenida = ({ onContinuar, onVolver }) => {
         </div>
 
         
-        <h1 className="bienvenida-titulo">Aqui puedes hacer las reservas para el coworking</h1>
+        <h1 className="bienvenida-titulo">HOLA {datosEmpleado.nombre}</h1>
 
       
 
        
         <div className="info-empleado">
-          <BsPersonCircle className="info-icon" />
-          <span className="info-label">NOMBRE:</span>
-          <span className="info-value">{datosEmpleado.nombre}</span>
           
           <BsPersonCircle className="info-icon" />
           <span className="info-label">DOCUMENTO:</span>
@@ -116,6 +113,7 @@ const Bienvenida = ({ onContinuar, onVolver }) => {
           <span className="info-value">{datosEmpleado.horaIngreso}</span>
         </div>
       </div>
+    </div>
   );
 };
 

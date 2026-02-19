@@ -2,6 +2,7 @@ import { useState } from 'react'
 import './App.css'
 import Validar_cedula from './assets/componentes/Validar_cedula.jsx'
 import Bienvenida from './assets/componentes/Bienvenida.jsx'
+import Politicas from './assets/componentes/Politicas.jsx'
 
 
 function App() {
@@ -12,8 +13,16 @@ function App() {
   };
 
   const handleContinuarEspera = () => {
-    // Aquí puedes agregar la lógica para continuar a otra vista
-    console.log('Continuar');
+    setVistaActual('politicas');
+  };
+
+  const handleContinuarPoliticas = () => {
+    // Aquí puedes agregar la lógica para continuar a la siguiente vista
+    console.log('Políticas aceptadas, continuar');
+  };
+
+  const handleCancelarPoliticas = () => {
+    setVistaActual('login');
   };
 
   const handleVolver = () => {
@@ -26,6 +35,8 @@ function App() {
         <Validar_cedula onValidacionExitosa={handleValidacionExitosa} />
       ) : vistaActual === 'bienvenida' ? (
         <Bienvenida onContinuar={handleContinuarEspera} onVolver={handleVolver} />
+      ) : vistaActual === 'politicas' ? (
+        <Politicas onContinuar={handleContinuarPoliticas} onCancelar={handleCancelarPoliticas} />
       ) : null}
     </div>
     );
