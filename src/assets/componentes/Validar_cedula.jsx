@@ -57,7 +57,7 @@ const ValidarCedula = ({ onValidacionExitosa }) => {
         localStorage.setItem("nombre", empleado.nombre || "");
         localStorage.setItem("cedula", empleado.document_number || "");
         localStorage.setItem("cargo", empleado.cargo || "");
-        //localStorage.setItem("area_nombre", empleado.area_nombre || "");
+        localStorage.setItem("area_nombre", empleado.area_nombre || "");
         
         const horaIngreso = new Date().toISOString();
         localStorage.setItem("horaIngreso", horaIngreso);
