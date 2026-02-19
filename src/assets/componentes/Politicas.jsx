@@ -49,6 +49,10 @@ const Politicas = ({ onContinuar, onCancelar }) => {
 
           {/* Turnos disponibles */}
           <div className="seccion">
+            
+            
+            
+            
             <div className="seccion-header">
               <span className="icono"></span>
               <h2>Turnos disponibles</h2>
@@ -76,7 +80,7 @@ const Politicas = ({ onContinuar, onCancelar }) => {
 
 
           {/* Límite de reservas */}
-          <div className="seccion">
+
             <div className="seccion-header">
               <span className="icono"></span>
               <h2>Límite de reservas</h2>
@@ -85,14 +89,14 @@ const Politicas = ({ onContinuar, onCancelar }) => {
               <div className="item-limite">
                 <span className="punto">●</span>
                 <span className="texto-limite">
-                  <strong>Máximo 2 reservas</strong> Cada usuario puede reservar hasta dos (02) espacios en horarios diferentes.
+                  <strong>Máximo 2 espacios</strong>  por usuario en horarios diferentes.
                 </span>
               </div>
             </div>
-          </div>
+
 
           {/* Espacio compartido */}
-          <div className="seccion">
+          <div>
             <div className="seccion-header">
               <span className="icono"></span>
               <h2>Espacio compartido</h2>
