@@ -60,7 +60,7 @@ const Bienvenida = ({ onContinuar, onVolver }) => {
   }, [onContinuar]);
 
   return (
-    <div className="bienvenida-container">
+    
       <div className="bienvenida-card">
         
         <div className="foto-container">
@@ -116,7 +116,6 @@ const Bienvenida = ({ onContinuar, onVolver }) => {
           <span className="info-value">{datosEmpleado.horaIngreso}</span>
         </div>
       </div>
-    </div>
   );
 };
 

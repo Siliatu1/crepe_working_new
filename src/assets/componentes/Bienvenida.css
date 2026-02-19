@@ -1,12 +1,3 @@
-/* Contenedor principal de bienvenida */
-.bienvenida-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #5D4E37 0%, #928C7A 100%);
-  position: relative;
-}
 /* Logo texto de Crepes & Waffles */
 .logo-texto {
   position: absolute;

@@ -91,7 +91,7 @@ const ValidarCedula = ({ onValidacionExitosa }) => {
   };
 
   return (
-    <div className="login-container">
+    
       <div className="login-card">
         <h1 className="login-title">Crepe-Working</h1>
         
@@ -124,7 +124,6 @@ const ValidarCedula = ({ onValidacionExitosa }) => {
           </button>
         </form>
       </div>
-    </div>
   );
 };
 
