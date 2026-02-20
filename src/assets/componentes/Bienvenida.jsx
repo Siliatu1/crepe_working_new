@@ -1,57 +1,72 @@
 import React from "react";
 import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
 import { BsPersonCircle, BsCalendar3, BsClock, BsArrowLeft } from "react-icons/bs";
+import "./Bienvenida.css";
 
-const Bienvenida = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const datosEmpleado = location.state?.datosEmpleado || {};
-  const fechaHoraIngreso = location.state?.fechaHoraIngreso;
-
-  const [horaIngreso, setHoraIngreso] = useState("");
-  const [fechaFormateada, setFechaFormateada] = useState("");
+const Bienvenida = ({ onContinuar, onVolver }) => {
+  const [datosEmpleado, setDatosEmpleado] = useState({
+    picture: "",
+    nombre: "",
+    cedula: "",
+    cargo: "",
+    area_nombre: "",
+    horaIngreso: "",
+    fecha: ""
+  });
 
   useEffect(() => {
-    // Formatear fecha y hora de ingreso
-    if (fechaHoraIngreso) {
-      const fecha = new Date(fechaHoraIngreso);
-      
-      const fechaFormat = fecha.toLocaleDateString('es-CO', { 
+   
+    const picture = localStorage.getItem("picture");
+    const nombre = localStorage.getItem("nombre");
+    const cedula = localStorage.getItem("cedula");
+    const cargo = localStorage.getItem("cargo");
+    const area_nombre = localStorage.getItem("area_nombre");
+    const horaIngreso = localStorage.getItem("horaIngreso");
+    let fechaFormateada = "No disponible";
+    let horaFormateada = "No disponible";
+
+    if (horaIngreso) {
+      const fecha = new Date(horaIngreso);
+      fechaFormateada = fecha.toLocaleDateString('es-CO', { 
         year: 'numeric', 
         month: 'long', 
         day: 'numeric' 
-      }); 
-      setFechaFormateada(fechaFormat);
-      
-      const horaFormat = fecha.toLocaleTimeString('es-CO', { 
+      });
+      horaFormateada = fecha.toLocaleTimeString('es-CO', { 
         hour: '2-digit', 
         minute: '2-digit',
         second: '2-digit'
       });
-      setHoraIngreso(horaFormat);
-    } else {
-      setFechaFormateada("No disponible");
-      setHoraIngreso("No disponible");
     }
 
+    setDatosEmpleado({
+      picture: picture || "",
+      nombre: nombre || "No disponible",
+      cedula: cedula || "No disponible",
+      cargo: cargo || "No disponible",
+      area_nombre: area_nombre || "No disponible",
+      horaIngreso: horaFormateada,
+      fecha: fechaFormateada
+    });
 
-
- 
+    console.log("Datos del empleado")
     const timer = setTimeout(() => {
-      navigate('/politicas');
+      if (onContinuar) {
+        onContinuar();
+      }
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [navigate]);
+  }, [onContinuar]);
 
   return (
-    
+    <div className="bienvenida-container">
       <div className="bienvenida-card">
+        
         <div className="foto-container">
-          {datosEmpleado.foto !== "null" ? (
+          {datosEmpleado.picture && datosEmpleado.picture !== "null" ? (
             <img 
-              src={datosEmpleado.foto} 
+              src={datosEmpleado.picture} 
               alt="Foto del empleado" 
               className="foto-empleado"
             />
@@ -70,17 +85,19 @@ const Bienvenida = () => {
         </div>
 
         
-        <h1 className="bienvenida-titulo">Hola {datosEmpleado.nombre}, <br></br>Aqui puedes hacer las reservas para el coworking</h1>
+        <h1 className="bienvenida-titulo">Aqui puedes hacer las reservas para el coworking</h1>
 
       
 
        
         <div className="info-empleado">
-  
+          <BsPersonCircle className="info-icon" />
+          <span className="info-label">NOMBRE:</span>
+          <span className="info-value">{datosEmpleado.nombre}</span>
           
           <BsPersonCircle className="info-icon" />
           <span className="info-label">DOCUMENTO:</span>
-          <span className="info-value">{datosEmpleado.document_number}</span>
+          <span className="info-value">{datosEmpleado.cedula}</span>
           
           <BsPersonCircle className="info-icon" />
           <span className="info-label">CARGO:</span>
@@ -92,13 +109,14 @@ const Bienvenida = () => {
           
           <BsCalendar3 className="info-icon" />
           <span className="info-label">FECHA:</span>
-          <span className="info-value">{fechaFormateada}</span>
+          <span className="info-value">{datosEmpleado.fecha}</span>
           
           <BsClock className="info-icon" />
           <span className="info-label">HORA:</span>
-          <span className="info-value">{horaIngreso}</span>
+          <span className="info-value">{datosEmpleado.horaIngreso}</span>
         </div>
       </div>
+    </div>
   );
 };
 

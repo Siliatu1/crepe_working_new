@@ -1,31 +1,16 @@
-# Crepes & Waffles Coworking
+# React + Vite
 
-## Descripción
-Espacio de coworking diseñado para profesionales y emprendedores que buscan un ambiente productivo con acceso a servicios de café, crepes y waffles.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Características
-- 🏢 Espacios de trabajo flexibles
-- ☕ Café y snacks artesanales
-- 🍽️ Menú de crepes y waffles
-- 📡 WiFi de alta velocidad
-- 📞 Salas de reuniones
-- 🔌 Estaciones de carga
+Currently, two official plugins are available:
 
-## Instalación
-```bash
-npm install
-```
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-## Uso
-```bash
-npm start
-```
+## React Compiler
 
-## Contribuir
-Las contribuciones son bienvenidas. Por favor abre un issue o pull request.
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-## Licencia
-MIT
+## Expanding the ESLint configuration
 
-## Contacto
-Para más información, contactanos en info@crepeswaffles.com
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.

@@ -1,12 +1,10 @@
 import React from "react";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { BsShieldCheck, BsPersonBadge } from "react-icons/bs";
+import "./validar_cedula.css";
 
-
-const ValidarCedula = () => {
-  const navigate = useNavigate();
+const ValidarCedula = ({ onValidacionExitosa }) => {
   const [cedula, setCedula] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -25,24 +23,59 @@ const ValidarCedula = () => {
 
     try {
       const response = await axios.get(
-        `https://apialohav2.crepesywaffles.com/buk/empleados3?documento=${cedula}`,
-     
+        `https://apialohav2.crepesywaffles.com/buk/empleados3?page_size=500&document_number=${cedula}`,
+        {
+          headers: {
+            Accept: "application/json",
+            auth_token: "tmMC1o7cUovQvWoKhvbdhYxx",
+          },
+        }
       );
 
-      const empleado = response.data.data[0];
-
-      const fechaHoraIngreso = new Date();
-   
       console.log("Respuesta de la API:", response.data.data);
-      
 
-      navigate('/bienvenida', { 
-        state: { 
-          datosEmpleado: empleado,
-          fechaHoraIngreso: fechaHoraIngreso.toISOString()
-        } 
-      });
-   
+      if (response.data.data && response.data.data.length > 0) {
+        // Buscar el empleado que coincida exactamente con la cédula ingresada
+        const empleado = response.data.data.find(
+          (emp) => emp.document_number.toString() === cedula.toString()
+        );
+        
+        if (!empleado) {
+          setError("No se encontró ningún empleado con esa cédula");
+          return;
+        }
+        
+        console.log("Empleado encontrado:", empleado);
+        
+        if (empleado.status !== "activo") {
+          setError("El empleado no está activo en el sistema");
+          return;
+        }
+        
+        // Guardar datos del empleado en localStorage
+        localStorage.setItem("picture", empleado.foto || "");
+        localStorage.setItem("nombre", empleado.nombre || "");
+        localStorage.setItem("cedula", empleado.document_number || "");
+        localStorage.setItem("cargo", empleado.cargo || "");
+        localStorage.setItem("area_nombre", empleado.area_nombre || "");
+        
+        const horaIngreso = new Date().toISOString();
+        localStorage.setItem("horaIngreso", horaIngreso);
+        
+        console.log("Hora de ingreso:", horaIngreso);
+        
+        setSuccess(true);
+        setError("");
+        
+        
+        setTimeout(() => {
+          if (onValidacionExitosa) {
+            onValidacionExitosa();
+          }
+        }, 1000);
+      } else {
+        setError("No se encontró ningún empleado con esa cédula");
+      }
     } catch (error) {
       console.error(error);
       setError("Error al validar la cédula. Por favor intente nuevamente.");
@@ -58,7 +91,7 @@ const ValidarCedula = () => {
   };
 
   return (
-    
+    <div className="login-container">
       <div className="login-card">
         <h1 className="login-title">Crepe-Working</h1>
         
@@ -91,6 +124,7 @@ const ValidarCedula = () => {
           </button>
         </form>
       </div>
+    </div>
   );
 };
 
