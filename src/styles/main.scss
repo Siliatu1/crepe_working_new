@@ -1,0 +1,20 @@
+// ========================================
+// MAIN.SCSS - Archivo principal
+// ========================================
+// Este archivo importa todos los parciales en el orden correcto
+
+// 1. Abstracts (variables, mixins, functions)
+@import 'abstracts/variables';
+@import 'abstracts/mixins';
+
+// 2. Base (reset, body, global)
+@import 'base/reset';
+
+// 3. Layout
+@import 'layout/containers';
+
+// 4. Components
+@import 'components/components';
+
+// 5. Utilities
+@import 'utilities/helpers';

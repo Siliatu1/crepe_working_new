@@ -3,7 +3,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { BsShieldCheck, BsPersonBadge } from "react-icons/bs";
-import "./validar_cedula.css";
 
 
 const ValidarCedula = () => {

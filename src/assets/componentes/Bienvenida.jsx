@@ -1,50 +1,47 @@
 import React from "react";
 import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
 import { BsPersonCircle, BsCalendar3, BsClock, BsArrowLeft } from "react-icons/bs";
-import "./Bienvenida.css";
 
-const Bienvenida = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const datosEmpleado = location.state?.datosEmpleado || {};
-  const fechaHoraIngreso = location.state?.fechaHoraIngreso;
+const Bienvenida = ({ onContinuar, onVolver,datosEmpleado }) => {
 
-  const [horaIngreso, setHoraIngreso] = useState("");
-  const [fechaFormateada, setFechaFormateada] = useState("");
+const [horaIngreso, setHoraIngreso] = useState("");
+const [fechaFormateada, setFechaFormateada] = useState("");
+
 
   useEffect(() => {
-    // Formatear fecha y hora de ingreso
-    if (fechaHoraIngreso) {
-      const fecha = new Date(fechaHoraIngreso);
-      
-      const fechaFormat = fecha.toLocaleDateString('es-CO', { 
+
+    const horaIngreso = localStorage.getItem("horaIngreso");
+    let fechaFormateada = "No disponible";
+    let horaFormateada = "No disponible";
+
+    if (horaIngreso) {
+      const fecha = new Date(horaIngreso);
+      fechaFormateada = fecha.toLocaleDateString('es-CO', { 
         year: 'numeric', 
         month: 'long', 
         day: 'numeric' 
       }); 
-      setFechaFormateada(fechaFormat);
+      setFechaFormateada(fechaFormateada);
       
-      const horaFormat = fecha.toLocaleTimeString('es-CO', { 
+      horaFormateada = fecha.toLocaleTimeString('es-CO', { 
         hour: '2-digit', 
         minute: '2-digit',
         second: '2-digit'
       });
-      setHoraIngreso(horaFormat);
-    } else {
-      setFechaFormateada("No disponible");
-      setHoraIngreso("No disponible");
+      setHoraIngreso(horaFormateada);
     }
 
 
 
  
     const timer = setTimeout(() => {
-      navigate('/politicas');
-    }, 4000);
+      if (onContinuar) {
+        onContinuar();
+      }
+    }, 3000);
 
     return () => clearTimeout(timer);
-  }, [navigate]);
+  }, [onContinuar]);
 
   return (
     

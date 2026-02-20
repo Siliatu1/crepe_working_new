@@ -1,0 +1,76 @@
+// ========================================
+// VARIABLES - Valores reutilizables
+// ========================================
+
+// COLORES - Brand Colors
+$primary-dark: #5D4E37;      // Marrón oscuro
+$primary-light: #928C7A;     // Marrón claro
+$primary-cream: #F5EBE0;     // Crema/Beige
+$accent-brown: #a0664f;      // Marrón pastel
+$accent-orange: #d4a574;     // Naranja pastel
+
+// COLORES - Status
+$color-success: #4caf50;     // Verde
+$color-warning: #ffc107;     // Amarillo
+$color-error: #f44336;       // Rojo
+
+// COLORES - Neutral
+$color-dark: #333333;        // Gris oscuro
+$color-light: #f5f5f5;       // Gris claro
+$color-text: #555555;        // Texto
+$color-border: #e0e0e0;      // Borde
+
+// TIPOGRAFÍA
+$font-family-base: system-ui, Avenir, Helvetica, Arial, sans-serif;
+$font-family-display: 'Arial Black', 'Arial Bold', sans-serif;
+$font-weight-regular: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+$font-weight-black: 900;
+
+// TAMAÑOS DE FUENTE
+$font-size-xs: 13px;
+$font-size-sm: 14px;
+$font-size-base: 16px;
+$font-size-lg: 20px;
+$font-size-xl: 24px;
+$font-size-2xl: 28px;
+$font-size-3xl: 36px;
+
+// ESPACIADO
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-lg: 16px;
+$spacing-xl: 20px;
+$spacing-2xl: 24px;
+$spacing-3xl: 30px;
+$spacing-4xl: 40px;
+
+// BORDER RADIUS
+$radius-sm: 8px;
+$radius-md: 12px;
+$radius-lg: 16px;
+$radius-xl: 20px;
+$radius-full: 50%;
+
+// SOMBRAS
+$shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.2);
+$shadow-md: 0 10px 40px rgba(0, 0, 0, 0.2);
+$shadow-lg: 0 8px 20px rgba(0, 0, 0, 0.15);
+$shadow-primary: 0 4px 12px rgba(93, 78, 55, 0.3);
+$shadow-primary-lg: 0 6px 20px rgba(93, 78, 55, 0.4);
+$shadow-accent: 0 4px 8px rgba(212, 165, 116, 0.3);
+$shadow-accent-lg: 0 6px 12px rgba(212, 165, 116, 0.4);
+
+// TRANSICIONES
+$transition-fast: 0.25s;
+$transition-base: 0.3s;
+$transition-slow: 0.5s;
+$transition-easing: ease;
+
+// BREAKPOINTS (Mobile First)
+$breakpoint-sm: 480px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 1024px;

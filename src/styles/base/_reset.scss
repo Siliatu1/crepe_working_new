@@ -1,0 +1,97 @@
+// ========================================
+// BASE - Reset y estilos generales
+// ========================================
+
+:root {
+  font-family: $font-family-base;
+  line-height: 1.5;
+  font-weight: $font-weight-regular;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// Estilos de clase root (contenedor principal)
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: $spacing-2xl;
+  text-align: center;
+}
+
+// Body
+body {
+  margin: 0;
+  @include flex-center;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+// Reset
+* {
+  box-sizing: border-box;
+}
+
+// Títulos
+h1 {
+  font-size: $font-size-3xl;
+  line-height: 1.1;
+  margin: 0;
+}
+
+h2 {
+  font-size: $font-size-xl;
+  margin: 0;
+}
+
+// Enlaces
+a {
+  font-weight: $font-weight-semibold;
+  color: #646cff;
+  text-decoration: inherit;
+
+  &:hover {
+    color: #535bf2;
+  }
+}
+
+// Botones por defecto
+button {
+  border-radius: $radius-sm;
+  border: 1px solid transparent;
+  padding: $spacing-lg $spacing-xl;
+  font-size: $font-size-base;
+  font-weight: $font-weight-semibold;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  cursor: pointer;
+  @include transition-all($transition-fast);
+
+  &:hover {
+    border-color: #646cff;
+  }
+
+  @include focus-ring;
+}
+
+// Tema claro
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+
+  a:hover {
+    color: #747bff;
+  }
+
+  button {
+    background-color: #f9f9f9;
+  }
+}
