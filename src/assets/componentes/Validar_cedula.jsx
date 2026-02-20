@@ -1,11 +1,13 @@
 import React from "react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { BsShieldCheck, BsPersonBadge } from "react-icons/bs";
 import "./validar_cedula.css";
 
 
-const ValidarCedula = ({ onValidacionExitosa, setDatosEmpleado }) => {
+const ValidarCedula = () => {
+  const navigate = useNavigate();
   const [cedula, setCedula] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -29,11 +31,18 @@ const ValidarCedula = ({ onValidacionExitosa, setDatosEmpleado }) => {
       );
 
       const empleado = response.data.data[0];
+
+      const fechaHoraIngreso = new Date();
    
-      onValidacionExitosa(empleado);
+      console.log("Respuesta de la API:", response.data.data);
       
 
-        console.log("Respuesta de la API:", response.data.data);
+      navigate('/bienvenida', { 
+        state: { 
+          datosEmpleado: empleado,
+          fechaHoraIngreso: fechaHoraIngreso.toISOString()
+        } 
+      });
    
     } catch (error) {
       console.error(error);
