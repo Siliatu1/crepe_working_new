@@ -8,7 +8,10 @@ import Politicas from './assets/componentes/Politicas.jsx'
 function App() {
   const [vistaActual, setVistaActual] = useState('login'); 
 
-  const handleValidacionExitosa = () => {
+  const[datosEmpleado, setDatosEmpleado] =useState(null)
+
+  const handleValidacionExitosa = (empleado) => {
+    setDatosEmpleado(empleado);
     setVistaActual('bienvenida');
   };
 
@@ -32,9 +35,9 @@ function App() {
    return (
     <div className="App">
       {vistaActual === 'login' ? (
-        <Validar_cedula onValidacionExitosa={handleValidacionExitosa} />
+        <Validar_cedula onValidacionExitosa={handleValidacionExitosa} setDatosEmpleado={setDatosEmpleado}/>
       ) : vistaActual === 'bienvenida' ? (
-        <Bienvenida onContinuar={handleContinuarEspera} onVolver={handleVolver} />
+        <Bienvenida onContinuar={handleContinuarEspera} onVolver={handleVolver} datosEmpleado={datosEmpleado} />
       ) : vistaActual === 'politicas' ? (
         <Politicas onContinuar={handleContinuarPoliticas} onCancelar={handleCancelarPoliticas} />
       ) : null}
