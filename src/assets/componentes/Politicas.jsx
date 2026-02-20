@@ -142,7 +142,7 @@ const Politicas = ({ onContinuar, onCancelar }) => {
               onClick={handleAceptar}
               disabled={!aceptado}
             >
-              Aceptar y continuar →
+              Aceptar
             </button>
           </div>
         </div>
