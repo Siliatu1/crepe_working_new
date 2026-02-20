@@ -3,18 +3,18 @@
 // ========================================
 // Este archivo importa todos los parciales en el orden correcto
 
-// 1. Abstracts (variables, mixins, functions)
-@import 'abstracts/variables';
-@import 'abstracts/mixins';
+// 1. Abstracts (variables, mixins, functions) - use 'as *' to make them globally available
+@use 'abstracts/variables' as *;
+@use 'abstracts/mixins' as *;
 
 // 2. Base (reset, body, global)
-@import 'base/reset';
+@use 'base/reset';
 
 // 3. Layout
-@import 'layout/containers';
+@use 'layout/containers';
 
 // 4. Components
-@import 'components/components';
+@use 'components/components';
 
 // 5. Utilities
-@import 'utilities/helpers';
+@use 'utilities/helpers';

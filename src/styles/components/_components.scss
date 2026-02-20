@@ -2,6 +2,9 @@
 // COMPONENTS - Componentes reutilizables
 // ========================================
 
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+
 // ========== TIPOGRAFÍA ==========
 .login-title {
   font-size: $font-size-2xl;

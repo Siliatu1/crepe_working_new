@@ -2,6 +2,9 @@
 // BASE - Reset y estilos generales
 // ========================================
 
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+
 :root {
   font-family: $font-family-base;
   line-height: 1.5;

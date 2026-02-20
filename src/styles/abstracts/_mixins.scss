@@ -2,6 +2,8 @@
 // MIXINS - Funciones reutilizables
 // ========================================
 
+@use 'variables' as *;
+
 // Flexbox
 @mixin flex-center {
   display: flex;

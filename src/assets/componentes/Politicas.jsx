@@ -1,12 +1,20 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-const Politicas = ({ onContinuar, onCancelar }) => {
+const Politicas = () => {
+  const navigate = useNavigate();
   const [aceptado, setAceptado] = useState(false);
 
   const handleAceptar = () => {
-    if (aceptado && onContinuar) {
-      onContinuar();
+    if (aceptado) {
+      // Aquí puedes navegar a la siguiente vista
+      console.log('Políticas aceptadas, continuar');
+      // navigate('/siguiente-ruta'); // Descomentar cuando tengas la siguiente ruta
     }
+  };
+
+  const handleCancelar = () => {
+    navigate('/');
   };
 
   return (
@@ -113,6 +121,12 @@ const Politicas = ({ onContinuar, onCancelar }) => {
                   <strong>Reuniones</strong> Para reuniones, reserva una sala privada desde tu Outlook.
                 </span>
               </div>
+              <div className="item-compartido">
+                <span className="punto">●</span>
+                <span className="texto-compartido">
+                  <strong>Nota:</strong>Si al pasar 15 minutos de la hora de tu reserva y no se ha confirmado, esta será cancelada y quedara disponible para otro usuario
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -132,7 +146,7 @@ const Politicas = ({ onContinuar, onCancelar }) => {
           <div className="botones-container">
             <button 
               className="btn-cancelar" 
-              onClick={onCancelar}
+              onClick={handleCancelar}
             >
               Cancelar
             </button>
@@ -141,7 +155,7 @@ const Politicas = ({ onContinuar, onCancelar }) => {
               onClick={handleAceptar}
               disabled={!aceptado}
             >
-              Aceptar y continuar →
+              continuar 
             </button>
           </div>
         </div>

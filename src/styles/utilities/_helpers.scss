@@ -2,6 +2,9 @@
 // UTILITIES - Clases de utilidad
 // ========================================
 
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+
 // LOGO
 .logo-texto {
   position: absolute;
