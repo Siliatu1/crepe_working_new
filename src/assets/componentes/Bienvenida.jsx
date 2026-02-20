@@ -1,7 +1,6 @@
 import React from "react";
 import { useEffect, useState } from "react";
 import { BsPersonCircle, BsCalendar3, BsClock, BsArrowLeft } from "react-icons/bs";
-import "./Bienvenida.css";
 
 const Bienvenida = ({ onContinuar, onVolver,datosEmpleado }) => {
 
@@ -39,7 +38,7 @@ const [fechaFormateada, setFechaFormateada] = useState("");
       if (onContinuar) {
         onContinuar();
       }
-    }, 153000);
+    }, 3000);
 
     return () => clearTimeout(timer);
   }, [onContinuar]);

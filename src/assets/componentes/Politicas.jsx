@@ -1,5 +1,4 @@
 import { useState } from "react";
-import "./politicas.css";
 
 const Politicas = ({ onContinuar, onCancelar }) => {
   const [aceptado, setAceptado] = useState(false);

@@ -1,0 +1,96 @@
+// ========================================
+// UTILITIES - Clases de utilidad
+// ========================================
+
+// LOGO
+.logo-texto {
+  position: absolute;
+  top: $spacing-lg;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: $font-size-3xl;
+  font-weight: $font-weight-black;
+  color: $primary-cream;
+  letter-spacing: $spacing-sm;
+  text-transform: uppercase;
+  z-index: 5;
+  margin: 0;
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  font-family: $font-family-display;
+}
+
+.logo-crepes {
+  position: absolute;
+  top: $spacing-lg;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 80px;
+  width: auto;
+  border-radius: $radius-sm;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  background: white;
+  padding: $spacing-sm;
+  z-index: 5;
+}
+
+// ICONO USUARIO
+.icono-usuario {
+  width: 60px;
+  height: 60px;
+  background-color: #d4b59e;
+  border-radius: $radius-full;
+  margin: 0 auto $spacing-lg;
+  @include flex-center;
+
+  svg {
+    width: 35px;
+    height: 35px;
+    color: white;
+  }
+}
+
+.icon-login-principal {
+  font-size: 60px;
+  color: $primary-dark;
+  display: block;
+  margin: 0 auto $spacing-xl;
+}
+
+// Ocultar en móvil
+.hide-mobile {
+  @include respond-to('sm') {
+    display: none;
+  }
+}
+
+// Mostrar solo en móvil
+.show-mobile {
+  display: none;
+
+  @include respond-to('sm') {
+    display: block;
+  }
+}
+
+// Texto
+.text-center {
+  text-align: center;
+}
+
+.text-left {
+  text-align: left;
+}
+
+// Espaciado
+.margin-bottom {
+  margin-bottom: $spacing-xl;
+}
+
+// Flexbox
+.flex-center {
+  @include flex-center;
+}
+
+.flex-between {
+  @include flex-between;
+}

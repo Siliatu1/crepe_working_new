@@ -2,7 +2,6 @@ import React from "react";
 import { useState } from "react";
 import axios from "axios";
 import { BsShieldCheck, BsPersonBadge } from "react-icons/bs";
-import "./validar_cedula.css";
 
 
 const ValidarCedula = ({ onValidacionExitosa, setDatosEmpleado }) => {

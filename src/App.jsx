@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import './App.css'
 import Validar_cedula from './assets/componentes/Validar_cedula.jsx'
 import Bienvenida from './assets/componentes/Bienvenida.jsx'
 import Politicas from './assets/componentes/Politicas.jsx'
