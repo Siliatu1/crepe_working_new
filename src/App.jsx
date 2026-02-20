@@ -1,35 +1,18 @@
-import { useState } from 'react'
-import './App.css'
+import { Routes, Route } from 'react-router-dom'
 import Validar_cedula from './assets/componentes/Validar_cedula.jsx'
 import Bienvenida from './assets/componentes/Bienvenida.jsx'
-
+import Politicas from './assets/componentes/Politicas.jsx'
 
 function App() {
-  const [vistaActual, setVistaActual] = useState('login'); 
-
-  const handleValidacionExitosa = () => {
-    setVistaActual('bienvenida');
-  };
-
-  const handleContinuarEspera = () => {
-    // Aquí puedes agregar la lógica para continuar a otra vista
-    console.log('Continuar');
-  };
-
-  const handleVolver = () => {
-    setVistaActual('login');
-  };
-
-   return (
+  return (
     <div className="App">
-      {vistaActual === 'login' ? (
-        <Validar_cedula onValidacionExitosa={handleValidacionExitosa} />
-      ) : vistaActual === 'bienvenida' ? (
-        <Bienvenida onContinuar={handleContinuarEspera} onVolver={handleVolver} />
-      ) : null}
+      <Routes>
+        <Route path="/" element={<Validar_cedula />} />
+        <Route path="/bienvenida" element={<Bienvenida />} />
+        <Route path="/politicas" element={<Politicas />} />
+      </Routes>
     </div>
-    );
-
+  );
 }
 
 export default App
