@@ -2,6 +2,9 @@
 // LAYOUT - Contenedores y estructura
 // ========================================
 
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+
 // Cards base
 %card-base {
   background: white;

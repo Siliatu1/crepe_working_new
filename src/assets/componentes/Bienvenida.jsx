@@ -1,47 +1,49 @@
 import React from "react";
 import { useEffect, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { BsPersonCircle, BsCalendar3, BsClock, BsArrowLeft } from "react-icons/bs";
 
-const Bienvenida = ({ onContinuar, onVolver,datosEmpleado }) => {
+const Bienvenida = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const datosEmpleado = location.state?.datosEmpleado || {};
+  const fechaHoraIngreso = location.state?.fechaHoraIngreso;
 
-const [horaIngreso, setHoraIngreso] = useState("");
-const [fechaFormateada, setFechaFormateada] = useState("");
-
+  const [horaIngreso, setHoraIngreso] = useState("");
+  const [fechaFormateada, setFechaFormateada] = useState("");
 
   useEffect(() => {
-
-    const horaIngreso = localStorage.getItem("horaIngreso");
-    let fechaFormateada = "No disponible";
-    let horaFormateada = "No disponible";
-
-    if (horaIngreso) {
-      const fecha = new Date(horaIngreso);
-      fechaFormateada = fecha.toLocaleDateString('es-CO', { 
+    // Formatear fecha y hora de ingreso
+    if (fechaHoraIngreso) {
+      const fecha = new Date(fechaHoraIngreso);
+      
+      const fechaFormat = fecha.toLocaleDateString('es-CO', { 
         year: 'numeric', 
         month: 'long', 
         day: 'numeric' 
       }); 
-      setFechaFormateada(fechaFormateada);
+      setFechaFormateada(fechaFormat);
       
-      horaFormateada = fecha.toLocaleTimeString('es-CO', { 
+      const horaFormat = fecha.toLocaleTimeString('es-CO', { 
         hour: '2-digit', 
         minute: '2-digit',
         second: '2-digit'
       });
-      setHoraIngreso(horaFormateada);
+      setHoraIngreso(horaFormat);
+    } else {
+      setFechaFormateada("No disponible");
+      setHoraIngreso("No disponible");
     }
 
 
 
  
     const timer = setTimeout(() => {
-      if (onContinuar) {
-        onContinuar();
-      }
+      navigate('/politicas');
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [onContinuar]);
+  }, [navigate]);
 
   return (
     
