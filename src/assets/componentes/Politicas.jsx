@@ -7,9 +7,8 @@ const Politicas = () => {
 
   const handleAceptar = () => {
     if (aceptado) {
-      // Aquí puedes navegar a la siguiente vista
       console.log('Políticas aceptadas, continuar');
-      // navigate('/siguiente-ruta'); // Descomentar cuando tengas la siguiente ruta
+      navigate('/sala');
     }
   };
 
@@ -155,7 +154,7 @@ const Politicas = () => {
               onClick={handleAceptar}
               disabled={!aceptado}
             >
-              continuar 
+              Continuar 
             </button>
           </div>
         </div>

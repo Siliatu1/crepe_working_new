@@ -5,6 +5,9 @@
 @use '../abstracts/variables' as *;
 @use '../abstracts/mixins' as *;
 
+// Importar componente Sala (visualización 3D)
+@use 'sala';
+
 // ========== TIPOGRAFÍA ==========
 .login-title {
   font-size: $font-size-2xl;

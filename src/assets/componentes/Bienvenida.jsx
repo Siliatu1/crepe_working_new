@@ -70,14 +70,10 @@ const Bienvenida = () => {
         </div>
 
         
-        <h1 className="bienvenida-titulo">Hola {datosEmpleado.nombre}, <br></br>Aqui puedes hacer las reservas para el coworking</h1>
+        <h1 className="bienvenida-titulo">Hola {datosEmpleado.nombre}</h1>
+             <h2>Reserva tu escritorio</h2>
 
-      
-
-       
         <div className="info-empleado">
-  
-          
           <BsPersonCircle className="info-icon" />
           <span className="info-label">DOCUMENTO:</span>
           <span className="info-value">{datosEmpleado.document_number}</span>
