@@ -68,12 +68,21 @@
 
 // ========== FORMULARIOS ==========
 .login-form {
-  @include flex-col;
-  gap: $spacing-xl;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $spacing-lg;
+  padding: $spacing-md 0;
 }
 
 .form-group {
-  @include flex-col;
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
   gap: $spacing-sm;
 }
 
@@ -82,8 +91,11 @@
   font-weight: $font-weight-semibold;
   color: $color-text;
   margin-bottom: $spacing-xs;
-  @include flex-center;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
   gap: $spacing-sm;
+  width: 100%;
 
   .icon-label {
     font-size: $font-size-base;
@@ -99,6 +111,9 @@
   outline: none;
   @include transition-all($transition-base);
   font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 
   &:focus {
     border-color: $primary-dark;
@@ -142,6 +157,8 @@
   color: $primary-cream;
   background: linear-gradient(135deg, $primary-dark 0%, $primary-light 100%);
   margin-top: $spacing-md;
+  width: 320px;
+  align-self: center;
 
   &:hover:not(:disabled) {
     transform: translateY(-2px);
@@ -160,6 +177,7 @@
 
   @include respond-to('sm') {
     font-size: $font-size-sm;
+    width: 100%;
   }
 }
 
