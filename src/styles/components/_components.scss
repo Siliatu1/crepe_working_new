@@ -293,7 +293,7 @@
 
 // ========== INFO GRID ==========
 .info-empleado {
-  @include grid-col(3);
+  @include grid-col(0);
   gap: $spacing-lg;
   align-items: center;
   padding: $spacing-3xl;
