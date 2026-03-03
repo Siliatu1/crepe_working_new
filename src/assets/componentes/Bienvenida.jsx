@@ -37,7 +37,7 @@ const Bienvenida = () => {
 
     const timer = setTimeout(() => {
       navigate('/politicas');
-    }, 301500);
+    }, 30500);
 
     return () => clearTimeout(timer);
   }, [navigate]);
