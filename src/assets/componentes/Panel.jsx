@@ -14,13 +14,13 @@ const Panel = () => {
   const [error, setError] = useState("");
   const [reservations, setReservations] = useState([]);
 
-  // Fetch profile data from API or localStorage
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         setLoading(true);
         
-        // First, try to get data from localStorage
+
         const storedEmpleado = localStorage.getItem('empleadoData');
         const storedCedula = localStorage.getItem('cedula');
         
@@ -28,7 +28,7 @@ const Panel = () => {
           const empleado = JSON.parse(storedEmpleado);
           setProfileData(empleado);
         } else if (storedCedula) {
-          // If only cedula is available, fetch from API
+          
           const response = await axios.get(
             `https://apialohav2.crepesywaffles.com/buk/empleados3?documento=${storedCedula}`
           );
@@ -37,7 +37,7 @@ const Panel = () => {
           localStorage.setItem('empleadoData', JSON.stringify(empleado));
         }
         
-        // Load reservations from localStorage only
+        
         const reservas = getReservas();
         setReservations(reservas);
         
@@ -52,7 +52,7 @@ const Panel = () => {
     fetchProfile();
   }, []);
 
-  // Table columns configuration
+  
   const columns = [
     {
       title: "Fecha",
