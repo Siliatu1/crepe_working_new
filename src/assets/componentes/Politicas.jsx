@@ -55,10 +55,6 @@ const Politicas = () => {
 
           {/* Turnos disponibles */}
           <div className="seccion">
-            
-            
-            
-            
             <div className="seccion-header">
               <span className="icono"></span>
               <h2>Turnos disponibles</h2>
