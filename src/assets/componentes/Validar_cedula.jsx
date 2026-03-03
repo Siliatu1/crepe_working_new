@@ -35,6 +35,9 @@ const ValidarCedula = () => {
    
       console.log("Respuesta de la API:", response.data.data);
       
+      // Store employee data in localStorage
+      localStorage.setItem('empleadoData', JSON.stringify(empleado));
+      localStorage.setItem('cedula', cedula);
 
       navigate('/bienvenida', { 
         state: { 
