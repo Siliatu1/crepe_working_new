@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
-import axiosInstance from '../../api/axiosInstance';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { getReservas, addReserva } from '../../utils/reservasService';
 import sillaDis from '../../assets/sillaDis.png';
 import sillaOcu from '../../assets/sillaOcu.png';
 import mesaImg  from '../../assets/mesa.png';
-
-const API_RESERVAS = '/api/reservas';
 
 const STATUS = { DISPONIBLE: 'disponible', LIMITADO: 'limitado', OCUPADO: 'ocupado' };
 const DIAS   = ['lunes','martes','miércoles','jueves','viernes','sábado','domingo'];
@@ -14,7 +12,13 @@ const ESTADO_COLOR = { disponible:'#99c199', limitado:'#e8c94e', ocupado:'#a66a4
 const ESTADO_LABEL = { disponible:'DISPONIBLE', limitado:'DISPONIBILIDAD LIMITADA', ocupado:'OCUPADO' };
 
 const calcEstado = (reservas, escritorioId) => {
-  const n = reservas.filter(r => Number(r.escritorioId) === Number(escritorioId)).length;
+  // Filtrar reservas por escritorio (ej: "Escritorio 3" o escritorioId = 3)
+  const n = reservas.filter(r => {
+    const escritorioNum = typeof r.escritorio === 'string' 
+      ? r.escritorio.match(/\d+/)?.[0] 
+      : r.escritorioId;
+    return Number(escritorioNum) === Number(escritorioId);
+  }).length;
   if (n === 0) return STATUS.DISPONIBLE;
   if (n >= 3)  return STATUS.OCUPADO;
   return STATUS.LIMITADO;
@@ -35,6 +39,7 @@ export default function CrepeWorking() {
 
   // ── Usuario viene desde Bienvenida via navigate state ──
   const location = useLocation();
+  const navigate = useNavigate();
   const usuario  = location.state?.datosEmpleado || null;
   const errorU   = !usuario ? 'No se recibieron datos del usuario' : null;
 
@@ -49,34 +54,63 @@ export default function CrepeWorking() {
 
   const cargarReservas = () => {
     setLoadingR(true);
-    axiosInstance.get(API_RESERVAS, { params: { fecha: fechaISO } })
-      .then(res => setReservas(Array.isArray(res.data) ? res.data : []))
-      .catch(() => setReservas([]))
-      .finally(() => setLoadingR(false));
+    try {
+      // Obtener reservas desde el servicio local
+      const todasReservas = getReservas();
+      // Filtrar por la fecha actual
+      const reservasFecha = todasReservas.filter(r => r.fecha === fechaISO);
+      setReservas(reservasFecha);
+    } catch (error) {
+      console.error('Error cargando reservas:', error);
+      setReservas([]);
+    } finally {
+      setLoadingR(false);
+    }
   };
 
-  useEffect(() => { cargarReservas(); }, [diaIndex]);
+  useEffect(() => { cargarReservas(); }, [diaIndex, fechaISO]);
 
   const handleReservar = async () => {
     if (!usuario || !modalId) return;
     setReservando(true);
     setReservaErr(null);
     try {
-      await axiosInstance.post(API_RESERVAS, {
-        escritorioId: modalId,
-        fecha:        fechaISO,
-        userId:       usuario.document_number,
-      });
-      setReservaOk(true);
-      cargarReservas();
+      // Crear la nueva reserva usando el servicio local
+      const nuevaReserva = {
+        cedula: usuario.document_number,
+        nombre: usuario.nombre,
+        fecha: fechaISO,
+        turno: 'Día completo (7:00 AM - 6:00 PM)',
+        escritorio: `Escritorio ${modalId}`,
+        escritorioId: modalId, // Para compatibilidad
+      };
+      
+      const resultado = addReserva(nuevaReserva);
+      
+      if (resultado) {
+        setReservaOk(true);
+        // Redirigir al panel después de 2 segundos
+        setTimeout(() => {
+          navigate('/panel');
+        }, 2000);
+        cargarReservas();
+      } else {
+        setReservaErr('Error al guardar la reserva. Intenta de nuevo.');
+      }
     } catch (err) {
-      setReservaErr(err?.response?.data?.message || 'Error al reservar. Intenta de nuevo.');
+      console.error('Error al reservar:', err);
+      setReservaErr('Error al reservar. Intenta de nuevo.');
     } finally {
       setReservando(false);
     }
   };
 
-  const reservasModal = reservas.filter(r => Number(r.escritorioId) === Number(modalId));
+  const reservasModal = reservas.filter(r => {
+    const escritorioNum = typeof r.escritorio === 'string' 
+      ? r.escritorio.match(/\d+/)?.[0] 
+      : r.escritorioId;
+    return Number(escritorioNum) === Number(modalId);
+  });
   const estadoModal   = modalId ? calcEstado(reservas, modalId) : STATUS.DISPONIBLE;
   const fechaStr      = today.toLocaleDateString('es-CO', { day:'numeric', month:'long', year:'numeric' });
 

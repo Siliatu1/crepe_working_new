@@ -37,9 +37,15 @@ const Panel = () => {
           localStorage.setItem('empleadoData', JSON.stringify(empleado));
         }
         
+      
+        const todasReservas = getReservas();
+        const cedulaUsuario = storedCedula || empleado?.documento || empleado?.document_number;
         
-        const reservas = getReservas();
-        setReservations(reservas);
+        const reservasUsuario = todasReservas.filter(
+          reserva => reserva.cedula === cedulaUsuario
+        );
+        
+        setReservations(reservasUsuario);
         
         setLoading(false);
       } catch (err) {

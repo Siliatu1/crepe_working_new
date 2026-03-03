@@ -7,11 +7,26 @@ import reservasData from '../data/reservas.json';
 // Clave para localStorage
 const STORAGE_KEY = 'reservaciones';
 
+// Inicializar reservas desde el JSON si localStorage está vacío
+const initializeReservas = () => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) {
+      // Si no hay datos en localStorage, cargar desde el JSON
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(reservasData));
+      return reservasData;
+    }
+    return JSON.parse(stored);
+  } catch (error) {
+    console.error('Error al inicializar reservas:', error);
+    return reservasData;
+  }
+};
+
 // Obtener todas las reservas
 export const getReservas = () => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
+    return initializeReservas();
   } catch (error) {
     console.error('Error al leer reservas:', error);
     return [];
