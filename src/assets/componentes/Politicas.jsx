@@ -8,7 +8,7 @@ const Politicas = () => {
   const handleAceptar = () => {
     if (aceptado) {
       console.log('Políticas aceptadas, continuar');
-      navigate('/sala');
+      navigate('/reservacion');
     }
   };
 

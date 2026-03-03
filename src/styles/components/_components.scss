@@ -5,8 +5,8 @@
 @use '../abstracts/variables' as *;
 @use '../abstracts/mixins' as *;
 
-// Importar componente Sala (visualización 3D)
-@use 'sala';
+// Importar componente Reservación
+@use 'reservacion';
 
 // ========== TIPOGRAFÍA ==========
 .login-title {
