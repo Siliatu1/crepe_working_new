@@ -10,72 +10,109 @@ const STATUS = {
 
 const CrepeWorking = () => {
   const [escritorios] = useState([
-    { id: 1, nombre: 'Escritorio 1', estado: STATUS.OCUPADO },
-    { id: 2, nombre: 'Escritorio 2', estado: STATUS.OCUPADO },
-    { id: 3, nombre: 'Escritorio 3', estado: STATUS.OCUPADO },
-    { id: 4, nombre: 'Escritorio 4', estado: STATUS.OCUPADO },
-    { id: 5, nombre: 'Escritorio 5', estado: STATUS.OCUPADO },
-    { id: 6, nombre: 'Escritorio 6', estado: STATUS.OCUPADO },
+    { id: 1, estado: STATUS.OCUPADO },
+    { id: 2, estado: STATUS.OCUPADO },
+    { id: 3, estado: STATUS.OCUPADO },
+    { id: 4, estado: STATUS.OCUPADO },
+    { id: 5, estado: STATUS.OCUPADO },
+    { id: 6, estado: STATUS.OCUPADO },
   ]);
 
-  const getSillaImage = (estado) => (estado === STATUS.OCUPADO ? sillaOcu : sillaDis);
+  const getSilla = (i) =>
+    escritorios[i].estado === STATUS.OCUPADO ? sillaOcu : sillaDis;
+
+  // Cada silla: { top, left, right, bottom, rotate } en % relativo a la mesa
+  const sillas = [
+    { top: '5%', left: '0%',  rotate: '10deg' },       // 1 izquierda arriba
+    { top: '-25%', left: '45%', rotate: '0deg'   },     // 2 arriba izquierda
+    { top: '-12%', left: '57%', rotate: '0deg'   },     // 3 arriba derecha
+    { top: '62%', left: '-8%',  rotate: '-90deg' },     // 4 izquierda abajo
+    { bottom: '-12%', left: '27%', rotate: '180deg' },  // 5 abajo izquierda
+    { top: '45%', right: '-8%', rotate: '90deg'  },     // 6 derecha
+  ];
 
   return (
-    <div className="fixed inset-0 flex flex-col items-center bg-[#f3e5d8] overflow-hidden p-4">
-
+    <div
+      style={{
+        position: 'fixed', inset: 0,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center',
+        background: '#f3e5d8',
+        padding: '16px',
+        overflow: 'hidden',
+      }}
+    >
       {/* Header */}
-      <div className="text-center mb-4 flex-shrink-0">
-        <h1 className="text-2xl font-bold italic text-[#b37d4e]">Crepe-Working 1</h1>
-        <button className="bg-[#b37d4e] text-white px-6 py-1 rounded-md my-2 text-sm shadow-md">Atrás</button>
+      <div style={{ textAlign: 'center', marginBottom: '8px', flexShrink: 0 }}>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', fontStyle: 'italic', color: '#b37d4e' }}>
+          Crepe-Working 1
+        </h1>
+        <button style={{
+          background: '#b37d4e', color: 'white',
+          padding: '4px 24px', borderRadius: '6px',
+          marginTop: '4px', fontSize: '0.875rem',
+          border: 'none', cursor: 'pointer',
+        }}>
+          Atrás
+        </button>
       </div>
 
       {/* Área del mapa */}
-      <div className="relative flex-1 w-full max-w-[900px] bg-[#e6cbb4] rounded-3xl shadow-inner flex items-center justify-center overflow-hidden border-4 border-[#d4b496]">
+      <div style={{
+        flex: 1, width: '100%', maxWidth: '900px',
+        background: '#e6cbb4', borderRadius: '24px',
+        border: '4px solid #d4b496',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden',
+      }}>
+        {/*
+          *** CONTENEDOR CRÍTICO ***
+          La mesa define el tamaño. Las sillas son hijas de este div
+          con position absolute. Todo se escala junto.
+        */}
+        <div style={{ position: 'relative', width: '55%', maxWidth: '380px' }}>
 
-        {/* Contenedor de la mesa con tamaño máximo absoluto */}
-        <div
-          className="relative flex items-center justify-center"
-          style={{ width: '70%', height: '70%'}}
-        >
-          {/* Mesa */}
+          {/* MESA */}
           <img
             src={mesaImg}
             alt="Mesa"
-            style={{ maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto', objectFit: 'contain' }}
-            className="pointer-events-none"
+            style={{ width: '100%', height: 'auto', display: 'block' }}
           />
 
-          {/* Sillas - Fila Superior */}
-          <div className="absolute top-[18%] left-[8%]" style={{ width: '10%', maxWidth: '40px' }}>
-            <img src={getSillaImage(escritorios[0].estado)} className="w-full rotate-[-15deg]" alt="1" />
-          </div>
-          <div className="absolute top-[8%] left-[44%]" style={{ width: '10%', maxWidth: '40px' }}>
-            <img src={getSillaImage(escritorios[1].estado)} className="w-full" alt="2" />
-          </div>
-          <div className="absolute top-[13%] right-[10%]" style={{ width: '10%', maxWidth: '40px' }}>
-            <img src={getSillaImage(escritorios[2].estado)} className="w-full rotate-[15deg]" alt="3" />
-          </div>
-
-          {/* Sillas - Fila Inferior */}
-          <div className="absolute bottom-[18%] left-[8%]" style={{ width: '10%', maxWidth: '40px' }}>
-            <img src={getSillaImage(escritorios[3].estado)} className="w-full rotate-[15deg] scale-y-[-1]" alt="4" />
-          </div>
-          <div className="absolute bottom-[8%] left-[44%]" style={{ width: '10%', maxWidth: '40px' }}>
-            <img src={getSillaImage(escritorios[4].estado)} className="w-full rotate-180" alt="5" />
-          </div>
-          <div className="absolute bottom-[13%] right-[10%]" style={{ width: '10%', maxWidth: '40px' }}>
-            <img src={getSillaImage(escritorios[5].estado)} className="w-full rotate-[-15deg] scale-y-[-1]" alt="6" />
-          </div>
+          {/* SILLAS — hijas del mismo div, se posicionan sobre la mesa */}
+          {sillas.map((s, i) => (
+            <img
+              key={i}
+              src={getSilla(i)}
+              alt={`Silla ${i + 1}`}
+              style={{
+                position: 'absolute',
+                width: '13%',
+                top: s.top,
+                left: s.left,
+                right: s.right,
+                bottom: s.bottom,
+                transform: `rotate(${s.rotate})`,
+                pointerEvents: 'none',
+              }}
+            />
+          ))}
         </div>
       </div>
 
       {/* Leyenda */}
-      <div className="flex gap-8 py-4 flex-shrink-0 font-bold text-[#5d3a24] text-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-[#99c199] rounded-full"></div> Libre
+      <div style={{
+        display: 'flex', gap: '32px',
+        padding: '12px 0', flexShrink: 0,
+        fontWeight: 'bold', color: '#5d3a24', fontSize: '0.875rem',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: 16, height: 16, background: '#99c199', borderRadius: '50%' }} />
+          Libre
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-[#a66a4a] rounded-full"></div> Ocupado
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: 16, height: 16, background: '#a66a4a', borderRadius: '50%' }} />
+          Ocupado
         </div>
       </div>
     </div>
