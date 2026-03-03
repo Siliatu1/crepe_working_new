@@ -3,6 +3,7 @@ import { Table, Tag, Card, Avatar, Spin, Alert, Button } from "antd";
 import { UserOutlined, CalendarOutlined, DesktopOutlined, ClockCircleOutlined, PlusOutlined } from "@ant-design/icons";
 import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
+import { getReservas } from "../../utils/reservasService";
 
 const Panel = () => {
   const location = useLocation();
@@ -36,38 +37,9 @@ const Panel = () => {
           localStorage.setItem('empleadoData', JSON.stringify(empleado));
         }
         
-        // Load reservations from localStorage
-        const storedReservations = localStorage.getItem('reservaciones');
-        if (storedReservations) {
-          setReservations(JSON.parse(storedReservations));
-        } else {
-          // Mock reservations data (ejemplo inicial)
-          const mockReservations = [
-            {
-              key: 1,
-              fecha: "2026-03-05",
-              estado: "Pendiente",
-              escritorio: "A-101",
-              turno: "Mañana (8:00 - 14:00)"
-            },
-            {
-              key: 2,
-              fecha: "2026-03-03",
-              estado: "Confirmada",
-              escritorio: "B-205",
-              turno: "Tarde (14:00 - 20:00)"
-            },
-            {
-              key: 3,
-              fecha: "2026-03-01",
-              estado: "Cancelada",
-              escritorio: "C-310",
-              turno: "Mañana (8:00 - 14:00)"
-            }
-          ];
-          
-          setReservations(mockReservations);
-        }
+        // Load reservations from localStorage only
+        const reservas = getReservas();
+        setReservations(reservas);
         
         setLoading(false);
       } catch (err) {
@@ -208,7 +180,7 @@ const Panel = () => {
           <Button 
             type="primary" 
             icon={<PlusOutlined />}
-            onClick={() => navigate('/reservacion')}
+            onClick={() => navigate('/formulario-reserva')}
           >
             Nueva Reserva
           </Button>
