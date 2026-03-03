@@ -407,7 +407,7 @@
 
 .indicador {
   font-size: $font-size-2xl;
-  line-height: 1.4;
+  line-height: 0;
   flex-shrink: 0;
 
   &.verde {
@@ -426,7 +426,7 @@
 .punto {
   color: #8b6f47;
   font-size: $font-size-base;
-  line-height: 1.4;
+  line-height: 0;
   flex-shrink: 0;
 }
 
@@ -436,7 +436,7 @@
 .texto-compartido {
   font-size: $font-size-xs;
   color: #5d3a1a;
-  line-height: 1.5;
+  line-height: 1;
 
   strong {
     font-weight: $font-weight-semibold;

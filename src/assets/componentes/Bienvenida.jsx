@@ -35,9 +35,6 @@ const Bienvenida = () => {
       setHoraIngreso("No disponible");
     }
 
-
-
- 
     const timer = setTimeout(() => {
       navigate('/politicas');
     }, 301500);
@@ -52,7 +49,7 @@ const Bienvenida = () => {
           {datosEmpleado.foto !== "null" ? (
             <img 
               src={datosEmpleado.foto} 
-              alt="Foto del empleado" 
+              alt="Foto" 
               className="foto-empleado"
             />
           ) : (
@@ -69,29 +66,28 @@ const Bienvenida = () => {
           )}
         </div>
 
-        
-        <h1 className="bienvenida-titulo">Hola {datosEmpleado.nombre}</h1>
-             <h2>Reserva tu escritorio</h2>
-
+        <h1 className="bienvenida-titulo">¡Hola, {datosEmpleado.nombre}!<br />
+          Reserva tu escritorio
+        </h1>
         <div className="info-empleado">
           <BsPersonCircle className="info-icon" />
-          <span className="info-label">DOCUMENTO:</span>
+          <span className="info-label">Documento:</span>
           <span className="info-value">{datosEmpleado.document_number}</span>
           
           <BsPersonCircle className="info-icon" />
-          <span className="info-label">CARGO:</span>
+          <span className="info-label">Cargo:</span>
           <span className="info-value">{datosEmpleado.cargo}</span>
           
           <BsPersonCircle className="info-icon" />
-          <span className="info-label">ÁREA:</span>
+          <span className="info-label">Área:</span>
           <span className="info-value">{datosEmpleado.area_nombre}</span>
           
           <BsCalendar3 className="info-icon" />
-          <span className="info-label">FECHA:</span>
+          <span className="info-label">Fecha:</span>
           <span className="info-value">{fechaFormateada}</span>
           
           <BsClock className="info-icon" />
-          <span className="info-label">HORA:</span>
+          <span className="info-label">Hora:</span>
           <span className="info-value">{horaIngreso}</span>
         </div>
       </div>
