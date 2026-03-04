@@ -29,7 +29,7 @@ const Bienvenida = () => {
     const timer = setTimeout(() => {
       // ── Pasa datosEmpleado a Politicas ──
       navigate('/politicas', { state: { datosEmpleado } });
-    }, 351100);
+    }, 3500);
 
     return () => clearTimeout(timer);
   }, [navigate]);
