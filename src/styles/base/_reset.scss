@@ -12,7 +12,7 @@
 
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  background-color: #8a6d5a;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -56,11 +56,11 @@ h2 {
 // Enlaces
 a {
   font-weight: $font-weight-semibold;
-  color: #646cff;
+  color: $primary-dark;
   text-decoration: inherit;
 
   &:hover {
-    color: #535bf2;
+    color: $primary-light;
   }
 }
 
@@ -72,12 +72,12 @@ button {
   font-size: $font-size-base;
   font-weight: $font-weight-semibold;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: $primary-light;
   cursor: pointer;
   @include transition-all($transition-fast);
 
   &:hover {
-    border-color: #646cff;
+    border-color: $primary-dark;
   }
 
   @include focus-ring;
@@ -86,15 +86,15 @@ button {
 // Tema claro
 @media (prefers-color-scheme: light) {
   :root {
-    color: #213547;
-    background-color: #ffffff;
+    color: $color-text;
+    background-color: $accent-white;
   }
 
   a:hover {
-    color: #747bff;
+    color: $primary-dark;
   }
 
   button {
-    background-color: #f9f9f9;
+    background-color: $primary-cream;
   }
 }

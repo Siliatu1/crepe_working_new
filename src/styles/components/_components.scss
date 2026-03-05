@@ -5,8 +5,10 @@
 @use '../abstracts/variables' as *;
 @use '../abstracts/mixins' as *;
 
-// Importar componente Reservación
+// Importar componentes
 @use 'reservacion';
+@use 'panel';
+@use 'verificacion';
 
 // ========== TIPOGRAFÍA ==========
 .login-title {
@@ -39,13 +41,13 @@
 .politicas-titulo {
   font-size: $font-size-xl;
   font-weight: $font-weight-bold;
-  color: #5d3a1a;
+  color: $primary-dark;
   margin: $spacing-md 0 $spacing-xs;
 }
 
 .politicas-subtitulo {
   font-size: $font-size-sm;
-  color: #8b6f47;
+  color: $primary-light;
   margin: 0;
 }
 
@@ -57,7 +59,7 @@
   h2 {
     font-size: $font-size-sm;
     font-weight: $font-weight-bold;
-    color: #5d3a1a;
+    color: $primary-dark;
     margin: 0;
   }
 
@@ -117,7 +119,7 @@
 
   &:focus {
     border-color: $primary-dark;
-    box-shadow: 0 0 0 3px rgba(93, 78, 55, 0.1);
+    box-shadow: 0 0 0 3px rgba(178, 144, 121, 0.1);
   }
 
   &:disabled {
@@ -126,7 +128,7 @@
   }
 
   &::placeholder {
-    color: #aaa;
+    color: $primary-light;
   }
 
   @include respond-to('sm') {
@@ -170,7 +172,7 @@
   }
 
   &:disabled {
-    background: #ccc;
+    background: $color-border;
     cursor: not-allowed;
     transform: none;
   }
@@ -217,21 +219,21 @@
   box-shadow: $shadow-accent;
 
   &:hover:not(:disabled) {
-    background-color: #c89560;
+    background-color: $accent-orange;
     transform: translateY(-2px);
     box-shadow: $shadow-accent-lg;
   }
 
   &:disabled,
   &.deshabilitado {
-    background-color: #d4d2ca;
-    color: #999;
+    background-color: $accent-orange;
+    color: $primary-light;
     cursor: not-allowed;
     box-shadow: none;
 
     &:hover {
       transform: none;
-      background-color: #d4d2ca;
+      background-color: $accent-orange;
     }
   }
 }
@@ -375,7 +377,7 @@
 
 .checkbox-texto {
   font-size: $font-size-xs;
-  color: #5d3a1a;
+  color: $primary-dark;
   line-height: 1.5;
 }
 
@@ -424,7 +426,7 @@
 }
 
 .punto {
-  color: #8b6f47;
+  color: $primary-light;
   font-size: $font-size-base;
   line-height: 0;
   flex-shrink: 0;
@@ -435,7 +437,7 @@
 .texto-limite,
 .texto-compartido {
   font-size: $font-size-xs;
-  color: #5d3a1a;
+  color: $primary-dark;
   line-height: 1;
 
   strong {

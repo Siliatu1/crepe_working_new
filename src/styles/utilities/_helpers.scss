@@ -40,7 +40,7 @@
 .icono-usuario {
   width: 60px;
   height: 60px;
-  background-color: #d4b59e;
+  background-color: $accent-orange;
   border-radius: $radius-full;
   margin: 0 auto $spacing-lg;
   @include flex-center;

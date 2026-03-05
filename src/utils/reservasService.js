@@ -26,7 +26,9 @@ const initializeReservas = () => {
 // Obtener todas las reservas
 export const getReservas = () => {
   try {
-    return initializeReservas();
+    const reservas = initializeReservas();
+    console.log('📖 Reservas obtenidas:', reservas.length);
+    return reservas;
   } catch (error) {
     console.error('Error al leer reservas:', error);
     return [];
@@ -55,8 +57,13 @@ export const addReserva = (reserva) => {
       estado: 'Pendiente',
       createdAt: new Date().toISOString(),
     };
+    
+    console.log('💾 Agregando reserva al array:', nuevaReserva);
     reservas.push(nuevaReserva);
+    
     saveReservas(reservas);
+    console.log('✅ Reserva guardada. Total reservas:', reservas.length);
+    
     return nuevaReserva;
   } catch (error) {
     console.error('Error al agregar reserva:', error);
@@ -83,6 +90,9 @@ export const updateReservaEstado = (id, nuevoEstado) => {
 };
 
 // Eliminar una reserva
+// ⚠️ IMPORTANTE: Esta función NO debe usarse para cancelación manual por usuarios
+// Solo para uso administrativo o limpieza del sistema
+// Los usuarios NO pueden cancelar reservas manualmente
 export const deleteReserva = (id) => {
   try {
     const reservas = getReservas();
@@ -135,5 +145,105 @@ export const exportReservasToJSON = () => {
   } catch (error) {
     console.error('Error al exportar reservas:', error);
     return false;
+  }
+};
+
+// Actualizar reserva completa con información de verificación
+export const updateReservaWithVerification = (id, updateData) => {
+  try {
+    const reservas = getReservas();
+    const index = reservas.findIndex(r => r.id === id || r.key === id);
+    
+    if (index !== -1) {
+      reservas[index] = {
+        ...reservas[index],
+        ...updateData,
+        updatedAt: new Date().toISOString()
+      };
+      saveReservas(reservas);
+      console.log('✅ Reserva actualizada:', reservas[index]);
+      return reservas[index];
+    }
+    
+    console.error('❌ Reserva no encontrada:', id);
+    return null;
+  } catch (error) {
+    console.error('Error al actualizar reserva con verificación:', error);
+    return null;
+  }
+};
+
+// Obtener reservas pendientes para hoy
+export const getReservasPendientesHoy = () => {
+  try {
+    const reservas = getReservas();
+    const today = new Date().toISOString().split('T')[0];
+    
+    return reservas.filter(r => 
+      r.fecha === today && r.estado === 'Pendiente'
+    );
+  } catch (error) {
+    console.error('Error al obtener reservas pendientes:', error);
+    return [];
+  }
+};
+
+// Verificar reservas vencidas y cancelarlas automáticamente
+export const cancelarReservasVencidas = () => {
+  try {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const currentMinutes = currentHour * 60 + currentMinute;
+    const deadlineMinutes = 8 * 60 + 25; // 8:25 AM
+    
+    // Solo ejecutar después de las 8:25 AM
+    if (currentMinutes <= deadlineMinutes) {
+      return { canceled: 0, message: 'No es hora de cancelar reservas vencidas' };
+    }
+    
+    const reservasPendientes = getReservasPendientesHoy();
+    let canceladas = 0;
+    
+    reservasPendientes.forEach(reserva => {
+      const updated = updateReservaWithVerification(reserva.id, {
+        estado: 'Cancelada',
+        motivoCancelacion: 'No confirmó asistencia a tiempo',
+        canceladaAutomaticamente: true
+      });
+      
+      if (updated) {
+        canceladas++;
+        console.log(`🚫 Reserva ${reserva.id} cancelada automáticamente`);
+      }
+    });
+    
+    return {
+      canceled: canceladas,
+      message: `${canceladas} reserva(s) cancelada(s) automáticamente`
+    };
+  } catch (error) {
+    console.error('Error al cancelar reservas vencidas:', error);
+    return { canceled: 0, message: 'Error al cancelar reservas' };
+  }
+};
+
+// Obtener escritorios disponibles para una fecha
+export const getEscritoriosDisponibles = (fecha) => {
+  try {
+    const reservas = getReservas();
+    const reservasFecha = reservas.filter(r => 
+      r.fecha === fecha && 
+      (r.estado === 'Confirmada' || r.estado === 'Pendiente')
+    );
+    
+    // Escritorios del 1 al 6
+    const todosEscritorios = [1, 2, 3, 4, 5, 6];
+    const escritoriosOcupados = reservasFecha.map(r => r.escritorioId);
+    
+    return todosEscritorios.filter(id => !escritoriosOcupados.includes(id));
+  } catch (error) {
+    console.error('Error al obtener escritorios disponibles:', error);
+    return [];
   }
 };

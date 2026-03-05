@@ -44,7 +44,7 @@
 }
 
 .politicas-card {
-  background: linear-gradient(to bottom, #faf8f3, #f5f0e8);
+  background: linear-gradient(to bottom, $accent-white, $primary-cream);
   border: 3px solid $accent-brown;
   border-radius: $radius-xl;
   padding: $spacing-3xl;
@@ -63,7 +63,7 @@
   min-height: 100vh;
   @include flex-center;
   padding: $spacing-lg;
-  background: linear-gradient(135deg, #f5f1e8 0%, #e8dcc8 100%);
+  background: linear-gradient(135deg, $primary-cream 0%, $accent-orange 100%);
 }
 
 // Sección de políticas

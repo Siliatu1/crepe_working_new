@@ -4,6 +4,8 @@ import { UserOutlined, CalendarOutlined, DesktopOutlined, ClockCircleOutlined, P
 import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getReservas } from "../../utils/reservasService";
+import VerificacionAsistencia from "./VerificacionAsistencia";
+import useAutoCancelarReservas from "../../hooks/useAutoCancelarReservas";
 
 const Panel = () => {
   const location = useLocation();
@@ -14,36 +16,76 @@ const Panel = () => {
   const [error, setError] = useState("");
   const [reservations, setReservations] = useState([]);
 
+  // Auto-cancelar reservas vencidas cada minuto
+  useAutoCancelarReservas(true);
+
+  // Función para recargar reservas
+  const reloadReservations = () => {
+    try {
+      const storedCedula = localStorage.getItem('cedula');
+      const storedEmpleado = localStorage.getItem('empleadoData');
+      let empleadoData = null;
+      
+      if (storedEmpleado) {
+        empleadoData = JSON.parse(storedEmpleado);
+      }
+      
+      const todasReservas = getReservas();
+      const cedulaUsuario = storedCedula || empleadoData?.documento || empleadoData?.document_number;
+      
+      const reservasUsuario = todasReservas.filter(
+        reserva => reserva.cedula === cedulaUsuario
+      );
+      
+      console.log('🔄 Reservas recargadas:', reservasUsuario.length);
+      setReservations(reservasUsuario);
+    } catch (err) {
+      console.error('Error al recargar reservas:', err);
+    }
+  };
+
+  // Callback cuando se verifica la asistencia
+  const handleVerified = (reservaActualizada) => {
+    console.log('✅ Asistencia verificada, recargando reservas...');
+    reloadReservations();
+  };
+
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         setLoading(true);
         
-
+        let empleadoData = null;
         const storedEmpleado = localStorage.getItem('empleadoData');
         const storedCedula = localStorage.getItem('cedula');
         
         if (storedEmpleado) {
-          const empleado = JSON.parse(storedEmpleado);
-          setProfileData(empleado);
+          empleadoData = JSON.parse(storedEmpleado);
+          setProfileData(empleadoData);
         } else if (storedCedula) {
           
           const response = await axios.get(
             `https://apialohav2.crepesywaffles.com/buk/empleados3?documento=${storedCedula}`
           );
-          const empleado = response.data.data[0];
-          setProfileData(empleado);
-          localStorage.setItem('empleadoData', JSON.stringify(empleado));
+          empleadoData = response.data.data[0];
+          setProfileData(empleadoData);
+          localStorage.setItem('empleadoData', JSON.stringify(empleadoData));
         }
         
       
         const todasReservas = getReservas();
-        const cedulaUsuario = storedCedula || empleado?.documento || empleado?.document_number;
+        const cedulaUsuario = storedCedula || empleadoData?.documento || empleadoData?.document_number;
+        
+        console.log('🔍 Debug - Cedula usuario:', cedulaUsuario);
+        console.log('📋 Total reservas:', todasReservas.length);
+        console.log('📋 Reservas en sistema:', todasReservas.map(r => ({ cedula: r.cedula, nombre: r.nombre })));
         
         const reservasUsuario = todasReservas.filter(
           reserva => reserva.cedula === cedulaUsuario
         );
+        
+        console.log('✅ Reservas filtradas para usuario:', reservasUsuario.length);
         
         setReservations(reservasUsuario);
         
@@ -66,7 +108,7 @@ const Panel = () => {
       key: "fecha",
       render: (fecha) => (
         <span>
-          <CalendarOutlined style={{ marginRight: 8 }} />
+          <CalendarOutlined className="panel-table-icon" />
           {new Date(fecha).toLocaleDateString('es-CO', {
             year: 'numeric',
             month: 'long',
@@ -110,7 +152,7 @@ const Panel = () => {
       key: "escritorio",
       render: (escritorio) => (
         <span>
-          <DesktopOutlined style={{ marginRight: 8 }} />
+          <DesktopOutlined className="panel-table-icon" />
           {escritorio}
         </span>
       ),
@@ -121,16 +163,27 @@ const Panel = () => {
       key: "turno",
       render: (turno) => (
         <span>
-          <ClockCircleOutlined style={{ marginRight: 8 }} />
+          <ClockCircleOutlined className="panel-table-icon" />
           {turno}
         </span>
+      ),
+    },
+    {
+      title: "Acción",
+      key: "accion",
+      align: "center",
+      render: (_, record) => (
+        <VerificacionAsistencia 
+          reserva={record} 
+          onVerified={handleVerified}
+        />
       ),
     },
   ];
 
   if (loading) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+      <div className="panel-loading">
         <Spin size="large" tip="Cargando información..." />
       </div>
     );
@@ -138,38 +191,38 @@ const Panel = () => {
 
   if (error) {
     return (
-      <div style={{ padding: "20px" }}>
+      <div className="panel-error">
         <Alert message="Error" description={error} type="error" showIcon />
       </div>
     );
   }
 
   return (
-    <div style={{ padding: "24px", backgroundColor: "#f0f2f5", minHeight: "100vh" }}>
+    <div className="panel-container">
       {/* Profile Section */}
       <Card
-        style={{ marginBottom: 24, borderRadius: 8 }}
+        className="panel-profile-card"
         bordered={false}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-          <Avatar
-            size={80}
-            icon={<UserOutlined />}
-            src={profileData?.foto !== "null" ? profileData?.foto : null}
-            style={{ backgroundColor: "#1890ff" }}
-          />
-          <div style={{ flex: 1 }}>
-            <h2 style={{ margin: 0, fontSize: "24px", fontWeight: "600" }}>
+        <div className="panel-profile-content">
+          <div className="panel-avatar">
+            <Avatar
+              icon={<UserOutlined />}
+              src={profileData?.foto !== "null" ? profileData?.foto : null}
+            />
+          </div>
+          <div className="panel-profile-info">
+            <h2 className="panel-profile-name">
               {profileData?.nombre || "Usuario"}
             </h2>
-            <div style={{ marginTop: "8px", color: "#666" }}>
-              <p style={{ margin: "4px 0" }}>
+            <div className="panel-profile-details">
+              <p>
                 <strong>Cédula:</strong> {profileData?.documento || profileData?.document_number || "N/A"}
               </p>
-              <p style={{ margin: "4px 0" }}>
+              <p>
                 <strong>Cargo:</strong> {profileData?.cargo || "N/A"}
               </p>
-              <p style={{ margin: "4px 0" }}>
+              <p>
                 <strong>Área:</strong> {profileData?.area_nombre || "N/A"}
               </p>
             </div>
@@ -179,14 +232,15 @@ const Panel = () => {
 
       {/* Reservations Table */}
       <Card
-        title={<span style={{ fontSize: "18px", fontWeight: "600" }}>Mis Reservas</span>}
+        className="panel-reservations-card"
+        title={<span className="panel-reservations-title">Mis Reservas</span>}
         bordered={false}
-        style={{ borderRadius: 8 }}
         extra={
           <Button 
             type="primary" 
             icon={<PlusOutlined />}
             onClick={() => navigate('/formulario-reserva')}
+            className="panel-new-reservation-btn"
           >
             Nueva Reserva
           </Button>

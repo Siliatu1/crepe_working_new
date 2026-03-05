@@ -1,15 +1,19 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import axiosInstance from '../../api/axiosInstance';
+import reservasIniciales from '../../data/reservas.json';
 import sillaDis from '../../assets/sillaDis.png';
 import sillaLim from '../../assets/sillaLim.png';
 import sillaOcu from '../../assets/sillaOcu.png';
-import mesaImg  from '../../assets/mesa.png';
+import mesaImg from '../../assets/mesa.png';
 
-const API_RESERVAS = '/api/reservas';
 const STATUS = { DISPONIBLE: 'disponible', LIMITADO: 'limitado', OCUPADO: 'ocupado' };
 const DIAS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
 const CON_MONITOR = [1, 3, 6];
+const TURNOS = [
+  { id: 1, nombre: 'Turno 1', horario: '8:00 a.m. a 1:00 p.m.' },
+  { id: 2, nombre: 'Turno 2', horario: '1:00 p.m. a 5:00 p.m.' },
+  { id: 3, nombre: 'Turno 3', horario: '8:00 a.m. a 5:00 p.m.' },
+];
 
 const calcEstado = (reservas, escritorioId) => {
   // Filtrar reservas por escritorio (ej: "Escritorio 3" o escritorioId = 3)
@@ -76,7 +80,7 @@ const ESTADO_BADGE = {
 };
 
 // ── BookingCard integrada ──────────────────────────────────
-const BookingCard = ({ escritorioId, usuario, onConfirm, onCancel, reservando, reservaOk, reservaErr }) => {
+const BookingCard = ({ escritorioId, usuario, turnoSeleccionado, onConfirm, onCancel, reservando, reservaOk, reservaErr }) => {
   if (!escritorioId) return null;
 
   return (
@@ -228,45 +232,130 @@ export default function Reservas() {
   const [hoverId,    setHoverId]    = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [modalId,    setModalId]    = useState(null);
+  const [turnoSeleccionado, setTurnoSeleccionado] = useState(null);
   const [reservas,   setReservas]   = useState([]);
   const [loadingR,   setLoadingR]   = useState(false);
   const [reservando, setReservando] = useState(false);
-  const [reservaOk,  setReservaOk]  = useState(false);
+  const [reservaOk, setReservaOk] = useState(false);
   const [reservaErr, setReservaErr] = useState(null);
 
-  const cargarReservas = () => {
+  const cargarReservas = async () => {
     setLoadingR(true);
     try {
-      // Obtener reservas desde el servicio local
-      const todasReservas = getReservas();
-      // Filtrar por la fecha actual
-      const reservasFecha = todasReservas.filter(r => r.fecha === fechaISO);
+      console.log('📅 Cargando reservas para fecha:', fechaISO);
+      
+      // Cargar reservas del JSON
+      const reservasJSON = reservasIniciales || [];
+      
+      // Cargar reservas del localStorage
+      const reservasLocalStorage = JSON.parse(localStorage.getItem('reservas') || '[]');
+      
+      // Combinar ambas fuentes
+      const todasReservas = [...reservasJSON, ...reservasLocalStorage];
+      
+      // Filtrar por fecha
+      const reservasFecha = todasReservas.filter(r => r.fecha === fechaISO && r.estado !== 'Cancelada');
+      
+      console.log('✅ Reservas cargadas:', reservasFecha.length, 'para', fechaISO);
+      console.log('📋 Reservas:', reservasFecha);
+      
       setReservas(reservasFecha);
-    } catch (error) {
-      console.error('Error cargando reservas:', error);
+    } catch (err) {
+      console.error('❌ Error cargando reservas:', err);
       setReservas([]);
     } finally {
       setLoadingR(false);
     }
   };
 
-  useEffect(() => { cargarReservas(); }, [diaIndex, fechaISO]);
+  useEffect(() => {
+    cargarReservas();
+    // Limpiar selección cuando cambie el día
+    setSelectedId(null);
+    setTurnoSeleccionado(null);
+    setReservaErr(null);
+  }, [fechaISO]);
 
   const handleReservar = async () => {
-    if (!usuario || !selectedId) return;
+    if (!usuario || !selectedId) {
+      console.warn('⚠️ No hay usuario o escritorio seleccionado');
+      return;
+    }
+    
+    if (!turnoSeleccionado) {
+      console.warn('⚠️ No hay turno seleccionado');
+      setReservaErr('Debes seleccionar un turno');
+      return;
+    }
+    
+    console.log('🎯 Iniciando reserva:', { 
+      usuario: usuario.nombre, 
+      cedula: usuario.document_number,
+      escritorio: selectedId, 
+      fecha: fechaISO,
+      turno: turnoSeleccionado.nombre
+    });
+    
     setReservando(true);
     setReservaErr(null);
+    
     try {
-      await axiosInstance.post(API_RESERVAS, {
-        escritorioId: selectedId,
+      // Obtener reservas actuales del localStorage
+      const reservasLS = JSON.parse(localStorage.getItem('reservas') || '[]');
+      
+      // Verificar si ya existe una reserva para este usuario en esta fecha (cualquier escritorio)
+      const yaReservadoHoy = reservasLS.some(r => 
+        r.cedula === usuario.document_number && 
+        r.fecha === fechaISO &&
+        r.estado !== 'Cancelada'
+      );
+      
+      if (yaReservadoHoy) {
+        console.error('❌ Ya tienes una reserva para este día');
+        setReservaErr('Solo puedes hacer una reserva por día.');
+        setReservando(false);
+        return;
+      }
+      
+      // Crear nueva reserva
+      const nuevaReserva = {
+        id: Date.now(),
+        key: Date.now(),
+        cedula: usuario.document_number,
+        nombre: usuario.nombre,
         fecha: fechaISO,
-        userId: usuario.document_number,
-      });
+        turno: `${turnoSeleccionado.nombre} (${turnoSeleccionado.horario})`,
+        escritorio: `Escritorio ${selectedId}`,
+        escritorioId: selectedId,
+        estado: 'Confirmada',
+        createdAt: new Date().toISOString(),
+        usuario: usuario.nombre,
+        correo: usuario.correo || '',
+        cargo: usuario.cargo || '',
+        area: usuario.area_nombre || '',
+        foto: usuario.foto || null
+      };
+      
+      // Guardar en localStorage
+      reservasLS.push(nuevaReserva);
+      localStorage.setItem('reservas', JSON.stringify(reservasLS));
+      
+      console.log('✅ Reserva guardada exitosamente:', nuevaReserva);
+      
       setReservaOk(true);
       cargarReservas();
-      setTimeout(() => { setSelectedId(null); setReservaOk(false); }, 2500);
+      
+      // Redirigir al panel después de mostrar el mensaje de éxito
+      setTimeout(() => { 
+        setSelectedId(null);
+        setTurnoSeleccionado(null);
+        setReservaOk(false);
+        navigate('/panel', { state: { datosEmpleado: usuario } });
+      }, 2500);
+      
     } catch (err) {
-      setReservaErr(err?.response?.data?.message || 'Error al reservar.');
+      console.error('❌ Error al reservar:', err);
+      setReservaErr('Error al guardar la reserva. Intenta de nuevo.');
     } finally {
       setReservando(false);
     }
@@ -456,8 +545,9 @@ export default function Reservas() {
       <BookingCard
         escritorioId={selectedId}
         usuario={usuario}
+        turnoSeleccionado={turnoSeleccionado}
         onConfirm={handleReservar}
-        onCancel={() => { setSelectedId(null); setReservaErr(null); }}
+        onCancel={() => { setSelectedId(null); setTurnoSeleccionado(null); setReservaErr(null); }}
         reservando={reservando}
         reservaOk={reservaOk}
         reservaErr={reservaErr}
@@ -465,7 +555,7 @@ export default function Reservas() {
 
       {/* ── MODAL DETALLE ── */}
       {modalId && (
-        <div onClick={() => setModalId(null)} style={{
+        <div onClick={() => { setModalId(null); setTurnoSeleccionado(null); }} style={{
           position: 'fixed', inset: 0,
           background: 'rgba(0,0,0,0.5)',
           backdropFilter: 'blur(4px)',
@@ -482,7 +572,7 @@ export default function Reservas() {
               background: 'linear-gradient(135deg, #fb923c, #f97316)',
               padding: '22px 22px 28px', position: 'relative',
             }}>
-              <button onClick={() => setModalId(null)} style={{
+              <button onClick={() => { setModalId(null); setTurnoSeleccionado(null); }} style={{
                 position: 'absolute', top: '12px', right: '12px',
                 width: '30px', height: '30px',
                 background: 'rgba(255,255,255,0.2)', border: 'none',
@@ -574,7 +664,7 @@ export default function Reservas() {
               )}
 
               <button
-                onClick={() => { setSelectedId(modalId); setModalId(null); }}
+                onClick={() => { setSelectedId(modalId); setModalId(null); setTurnoSeleccionado(TURNOS[0]); }}
                 disabled={modalEstado === STATUS.OCUPADO}
                 style={{
                   width: '100%', padding: '12px',
