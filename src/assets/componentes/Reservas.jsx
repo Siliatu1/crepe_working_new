@@ -56,97 +56,115 @@ const IconUserCard = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a8a29e" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
 );
 
-// CARD
+const HORARIOS = [
+  { id: 'manana',   label: 'Mañana',      hora: '8:00 am – 12:00 m' },
+  { id: 'tarde',    label: 'Tarde',        hora: '1:00 pm – 5:00 pm' },
+  { id: 'completo', label: 'Día completo', hora: '8:00 am – 5:00 pm' },
+];
+
+// CARD — layout vertical
 const BookingCard = ({ escritorioId, usuario, reservas, onConfirm, onCancel, reservando, reservaOk, reservaErr }) => {
+  const [horarioId, setHorarioId] = React.useState('manana');
   if (!escritorioId) return null;
 
-  const estado         = calcEstado(reservas, escritorioId);
-  const reservasDesk   = reservas.filter(r => Number(r.escritorioId) === Number(escritorioId));
-  const tieneMonitor   = CON_MONITOR.includes(escritorioId);
-  const estaOcupado    = estado === STATUS.OCUPADO;
+  const estado       = calcEstado(reservas, escritorioId);
+  const reservasDesk = reservas.filter(r => Number(r.escritorioId) === Number(escritorioId));
+  const tieneMonitor = CON_MONITOR.includes(escritorioId);
+  const estaOcupado  = estado === STATUS.OCUPADO;
+  const horarioSel   = HORARIOS.find(h => h.id === horarioId);
 
   return (
     <div style={{
       position: 'fixed',
       bottom: '20px',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      width: '90%',
-      maxWidth: '740px',
+      right: '24px',
+      width: '272px',
       zIndex: 50,
     }}>
       <div style={{
-        background: '#44372e',
+        background: '#000000',
         color: '#fff',
         borderRadius: '24px',
-        padding: '16px 20px',
+        overflow: 'hidden',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
         border: '1px solid rgba(255,255,255,0.07)',
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: '16px',
-        flexWrap: 'wrap',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
       }}>
 
-        {/* Foto y datos de empleado */}
-        {usuario && (
+        {/* ── SECCIÓN: Reserva para ── */}
+        <div style={{ padding: '18px 18px 14px' }}>
           <div style={{
-            display: 'flex', alignItems: 'center', gap: '12px',
-            paddingRight: '16px',
-            borderRight: '1px solid rgba(255,255,255,0.1)',
-            flexShrink: 0,
+            fontSize: '0.58rem', color: '#a8a29e',
+            textTransform: 'uppercase', letterSpacing: '0.1em',
+            fontWeight: '700', marginBottom: '14px',
           }}>
-            <div style={{ position: 'relative' }}>
+            Reserva para
+          </div>
+
+          {usuario && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+              {/* Foto centrada arriba */}
               {usuario.foto && usuario.foto !== 'null' ? (
                 <img
                   src={usuario.foto}
                   alt={usuario.nombre}
                   style={{
-                    width: '46px', height: '46px',
-                    borderRadius: '12px',
-                    objectFit: 'cover',
-                    border: '2px solid rgba(255,255,255,0.12)',
+                    width: '64px', height: '64px',
+                    borderRadius: '18px', objectFit: 'cover',
+                    border: '2px solid rgba(255,255,255,0.15)',
                   }}
                 />
               ) : (
                 <div style={{
-                  width: '46px', height: '46px',
-                  borderRadius: '12px',
-                  background: '#292524',
+                  width: '64px', height: '64px',
+                  borderRadius: '18px', background: '#292524',
                   border: '2px solid rgba(255,255,255,0.08)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   <IconUserCard />
                 </div>
               )}
-            </div>
-            <div>
-              <div style={{ fontSize: '0.58rem', color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '700' }}>
-                Reserva para
-              </div>
-              <div style={{ fontWeight: '800', fontSize: '0.88rem', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {usuario.nombre}
-              </div>
-              <div style={{ fontSize: '0.68rem', fontWeight: '600' }}>{usuario.cargo}</div>
-              <div style={{ fontSize: '0.65rem', fontWeight: '600' }}>{usuario.area_nombre}</div>
-            </div>
-          </div>
-        )}
 
-        {/* Escritorio y reservas actuales */}
-        <div style={{ flex: 1, minWidth: '120px' }}>
-          <div style={{ fontSize: '0.58rem', color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '700', marginBottom: '4px' }}>
+              {/* Datos centrados abajo */}
+              <div style={{ textAlign: 'center', width: '100%' }}>
+                <div style={{
+                  fontWeight: '800', fontSize: '0.95rem',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {usuario.nombre}
+                </div>
+                <div style={{ fontSize: '0.72rem', color: '#d6d3d1', fontWeight: '600', marginTop: '3px' }}>
+                  {usuario.cargo}
+                </div>
+                <div style={{ fontSize: '0.67rem', color: '#a8a29e', fontWeight: '500', marginTop: '2px' }}>
+                  {usuario.area_nombre}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '0 18px' }} />
+
+        {/* ── SECCIÓN: Ubicación ── */}
+        <div style={{ padding: '14px 18px' }}>
+          <div style={{
+            fontSize: '0.58rem', color: '#a8a29e',
+            textTransform: 'uppercase', letterSpacing: '0.1em',
+            fontWeight: '700', marginBottom: '8px',
+          }}>
             Ubicación
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <IconMonitorCard />
               <span style={{ fontWeight: '800', fontSize: '0.95rem' }}>Escritorio {escritorioId}</span>
             </div>
             {tieneMonitor && (
               <span style={{
-                fontSize: '0.62rem', fontWeight: '700',
-                background: 'rgba(255,255,255,0.12)', padding: '2px 7px',
+                fontSize: '0.6rem', fontWeight: '700',
+                background: 'rgba(255,255,255,0.1)', padding: '2px 8px',
                 borderRadius: '999px', color: '#e7e5e4',
               }}>Con monitor</span>
             )}
@@ -154,13 +172,10 @@ const BookingCard = ({ escritorioId, usuario, reservas, onConfirm, onCancel, res
 
           {/* Personas que ya reservaron */}
           {reservasDesk.length > 0 && (
-            <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '60px', overflowY: 'auto' }}>
+            <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '56px', overflowY: 'auto' }}>
               {reservasDesk.map((r, i) => (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center', gap: '5px',
-                  fontSize: '0.67rem', color: '#a8a29e',
-                }}>
-                  <span style={{ fontSize: '0.7rem' }}>🖱️</span>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.67rem', color: '#a8a29e' }}>
+                  <span>🖱️</span>
                   <span style={{ fontWeight: '600', color: '#d6d3d1' }}>{r.usuario ?? r.nombre ?? r.correo}</span>
                   {(r.horario || r.horaInicio) && (
                     <span style={{ color: '#78716c' }}>· {r.horario ?? `${r.horaInicio}–${r.horaFin}`}</span>
@@ -169,54 +184,109 @@ const BookingCard = ({ escritorioId, usuario, reservas, onConfirm, onCancel, res
               ))}
             </div>
           )}
-
-          {reservaErr && (
-            <div style={{ fontSize: '0.68rem', color: '#fca5a5', marginTop: '4px' }}>{reservaErr}</div>
-          )}
         </div>
 
-        {/* Botones */}
-        <div style={{ display: 'flex', gap: '8px', flexShrink: 0, alignSelf: 'center' }}>
+        {/* Divider */}
+        <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '0 18px' }} />
+
+        {/* ── SECCIÓN: Horario ── */}
+        <div style={{ padding: '14px 18px' }}>
+          <div style={{
+            fontSize: '0.58rem', color: '#a8a29e',
+            textTransform: 'uppercase', letterSpacing: '0.1em',
+            fontWeight: '700', marginBottom: '10px',
+          }}>
+            Horario
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {HORARIOS.map(h => {
+              const sel = horarioId === h.id;
+              return (
+                <button
+                  key={h.id}
+                  onClick={() => setHorarioId(h.id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '9px 12px', borderRadius: '12px', cursor: 'pointer',
+                    border: sel ? '1.5px solid #f97316' : '1.5px solid rgba(255,255,255,0.08)',
+                    background: sel ? 'rgba(249,115,22,0.12)' : 'rgba(255,255,255,0.04)',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <span style={{ fontWeight: '700', fontSize: '0.82rem', color: sel ? '#fdba74' : '#d6d3d1' }}>
+                    {h.label}
+                  </span>
+                  <span style={{ fontSize: '0.68rem', color: sel ? '#fb923c' : '#78716c', fontWeight: '600' }}>
+                    {h.hora}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '0 18px' }} />
+
+        {/* Feedback */}
+        {(reservaErr || reservaOk) && (
+          <div style={{ padding: '10px 18px 0' }}>
+            {reservaErr && (
+              <div style={{
+                fontSize: '0.7rem', color: '#fca5a5',
+                background: 'rgba(239,68,68,0.1)', borderRadius: '8px',
+                padding: '7px 10px',
+              }}>
+                {reservaErr}
+              </div>
+            )}
+            {reservaOk && (
+              <div style={{
+                fontSize: '0.75rem', color: '#86efac',
+                background: 'rgba(34,197,94,0.1)', borderRadius: '8px',
+                padding: '7px 10px', fontWeight: '700',
+                display: 'flex', alignItems: 'center', gap: '5px',
+              }}>
+                ✓ ¡Reservado con éxito!
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── BOTONES ── */}
+        <div style={{ padding: '14px 18px', display: 'flex', gap: '8px' }}>
           <button
             onClick={onCancel}
             style={{
-              padding: '9px 16px', borderRadius: '14px',
+              flex: 1, padding: '10px 0', borderRadius: '14px',
               background: '#292524', border: 'none',
-              color: '#a8a29e', fontWeight: '700', fontSize: '0.8rem',
+              color: '#a8a29e', fontWeight: '700', fontSize: '0.82rem',
               cursor: 'pointer',
             }}
           >
             Cancelar
           </button>
 
-          {reservaOk ? (
-            <div style={{
-              padding: '9px 22px', borderRadius: '14px',
-              background: '#22c55e', color: '#fff',
+          <button
+            onClick={() => onConfirm(horarioSel)}
+            disabled={reservando || estaOcupado || reservaOk}
+            style={{
+              flex: 1, padding: '10px 0', borderRadius: '14px',
+              background: estaOcupado ? '#57534e' : reservaOk ? '#22c55e' : '#f97316',
+              border: 'none',
+              color: estaOcupado ? '#a8a29e' : '#fff',
               fontWeight: '800', fontSize: '0.82rem',
-              display: 'flex', alignItems: 'center', gap: '6px',
-            }}>
-              ¡Reservado!
-            </div>
-          ) : (
-            <button
-              onClick={onConfirm}
-              disabled={reservando || estaOcupado}
-              style={{
-                padding: '9px 22px', borderRadius: '14px',
-                background: estaOcupado ? '#57534e' : '#f97316',
-                border: 'none', color: estaOcupado ? '#a8a29e' : '#fff',
-                fontWeight: '800', fontSize: '0.85rem',
-                cursor: (reservando || estaOcupado) ? 'not-allowed' : 'pointer',
-                opacity: reservando ? 0.7 : 1,
-                boxShadow: !estaOcupado ? '0 0 20px rgba(249,115,22,0.4)' : 'none',
-                transition: 'opacity 0.2s',
-              }}
-            >
-              {estaOcupado ? 'No disponible' : reservando ? 'Reservando…' : 'Confirmar Reserva'}
-            </button>
-          )}
+              cursor: (reservando || estaOcupado || reservaOk) ? 'not-allowed' : 'pointer',
+              opacity: reservando ? 0.7 : 1,
+              boxShadow: (!estaOcupado && !reservaOk) ? '0 0 18px rgba(249,115,22,0.35)' : 'none',
+              transition: 'opacity 0.2s, background 0.3s',
+            }}
+          >
+            {estaOcupado ? 'No disponible' : reservando ? 'Reservando…' : reservaOk ? '¡Listo!' : 'Reservar'}
+          </button>
         </div>
+
       </div>
     </div>
   );
@@ -249,7 +319,7 @@ export default function Reservas() {
 
   useEffect(() => { cargarReservas(); }, [diaIndex]);
 
-  const handleReservar = async () => {
+  const handleReservar = async (horario) => {
     if (!usuario || !selectedId) return;
     setReservando(true);
     setReservaErr(null);
@@ -258,6 +328,9 @@ export default function Reservas() {
         escritorioId: selectedId,
         fecha: fechaISO,
         userId: usuario.document_number,
+        horario: horario?.id,
+        horaInicio: horario?.hora.split('–')[0].trim(),
+        horaFin: horario?.hora.split('–')[1].trim(),
       });
       setReservaOk(true);
       cargarReservas();
@@ -444,7 +517,7 @@ export default function Reservas() {
         </div>
       </div>
 
-      {/* ── BOOKING CARD unificada ── */}
+      {/* ── BOOKING CARD vertical ── */}
       <BookingCard
         escritorioId={selectedId}
         usuario={usuario}
