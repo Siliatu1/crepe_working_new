@@ -1,15 +1,12 @@
-import React from "react";
-import { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { BsShieldCheck, BsPersonBadge } from "react-icons/bs";
 
 const ValidarCedula = () => {
   const navigate = useNavigate();
   const [cedula, setCedula] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
 
   const handleUsuario = async (e) => {
     e.preventDefault();
@@ -41,7 +38,7 @@ const ValidarCedula = () => {
       });
     } catch (error) {
       console.error(error);
-      setError("Error al validar la cédula. Por favor intente nuevamente.");
+      setError("Error al validar la cédula.");
     } finally {
       setLoading(false);
     }
@@ -54,37 +51,43 @@ const ValidarCedula = () => {
 
   return (
     <div className="page-wrapper">
-      <div className="login-card">
-        <h1 className="login-title">Crepe-Working</h1>
+      <div className="bienvenida-card">
 
-        <form onSubmit={handleUsuario} className="login-form">
-          <div className="form-group">
-            <label htmlFor="cedula" className="form-label">
-              <BsPersonBadge className="icon-label" /> Número de Cédula
-            </label>
-            <input
-              type="text"
-              id="cedula"
-              className="form-input"
-              placeholder="Ingrese su número de cédula"
-              value={cedula}
-              onChange={handleCedulaChange}
-              disabled={loading || success}
-              maxLength="15"
-            />
-          </div>
+        <h1 className="bienvenida-saludo">
+          <span className="text-accent">Crepe</span>-Working #1
+        </h1>
+        <p className="text-muted bienvenida-sub">Ingresa tu cédula para continuar</p>
 
-          {error && <div className="error-message">{error}</div>}
-          {success && <div className="success-message">¡Acceso concedido!</div>}
+        <div className="bienvenida-info">
+          <form onSubmit={handleUsuario} style={{ width: "100%" }}>
+            <div style={{ marginBottom: "12px" }}>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="No. de cédula"
+                value={cedula}
+                onChange={handleCedulaChange}
+                disabled={loading}
+                maxLength="10"
+              />
+            </div>
 
-          <button
-            type="submit"
-            className="submit-button"
-            disabled={loading || success}
-          >
-            {loading ? "Validando..." : "Ingresar"}
-          </button>
-        </form>
+            {error && (
+              <p className="text-muted" style={{ color: "#c0392b", marginBottom: "12px", fontSize: "0.85rem" }}>
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              className={`btn-continuar${loading || !cedula ? " btn-continuar--disabled" : ""}`}
+              disabled={loading || !cedula}
+              style={{ width: "100%", marginTop: "4px" }}
+            >
+              {loading ? "Validando..." : "Ingresar"}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

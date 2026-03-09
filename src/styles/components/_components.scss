@@ -4,7 +4,6 @@
 
 @use '../abstracts/variables' as *;
 @use '../abstracts/mixins' as *;
-@use 'reservacion';
 
 // ══════════════════════════════════════════════════════════
 // 1. LAYOUT BASE
@@ -168,7 +167,7 @@
 
 .login-card {
   @extend .card;
-  width: 100%;
+  width: 340px;
   max-width: 440px;
 }
 
@@ -304,10 +303,11 @@
 
 .politicas-card {
   @extend .card;
-  width: 100%;
+  width: 340px;
   max-width: 560px;
   max-height: 90vh;
   overflow-y: auto;
+  text-align: center;
 }
 
 .politicas-header {
@@ -411,7 +411,7 @@
   height: 96px;
   border-radius: $radius-lg;
   object-fit: cover;
-  border: 2px solid rgba(80, 54, 41, 0.2);
+  border: 0x solid rgba(80, 54, 41, 0.2);
   box-shadow: $shadow-card;
 }
 
