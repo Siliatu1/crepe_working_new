@@ -1,6 +1,4 @@
-import React, { useState, useEffect } from "react";
-import { Table, Tag, Card, Avatar, Spin, Alert, Button, Space } from "antd";
-import { UserOutlined, CalendarOutlined, DesktopOutlined, ClockCircleOutlined, PlusOutlined, SettingOutlined, DashboardOutlined } from "@ant-design/icons";
+import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getReservas } from "../../utils/reservasService";
@@ -8,449 +6,305 @@ import VerificacionAsistencia from "./VerificacionAsistencia";
 import useAutoCancelarReservas from "../../hooks/useAutoCancelarReservas";
 import useRealtimeSync from "../../hooks/useRealtimeSync";
 
+const IconUser = () => (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#92614F" strokeWidth="2" strokeLinecap="round">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+);
+
+const IconCalendar = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CC8A22" strokeWidth="2" strokeLinecap="round">
+    <rect x="3" y="4" width="18" height="18" rx="2" />
+    <line x1="16" y1="2" x2="16" y2="6" />
+    <line x1="8" y1="2" x2="8" y2="6" />
+    <line x1="3" y1="10" x2="21" y2="10" />
+  </svg>
+);
+
+const IconMonitor = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CC8A22" strokeWidth="2" strokeLinecap="round">
+    <rect x="2" y="3" width="20" height="14" rx="2" />
+    <line x1="8" y1="21" x2="16" y2="21" />
+    <line x1="12" y1="17" x2="12" y2="21" />
+  </svg>
+);
+
+const IconClock = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CC8A22" strokeWidth="2" strokeLinecap="round">
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+);
+
+const IconArrowLeft = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+    <line x1="19" y1="12" x2="5" y2="12" />
+    <polyline points="12 19 5 12 12 5" />
+  </svg>
+);
+
+const ESTADO_STYLES = {
+  Pendiente: { background: "#FFF3CD", color: "#856404" },
+  Confirmada: { background: "#D4EDDA", color: "#155724" },
+  Cancelada: { background: "#F8D7DA", color: "#721C24" },
+};
+
 const Panel = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  
-  const [profileData, setProfileData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const datosEmpleado = location.state?.datosEmpleado || null;
+
+  const [profileData, setProfileData] = useState(datosEmpleado);
+  const [loading, setLoading] = useState(!datosEmpleado);
   const [error, setError] = useState("");
   const [reservations, setReservations] = useState([]);
+  const [filtroEstado, setFiltroEstado] = useState("Todos");
 
-  // Auto-cancelar reservas vencidas cada minuto
   useAutoCancelarReservas(true);
 
-  // Sincronización en tiempo real (webhooks simulados)
-  useRealtimeSync(() => {
-    console.log(' Sincronización en tiempo real activada');
-    reloadReservations();
-  });
-
-  // Función para recargar reservas
-  const reloadReservations = () => {
+  const reloadReservations = useCallback(() => {
     try {
-      const storedCedula = localStorage.getItem('cedula');
-      const storedEmpleado = localStorage.getItem('empleadoData');
-      let empleadoData = null;
-      
-      if (storedEmpleado) {
-        empleadoData = JSON.parse(storedEmpleado);
-      }
-      
+      const storedCedula = localStorage.getItem("cedula");
+      const storedEmpleado = localStorage.getItem("empleadoData");
+      const empleadoData = storedEmpleado ? JSON.parse(storedEmpleado) : profileData;
+      const cedulaUsuario =
+        storedCedula ||
+        empleadoData?.documento ||
+        empleadoData?.document_number ||
+        profileData?.documento ||
+        profileData?.document_number;
+
       const todasReservas = getReservas();
-      const cedulaUsuario = storedCedula || empleadoData?.documento || empleadoData?.document_number;
-      
-      const reservasUsuario = todasReservas.filter(
-        reserva => reserva.cedula === cedulaUsuario
-      );
-      
-      console.log('🔄 Reservas recargadas:', reservasUsuario.length);
+      const reservasUsuario = cedulaUsuario
+        ? todasReservas.filter((reserva) => String(reserva.cedula) === String(cedulaUsuario))
+        : [];
+
       setReservations(reservasUsuario);
     } catch (err) {
-      console.error('Error al recargar reservas:', err);
+      console.error("Error al recargar reservas:", err);
+      setReservations([]);
     }
-  };
+  }, [profileData]);
 
-  // Callback cuando se verifica la asistencia
-  const handleVerified = (reservaActualizada) => {
-    console.log('✅ Asistencia verificada, recargando reservas...');
+  useRealtimeSync(() => {
     reloadReservations();
-  };
-
+  });
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         setLoading(true);
-        
-        let empleadoData = null;
-        const storedEmpleado = localStorage.getItem('empleadoData');
-        const storedCedula = localStorage.getItem('cedula');
-        
-        if (storedEmpleado) {
+
+        let empleadoData = profileData;
+        const storedEmpleado = localStorage.getItem("empleadoData");
+        const storedCedula = localStorage.getItem("cedula");
+
+        if (!empleadoData && storedEmpleado) {
           empleadoData = JSON.parse(storedEmpleado);
           setProfileData(empleadoData);
-        } else if (storedCedula) {
-          
+        } else if (!empleadoData && storedCedula) {
           const response = await axios.get(
             `https://apialohav2.crepesywaffles.com/buk/empleados3?documento=${storedCedula}`
           );
           empleadoData = response.data.data[0];
           setProfileData(empleadoData);
-          localStorage.setItem('empleadoData', JSON.stringify(empleadoData));
+          localStorage.setItem("empleadoData", JSON.stringify(empleadoData));
         }
-        
-      
-        const todasReservas = getReservas();
-        const cedulaUsuario = storedCedula || empleadoData?.documento || empleadoData?.document_number;
-        
-        console.log('🔍 Debug - Cedula usuario:', cedulaUsuario);
-        console.log('📋 Total reservas:', todasReservas.length);
-        console.log('📋 Reservas en sistema:', todasReservas.map(r => ({ cedula: r.cedula, nombre: r.nombre })));
-        
-        const reservasUsuario = todasReservas.filter(
-          reserva => reserva.cedula === cedulaUsuario
-        );
-        
-        console.log('✅ Reservas filtradas para usuario:', reservasUsuario.length);
-        
-        setReservations(reservasUsuario);
-        
-        setLoading(false);
+
+        reloadReservations();
       } catch (err) {
-        console.error("Error fetching profile:", err);
+        console.error(err);
         setError("Error al cargar los datos del perfil");
+      } finally {
         setLoading(false);
       }
     };
 
     fetchProfile();
-  }, []);
+  }, [profileData, reloadReservations]);
 
-  
-  const columns = [
-    {
-      title: "Fecha",
-      dataIndex: "fecha",
-      key: "fecha",
-      render: (fecha) => (
-        <span>
-          <CalendarOutlined className="panel-table-icon" />
-          {new Date(fecha).toLocaleDateString('es-CO', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          })}
-        </span>
-      ),
-      sorter: (a, b) => new Date(a.fecha) - new Date(b.fecha),
-    },
-    {
-      title: "Estado",
-      dataIndex: "estado",
-      key: "estado",
-      filters: [
-        { text: "Pendiente", value: "Pendiente" },
-        { text: "Confirmada", value: "Confirmada" },
-        { text: "Cancelada", value: "Cancelada" },
-      ],
-      onFilter: (value, record) => record.estado === value,
-      render: (estado) => {
-        let color = "";
-        switch (estado) {
-          case "Pendiente":
-            color = "orange";
-            break;
-          case "Confirmada":
-            color = "green";
-            break;
-          case "Cancelada":
-            color = "red";
-            break;
-          default:
-            color = "default";
-        }
-        return <Tag color={color}>{estado}</Tag>;
-      },
-    },
-    {
-      title: "Escritorio",
-      dataIndex: "escritorio",
-      key: "escritorio",
-      render: (escritorio) => (
-        <span>
-          <DesktopOutlined className="panel-table-icon" />
-          {escritorio}
-        </span>
-      ),
-    },
-    {
-      title: "Turno",
-      dataIndex: "turno",
-      key: "turno",
-      render: (turno) => (
-        <span>
-          <ClockCircleOutlined className="panel-table-icon" />
-          {turno}
-        </span>
-      ),
-    },
-    {
-      title: "Acción",
-      key: "accion",
-      align: "center",
-      render: (_, record) => (
-        <VerificacionAsistencia 
-          reserva={record} 
-          onVerified={handleVerified}
-        />
-      ),
-    },
-  ];
+  const filtros = ["Todos", "Pendiente", "Confirmada", "Cancelada"];
+  const reservasFiltradas =
+    filtroEstado === "Todos"
+      ? reservations
+      : reservations.filter((r) => r.estado === filtroEstado);
 
   if (loading) {
     return (
-      <div className="panel-loading">
-        <Spin size="large" tip="Cargando información..." />
+      <div className="page-wrapper">
+        <div className="bienvenida-card">
+          <p className="text-muted">Cargando informacion...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="panel-error">
-        <Alert message="Error" description={error} type="error" showIcon />
+      <div className="page-wrapper">
+        <div className="bienvenida-card">
+          <p className="text-muted" style={{ color: "#c0392b" }}>
+            {error}
+          </p>
+        </div>
       </div>
     );
   }
 
-  // Verificar si el usuario es administrador
-  const isAdmin = profileData?.document_number === '1019096266' || profileData?.documento === '1019096266';
-  
-  console.log('🔍 Debug Admin:', {
-    document_number: profileData?.document_number,
-    documento: profileData?.documento,
-    isAdmin: isAdmin,
-    profileData: profileData
-  });
-
   return (
-    <div className="panel-container">
-      {/* Navbar del administrador */}
-      {isAdmin && (
-        <Card
-          className="admin-navigation-bar"
-          bordered={false}
-          style={{
-            marginBottom: '24px',
-            background: '#ffffff',
-            borderRadius: '12px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          }}
-        >
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '12px 16px',
-            flexWrap: 'wrap',
-            gap: '16px',
-          }}>
-            {/* Logo y título */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-            }}>
-              <div style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '12px',
-                background: 'linear-gradient(135deg, #fb923c, #f97316)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 4px 12px rgba(249, 115, 22, 0.3)',
-              }}>
-                <SettingOutlined style={{ fontSize: '24px', color: 'white' }} />
-              </div>
-              <div>
-                <h3 style={{ 
-                  margin: 0, 
-                  color: '#1c1917', 
-                  fontSize: '18px', 
-                  fontWeight: '800',
-                  letterSpacing: '-0.5px'
-                }}>
-                  Crepe-Working Admin
-                </h3>
-                <p style={{ 
-                  margin: 0, 
-                  color: '#78716c', 
-                  fontSize: '13px',
-                  fontWeight: '500'
-                }}>
-                  Sistema de Gestión de Reservas
-                </p>
-              </div>
-            </div>
+    <div className="page-wrapper" style={{ alignItems: "flex-start", padding: "24px" }}>
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "960px",
+          margin: "0 auto",
+          display: "flex",
+          flexDirection: "column",
+          gap: "20px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <h1 className="bienvenida-saludo" style={{ margin: 0, fontSize: "1.4rem" }}>
+            Mi <span className="text-accent">Panel</span>
+          </h1>
+          <button
+            className="btn-outline reservas-btn-atras"
+            onClick={() => navigate(-1)}
+            style={{ display: "flex", alignItems: "center", gap: "6px" }}
+          >
+            <IconArrowLeft /> Atras
+          </button>
+        </div>
 
-            {/* Navegación central */}
-            <div style={{
-              display: 'flex',
-              gap: '8px',
-              background: '#fafaf9',
-              padding: '6px',
-              borderRadius: '10px',
-              border: '1px solid #e7e5e4',
-            }}>
-              <button
-                style={{
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #fb923c, #f97316)',
-                  color: 'white',
-                  fontWeight: '700',
-                  fontSize: '14px',
-                  cursor: 'default',
-                  boxShadow: '0 2px 8px rgba(249, 115, 22, 0.3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
-              >
-                <UserOutlined /> Mi Panel
-              </button>
-              <button
-                onClick={() => navigate('/admin', { state: { datosEmpleado: profileData } })}
-                style={{
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: 'transparent',
-                  color: '#57534e',
-                  fontWeight: '600',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = 'white';
-                  e.target.style.color = '#f97316';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'transparent';
-                  e.target.style.color = '#57534e';
-                }}
-              >
-                <DashboardOutlined /> Admin Panel
-              </button>
-            </div>
-
-            {/* Usuario y acciones */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-            }}>
-              <div style={{
-                textAlign: 'right',
-                marginRight: '8px',
-              }}>
-                <div style={{
-                  fontSize: '14px',
-                  fontWeight: '700',
-                  color: '#1c1917',
-                }}>
-                  {profileData?.nombre?.split(' ')[0] || 'Administrador'}
-                </div>
-                <div style={{
-                  fontSize: '12px',
-                  color: '#78716c',
-                  fontWeight: '500',
-                }}>
-                  Administrador
-                </div>
-              </div>
-              {profileData?.foto && profileData.foto !== 'null' ? (
-                <Avatar 
-                  src={profileData.foto} 
-                  size={44}
-                  style={{ 
-                    border: '2px solid #fed7aa',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                  }}
-                />
+        <div style={{ display: "flex", gap: "20px", alignItems: "flex-start", flexWrap: "wrap" }}>
+          <div className="bienvenida-card" style={{ width: "280px", flexShrink: 0 }}>
+            <div className="bienvenida-avatar">
+              {profileData?.foto && profileData.foto !== "null" ? (
+                <img src={profileData.foto} alt="Foto" className="bienvenida-foto" />
               ) : (
-                <Avatar 
-                  icon={<UserOutlined />} 
-                  size={44}
-                  style={{ 
-                    background: 'linear-gradient(135deg, #fb923c, #f97316)',
-                    border: '2px solid #fed7aa',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                  }}
-                />
+                <div className="bienvenida-foto-placeholder">
+                  <IconUser />
+                </div>
               )}
             </div>
-          </div>
-        </Card>
-      )}
 
-      {/* Profile Section */}
-      <Card
-        className="panel-profile-card"
-        bordered={false}
-      >
-        <div className="panel-profile-content">
-          <div className="panel-avatar">
-            <Avatar
-              icon={<UserOutlined />}
-              src={profileData?.foto !== "null" ? profileData?.foto : null}
-            />
-          </div>
-          <div className="panel-profile-info">
-            <h2 className="panel-profile-name">
-              {profileData?.nombre || "Usuario"}
-            </h2>
-            <div className="panel-profile-details">
-              <p>
-                <strong>Cédula:</strong> {profileData?.documento || profileData?.document_number || "N/A"}
-              </p>
-              <p>
-                <strong>Cargo:</strong> {profileData?.cargo || "N/A"}
-              </p>
-              <p>
-                <strong>Área:</strong> {profileData?.area_nombre || "N/A"}
-              </p>
+            <h1 className="bienvenida-saludo">
+              Hola, <span className="text-accent">{profileData?.nombre?.split(" ")[0]}</span>
+            </h1>
+            <p className="text-muted bienvenida-sub">Bienvenido a tu espacio de trabajo</p>
+
+            <div className="bienvenida-info">
+              <div>
+                <div className="text-label">Cargo y Area</div>
+                <div className="bienvenida-cargo">{profileData?.cargo || "N/A"}</div>
+                <div className="text-muted">{profileData?.area_nombre || "N/A"}</div>
+              </div>
+              <div className="bienvenida-divider" />
+              <div>
+                <div className="text-label">Cedula</div>
+                <div className="text-body">
+                  {profileData?.documento || profileData?.document_number || "N/A"}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </Card>
 
-      {/* Reservations Table */}
-      <Card
-        className="panel-reservations-card"
-        title={<span className="panel-reservations-title">Mis Reservas</span>}
-        bordered={false}
-        extra={
-          <Space>
-            <Button 
-              type="primary" 
-              icon={<PlusOutlined />}
-              onClick={() => navigate('/reservas')}
-              className="panel-new-reservation-btn"
+            <button
+              className="btn-continuar"
+              onClick={() => navigate("/reservas", { state: { datosEmpleado: profileData } })}
+              style={{ width: "100%", marginTop: "12px" }}
             >
               Nueva Reserva
-            </Button>
-            <Button 
-              type="default" 
-              icon={<LogoutOutlined />}
-              onClick={() => navigate('/validar_cedula')}
-              className="panel-logout-btn"
+            </button>
+          </div>
+
+          <div className="bienvenida-card" style={{ flex: 1, minWidth: "320px", padding: "20px 24px" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "16px",
+                flexWrap: "wrap",
+                gap: "10px",
+              }}
             >
-              Cerrar Sesión
-            </Button>
-          </Space>
-        }
-      >
-        <Table
-          columns={columns}
-          dataSource={reservations}
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            showTotal: (total) => `Total ${total} reservas`,
-          }}
-          locale={{
-            emptyText: "No hay reservas disponibles"
-          }}
-        />
-      </Card>
+              <h2 className="bienvenida-saludo" style={{ margin: 0, fontSize: "1.1rem" }}>
+                Reservas <span className="text-accent">activas</span>
+              </h2>
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                {filtros.map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setFiltroEstado(f)}
+                    className={filtroEstado === f ? "btn-continuar" : "btn-outline reservas-btn-atras"}
+                    style={{ padding: "4px 12px", fontSize: "0.78rem" }}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {reservasFiltradas.length === 0 ? (
+              <p className="text-muted" style={{ textAlign: "center", padding: "20px 0" }}>
+                No hay reservas para este filtro.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                {reservasFiltradas.map((r) => (
+                  <div
+                    key={r.id || r.key}
+                    className="bienvenida-info"
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      padding: "12px 16px",
+                      gap: "16px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: "140px" }}>
+                      <IconCalendar />
+                      <span className="text-body">
+                        {new Date(r.fecha).toLocaleDateString("es-CO", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: "90px" }}>
+                      <IconMonitor />
+                      <span className="text-body">{r.escritorio || `Escritorio ${r.escritorioId}`}</span>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", flex: 1 }}>
+                      <IconClock />
+                      <span className="text-body">{r.turno || r.horario || `${r.horaInicio || ""} ${r.horaFin ? `- ${r.horaFin}` : ""}`.trim()}</span>
+                    </div>
+
+                    <span
+                      style={{
+                        padding: "3px 10px",
+                        borderRadius: "20px",
+                        fontSize: "0.78rem",
+                        fontWeight: "600",
+                        ...(ESTADO_STYLES[r.estado] || { background: "#eee", color: "#555" }),
+                      }}
+                    >
+                      {r.estado}
+                    </span>
+
+                    <VerificacionAsistencia reserva={r} onVerified={reloadReservations} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

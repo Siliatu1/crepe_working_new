@@ -8,149 +8,75 @@ const Politicas = () => {
   const [aceptado, setAceptado] = useState(false);
 
   const handleAceptar = () => {
-    if (aceptado) {
-      navigate('/reservas', { state: { datosEmpleado } });
-    }
+    if (aceptado) navigate("/reservas", { state: { datosEmpleado } });
   };
 
-  const handleCancelar = () => {
-    navigate('/');
-  };
+  const politicas = [
+    {
+      titulo: "Límite de reservas",
+      descripcion: (
+        <>Puedes reservar <strong>máximo 2 espacios</strong> por día en horarios diferentes</>
+      ),
+    },
+    {
+      titulo: "Espacio compartido",
+      descripcion: "Mantén conversaciones en voz baja y usa audífonos. Para reuniones, reserva una sala privada desde tu Outlook",
+    },
+    {
+      titulo: "Confirmación",
+      descripcion: "Si en los primeros 15 minutos no se confirma la reserva, esta será cancelada automáticamente",
+    },
+  ];
 
   return (
-    <div className="politicas-card">
-      <div className="politicas-header">
-        <h1 className="politicas-titulo">Políticas de reserva</h1>
-        <p className="politicas-subtitulo">Lee las condiciones antes de continuar</p>
-      </div>
+    <div className="page-wrapper">
+      <div className="bienvenida-card">
 
-      <div className="politicas-content">
-        {/* Disponibilidad de salas */}
-        <div className="seccion">
-          <div className="seccion-header">
-            <span className="icono"></span>
-            <h2>Disponibilidad de salas</h2>
-          </div>
-          <div className="seccion-contenido">
-            <div className="item-disponibilidad">
-              <span className="indicador verde">●</span>
-              <span className="texto-disponibilidad">
-                <strong>Verde</strong> Disponibilidad completa (medio turno o turno completo).
-              </span>
+        {/* Encabezado */}
+        <h1 className="bienvenida-saludo">
+          Políticas de <span className="text-accent">reserva</span>
+        </h1>
+        <p className="text-muted bienvenida-sub">Lee las condiciones antes de continuar</p>
+
+        {/* Lista de políticas */}
+        <div className="bienvenida-info" style={{ gap: "0" }}>
+          {politicas.map((p, i) => (
+            <div key={i}>
+              {i > 0 && <div className="bienvenida-divider" />}
+              <div style={{ padding: "8px 0" }}>
+                <div className="text-label" style={{ marginBottom: "6px" }}>
+                  {p.titulo}
+                </div>
+                <p className="text-body" style={{ margin: 0, lineHeight: "1.55" }}>
+                  {p.descripcion}
+                </p>
+              </div>
             </div>
-            <div className="item-disponibilidad">
-              <span className="indicador amarillo">●</span>
-              <span className="texto-disponibilidad">
-                <strong>Amarillo</strong> Disponibilidad limitada (un turno).
-              </span>
-            </div>
-            <div className="item-disponibilidad">
-              <span className="indicador rojo">●</span>
-              <span className="texto-disponibilidad">
-                <strong>Rojo</strong> Sin disponibilidad — busca otro espacio.
-              </span>
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* Turnos disponibles */}
-        <div className="seccion">
-          <div className="seccion-header">
-            <span className="icono"></span>
-            <h2>Turnos disponibles</h2>
-          </div>
-          <div className="seccion-contenido">
-            <div className="item-turno">
-              <span className="punto">●</span>
-              <span className="texto-turno">
-                <strong>Turno completo</strong> Todo el día.
-              </span>
-            </div>
-            <div className="item-turno">
-              <span className="punto">●</span>
-              <span className="texto-turno">
-                <strong>Medio turno AM</strong> 8:00 a.m. a 1:00 p.m.
-              </span>
-            </div>
-            <div className="item-turno">
-              <span className="punto">●</span>
-              <span className="texto-turno">
-                <strong>Medio turno PM</strong> 1:00 p.m. a 5:00 p.m.
-              </span>
-            </div>
-          </div>
-
-          {/* Límite de reservas */}
-          <div className="seccion-header">
-            <span className="icono"></span>
-            <h2>Límite de reservas</h2>
-          </div>
-          <div className="seccion-contenido">
-            <div className="item-limite">
-              <span className="punto">●</span>
-              <span className="texto-limite">
-                <strong>Máximo 2 espacios</strong> por usuario en horarios diferentes.
-              </span>
-            </div>
-          </div>
-
-          {/* Espacio compartido */}
-          <div>
-            <div className="seccion-header">
-              <span className="icono"></span>
-              <h2>Espacio compartido</h2>
-            </div>
-            <div className="seccion-contenido">
-              <div className="item-compartido">
-                <span className="punto">●</span>
-                <span className="texto-compartido">
-                  <strong>Volumen bajo</strong> Mantén conversaciones en voz baja y usa audífonos.
-                </span>
-              </div>
-              <div className="item-compartido">
-                <span className="punto">●</span>
-                <span className="texto-compartido">
-                  <strong>Reuniones</strong> Para reuniones, reserva una sala privada desde tu Outlook.
-                </span>
-              </div>
-              <div className="item-compartido">
-                <span className="punto">●</span>
-                <span className="texto-compartido">
-                  <strong>Nota:</strong> Si al pasar 15 minutos de la hora de tu reserva no se ha confirmado, esta será cancelada y quedará disponible para otro usuario.
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="politicas-footer">
-        <label className="checkbox-container">
+        {/* Aceptar */}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}>
           <input
             type="checkbox"
+            id="aceptar"
             checked={aceptado}
             onChange={(e) => setAceptado(e.target.checked)}
           />
-          <span className="checkbox-texto">
-            He leído y acepto las <span className="enlace-politicas">políticas</span> de uso de los espacios.
-          </span>
-        </label>
-
-        <div className="botones-container">
-          <button
-            className="btn-cancelar"
-            onClick={handleCancelar}
-          >
-            Cancelar
-          </button>
-          <button
-            className={`btn-continuar ${!aceptado ? 'deshabilitado' : ''}`}
-            onClick={handleAceptar}
-            disabled={!aceptado}
-          >
-            Continuar
-          </button>
+          <label htmlFor="aceptar" className="checkbox-texto text-body" style={{ cursor: "pointer" }}>
+            He leído y acepto las políticas
+          </label>
         </div>
+
+        <button
+          className={`btn-continuar${!aceptado ? " btn-continuar--disabled" : ""}`}
+          onClick={handleAceptar}
+          disabled={!aceptado}
+          style={{ width: "100%", marginTop: "12px" }}
+        >
+          Continuar
+        </button>
+
       </div>
     </div>
   );

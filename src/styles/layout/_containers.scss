@@ -1,87 +1,16 @@
 // ========================================
 // LAYOUT - Contenedores y estructura
+// (Limpiado — clases migradas a _components.scss)
 // ========================================
 
 @use '../abstracts/variables' as *;
 @use '../abstracts/mixins' as *;
 
-// Cards base
-%card-base {
-  background: white;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-md;
-  padding: $spacing-4xl;
-  width: 100%;
-  text-align: center;
-}
-
-.login-card {
-  @extend %card-base;
-  width: min(95vw, 1600px);
-  max-width: 400px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: $spacing-4xl;
-  @include slide-in;
-
-  @include respond-to('sm') {
-    padding: $spacing-3xl $spacing-xl;
-    max-width: 100%;
-  }
-}
-
-.bienvenida-card {
-  @extend %card-base;
-  max-width: 500px;
-  @include fade-in-scale;
-
-  @include respond-to('sm') {
-    padding: $spacing-3xl $spacing-xl;
-    max-width: 100%;
-  }
-}
-
-.politicas-card {
-  background: linear-gradient(to bottom, $accent-white, $primary-cream);
-  border: 3px solid $accent-brown;
-  border-radius: $radius-xl;
-  padding: $spacing-3xl;
-  max-width: 550px;
-  width: 100%;
-  box-shadow: $shadow-lg;
-
-  @include respond-to('sm') {
-    padding: $spacing-xl;
-  }
-}
-
-// Contenedor de política
+// Contenedor de pantalla completa genérico
 .politicas-container {
   width: 100%;
   min-height: 100vh;
   @include flex-center;
   padding: $spacing-lg;
-  background: linear-gradient(135deg, $primary-cream 0%, $accent-orange 100%);
-}
-
-// Sección de políticas
-.seccion {
-  background-color: $primary-cream;
-  border-radius: $radius-md;
-  padding: $spacing-lg;
-  margin-bottom: $spacing-lg;
-  border: 1px solid $accent-orange;
-}
-
-// Header
-.politicas-header {
-  text-align: center;
-  margin-bottom: $spacing-2xl;
-}
-
-// Footer
-.politicas-footer {
-  margin-top: $spacing-xl;
+  background-color: $color-light-secondary;
 }
