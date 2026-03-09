@@ -142,23 +142,9 @@ const Panel = () => {
         {/* Layout: perfil izq + reservas der */}
         <div style={{ display: "flex", gap: "20px", alignItems: "flex-start" }}>
 
-          {/* Perfil — igual que Bienvenida */}
+          {/* Perfil — idéntico a Bienvenida */}
           <div className="bienvenida-card" style={{ width: "280px", flexShrink: 0 }}>
 
-            {/* Badge admin */}
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: "12px" }}>
-              <span style={{
-                display: "inline-flex", alignItems: "center", gap: "5px",
-                background: "rgba(127,58,20,0.1)", color: "#7F3A14",
-                border: "1px solid rgba(127,58,20,0.25)",
-                borderRadius: "20px", padding: "3px 12px",
-                fontSize: "0.72rem", fontWeight: "700", letterSpacing: "0.05em", textTransform: "uppercase"
-              }}>
-                <IconShield /> Administrador
-              </span>
-            </div>
-
-            {/* Avatar */}
             <div className="bienvenida-avatar">
               {profileData?.foto && profileData.foto !== "null" ? (
                 <img src={profileData.foto} alt="Foto" className="bienvenida-foto" />
@@ -167,13 +153,11 @@ const Panel = () => {
               )}
             </div>
 
-            {/* Nombre */}
             <h1 className="bienvenida-saludo">
-              <span className="text-accent">{profileData?.nombre?.split(" ")[0]}</span>
+              ¡Hola, <span className="text-accent">{profileData?.nombre?.split(" ")[0]}</span>!
             </h1>
-            <p className="text-muted bienvenida-sub">{profileData?.nombre}</p>
+            <p className="text-muted bienvenida-sub">Bienvenido a tu espacio de trabajo</p>
 
-            {/* Info */}
             <div className="bienvenida-info">
               <div>
                 <div className="text-label">Cargo y Área</div>
