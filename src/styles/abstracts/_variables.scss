@@ -1,76 +1,76 @@
 // ========================================
-// VARIABLES - Valores reutilizables
+// VARIABLES — Paleta Tierra (Sistema Global)
 // ========================================
 
-// COLORES - Brand Colors
-$primary-dark: #5D4E37;      // Marrón oscuro
-$primary-light: #928C7A;     // Marrón claro
-$primary-cream: #F5EBE0;     // Crema/Beige
-$accent-brown: #a0664f;      // Marrón pastel
-$accent-orange: #d4a574;     // Naranja pastel
+// ── PALETA PRINCIPAL ──────────────────────────────────────────
+$color-dark-primary:     #503629;   // Textos principales, títulos, bordes oscuros
+$color-light-primary:    #F1E4B2;   // Fondos de secciones / elementos suaves
+$color-dark-secondary:   #3C1F1C;   // Textos muy oscuros, hover, énfasis
+$color-light-secondary:  #FFFFFF;   // Fondo principal de la app (blanco)
 
-// COLORES - Status
-$color-success: #4caf50;     // Verde
-$color-warning: #ffc107;     // Amarillo
-$color-error: #f44336;       // Rojo
+// ── PALETA SECUNDARIA DIGITAL (Acentos) ───────────────────────
+$color-accent-deep:      #7F3A14;   // Botón primario base
+$color-accent-medium:    #995A1F;   // Botón primario alternativo
+$color-accent-warm:      #CC8A22;   // Focus de inputs, acentos interactivos
+$color-accent-gold:      #F0B44E;   // Detalles, highlights
+$color-accent-muted:     #92614F;   // Elementos secundarios
+$color-accent-soft:      #FDF3CB;   // Fondos muy suaves de acentos
 
-// COLORES - Neutral
-$color-dark: #333333;        // Gris oscuro
-$color-light: #f5f5f5;       // Gris claro
-$color-text: #555555;        // Texto
-$color-border: #e0e0e0;      // Borde
+// Alias funcionales
+$color-btn-primary:         $color-accent-deep;
+$color-btn-primary-hover:   $color-dark-secondary;
+$color-btn-outline-border:  $color-dark-primary;
+$color-btn-outline-text:    $color-dark-primary;
+$color-focus:               $color-accent-warm;
 
-// TIPOGRAFÍA
-$font-family-base: system-ui, Avenir, Helvetica, Arial, sans-serif;
-$font-family-display: 'Arial Black', 'Arial Bold', sans-serif;
-$font-weight-regular: 400;
-$font-weight-medium: 500;
+// ── ESTADO ────────────────────────────────────────────────────
+$color-success: #4caf50;
+$color-warning: #ffc107;
+$color-error:   #f44336;
+
+// ── TIPOGRAFÍA ────────────────────────────────────────────────
+$font-family-base:    'DM Sans', sans-serif;    // Cuerpo / párrafos
+$font-family-display: 'Sora', sans-serif;       // Títulos / labels / nombres
+
+$font-weight-regular:  400;
+$font-weight-medium:   500;
 $font-weight-semibold: 600;
-$font-weight-bold: 700;
-$font-weight-black: 900;
+$font-weight-bold:     700;
+$font-weight-black:    900;
 
-// TAMAÑOS DE FUENTE
-$font-size-xs: 13px;
-$font-size-sm: 14px;
-$font-size-base: 16px;
-$font-size-lg: 20px;
-$font-size-xl: 24px;
-$font-size-2xl: 28px;
-$font-size-3xl: 36px;
+$font-size-xs:   0.75rem;
+$font-size-sm:   0.875rem;
+$font-size-base: 1rem;
+$font-size-lg:   1.125rem;
+$font-size-xl:   1.25rem;
+$font-size-2xl:  1.5rem;
+$font-size-3xl:  1.875rem;
 
-// ESPACIADO
-$spacing-xs: 4px;
-$spacing-sm: 8px;
-$spacing-md: 12px;
-$spacing-lg: 16px;
-$spacing-xl: 20px;
+// ── ESPACIADO ─────────────────────────────────────────────────
+$spacing-xs:  4px;
+$spacing-sm:  8px;
+$spacing-md:  12px;
+$spacing-lg:  16px;
+$spacing-xl:  20px;
 $spacing-2xl: 24px;
-$spacing-3xl: 30px;
+$spacing-3xl: 32px;
 $spacing-4xl: 40px;
 
-// BORDER RADIUS
-$radius-sm: 8px;
-$radius-md: 12px;
-$radius-lg: 16px;
-$radius-xl: 20px;
-$radius-full: 50%;
+// ── BORDES / RADIOS (unificados) ──────────────────────────────
+$radius-sm:   8px;
+$radius-md:   12px;
+$radius-lg:   16px;
+$radius-xl:   24px;
+$radius-full: 999px;
 
-// SOMBRAS
-$shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.2);
-$shadow-md: 0 10px 40px rgba(0, 0, 0, 0.2);
-$shadow-lg: 0 8px 20px rgba(0, 0, 0, 0.15);
-$shadow-primary: 0 4px 12px rgba(93, 78, 55, 0.3);
-$shadow-primary-lg: 0 6px 20px rgba(93, 78, 55, 0.4);
-$shadow-accent: 0 4px 8px rgba(212, 165, 116, 0.3);
-$shadow-accent-lg: 0 6px 12px rgba(212, 165, 116, 0.4);
+// ── SOMBRA ÚNICA GLOBAL ───────────────────────────────────────
+$shadow-card: 0 2px 12px rgba(80, 54, 41, 0.10);
 
-// TRANSICIONES
-$transition-fast: 0.25s;
-$transition-base: 0.3s;
-$transition-slow: 0.5s;
-$transition-easing: ease;
+// ── TRANSICIONES ─────────────────────────────────────────────
+$transition-fast: 0.2s ease;
+$transition-base: 0.3s ease;
 
-// BREAKPOINTS (Mobile First)
+// ── BREAKPOINTS ──────────────────────────────────────────────
 $breakpoint-sm: 480px;
 $breakpoint-md: 768px;
 $breakpoint-lg: 1024px;

@@ -97,7 +97,7 @@
 
 // Transiciones
 @mixin transition-all($duration: $transition-base) {
-  transition: all $duration $transition-easing;
+  transition: all $duration ease;
 }
 
 // Estado Hover

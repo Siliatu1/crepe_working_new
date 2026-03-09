@@ -34,6 +34,7 @@ body {
   @include flex-center;
   min-width: 320px;
   min-height: 100vh;
+  font-family: $font-family-base;
 }
 
 // Reset

@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { BsShieldCheck, BsPersonBadge } from "react-icons/bs";
 
-
 const ValidarCedula = () => {
   const navigate = useNavigate();
   const [cedula, setCedula] = useState("");
@@ -14,7 +13,7 @@ const ValidarCedula = () => {
 
   const handleUsuario = async (e) => {
     e.preventDefault();
-    
+
     if (!cedula.trim()) {
       setError("Por favor ingrese el número de cédula");
       return;
@@ -25,27 +24,21 @@ const ValidarCedula = () => {
 
     try {
       const response = await axios.get(
-        `https://apialohav2.crepesywaffles.com/buk/empleados3?documento=${cedula}`,
-     
+        `https://apialohav2.crepesywaffles.com/buk/empleados3?documento=${cedula}`
       );
 
       const empleado = response.data.data[0];
-
       const fechaHoraIngreso = new Date();
-   
-      console.log("Respuesta de la API:", response.data.data);
-      
-      // Store employee data in localStorage
-      localStorage.setItem('empleadoData', JSON.stringify(empleado));
-      localStorage.setItem('cedula', cedula);
 
-      navigate('/bienvenida', { 
-        state: { 
+      localStorage.setItem("empleadoData", JSON.stringify(empleado));
+      localStorage.setItem("cedula", cedula);
+
+      navigate("/bienvenida", {
+        state: {
           datosEmpleado: empleado,
-          fechaHoraIngreso: fechaHoraIngreso.toISOString()
-        } 
+          fechaHoraIngreso: fechaHoraIngreso.toISOString(),
+        },
       });
-   
     } catch (error) {
       console.error(error);
       setError("Error al validar la cédula. Por favor intente nuevamente.");
@@ -55,16 +48,15 @@ const ValidarCedula = () => {
   };
 
   const handleCedulaChange = (e) => {
-    
     const value = e.target.value.replace(/\D/g, "");
     setCedula(value);
   };
 
   return (
-    
+    <div className="page-wrapper">
       <div className="login-card">
         <h1 className="login-title">Crepe-Working</h1>
-        
+
         <form onSubmit={handleUsuario} className="login-form">
           <div className="form-group">
             <label htmlFor="cedula" className="form-label">
@@ -94,6 +86,7 @@ const ValidarCedula = () => {
           </button>
         </form>
       </div>
+    </div>
   );
 };
 
