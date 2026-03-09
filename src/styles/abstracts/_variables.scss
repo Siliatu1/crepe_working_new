@@ -1,14 +1,10 @@
-// ========================================
-// VARIABLES — Paleta Tierra (Sistema Global)
-// ========================================
-
-// ── PALETA PRINCIPAL ──────────────────────────────────────────
+// PRINCIPAL
 $color-dark-primary:     #503629;   // Textos principales, títulos, bordes oscuros
-$color-light-primary:    #F1E4B2;   // Fondos de secciones / elementos suaves
+$color-light-primary:    transparent;   // Fondos de secciones / elementos suaves
 $color-dark-secondary:   #3C1F1C;   // Textos muy oscuros, hover, énfasis
 $color-light-secondary:  #FFFFFF;   // Fondo principal de la app (blanco)
 
-// ── PALETA SECUNDARIA DIGITAL (Acentos) ───────────────────────
+// SECUNDARIA
 $color-accent-deep:      #7F3A14;   // Botón primario base
 $color-accent-medium:    #995A1F;   // Botón primario alternativo
 $color-accent-warm:      #CC8A22;   // Focus de inputs, acentos interactivos
@@ -23,12 +19,12 @@ $color-btn-outline-border:  $color-dark-primary;
 $color-btn-outline-text:    $color-dark-primary;
 $color-focus:               $color-accent-warm;
 
-// ── ESTADO ────────────────────────────────────────────────────
+// ESTADO
 $color-success: #4caf50;
 $color-warning: #ffc107;
 $color-error:   #f44336;
 
-// ── TIPOGRAFÍA ────────────────────────────────────────────────
+// TIPOGRAFÍA
 $font-family-base:    'DM Sans', sans-serif;    // Cuerpo / párrafos
 $font-family-display: 'Sora', sans-serif;       // Títulos / labels / nombres
 
@@ -46,7 +42,7 @@ $font-size-xl:   1.25rem;
 $font-size-2xl:  1.5rem;
 $font-size-3xl:  1.875rem;
 
-// ── ESPACIADO ─────────────────────────────────────────────────
+// ESPACIADO
 $spacing-xs:  4px;
 $spacing-sm:  8px;
 $spacing-md:  12px;
@@ -56,21 +52,21 @@ $spacing-2xl: 24px;
 $spacing-3xl: 32px;
 $spacing-4xl: 40px;
 
-// ── BORDES / RADIOS (unificados) ──────────────────────────────
+// BORDES / RADIOS
 $radius-sm:   8px;
 $radius-md:   12px;
 $radius-lg:   16px;
 $radius-xl:   24px;
 $radius-full: 999px;
 
-// ── SOMBRA ÚNICA GLOBAL ───────────────────────────────────────
+// SOMBRA
 $shadow-card: 0 2px 12px rgba(80, 54, 41, 0.10);
 
-// ── TRANSICIONES ─────────────────────────────────────────────
+// TRANSICIONES
 $transition-fast: 0.2s ease;
 $transition-base: 0.3s ease;
 
-// ── BREAKPOINTS ──────────────────────────────────────────────
+// BREAKPOINTS
 $breakpoint-sm: 480px;
 $breakpoint-md: 768px;
 $breakpoint-lg: 1024px;
