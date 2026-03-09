@@ -37,7 +37,7 @@ const SILLAS = [
   { id: 6, top: '75%',  right: '15%', rotate: '210deg' },
 ];
 
-// ── SVG Icons ──────────────────────────────────────────────
+//ICONOS
 const IconChevronLeft = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
 );
@@ -48,179 +48,266 @@ const IconArrowLeft = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
 );
 const IconCoffee = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="brown" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/>
     <line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/>
   </svg>
 );
 const IconCalendar = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="brown" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
 );
 const IconMonitorLeyenda = () => (
   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
 );
 const IconMonitorCard = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-);
-const IconX = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-);
-const IconUser = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
 );
 const IconUserCard = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a8a29e" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
 );
 
-const ESTADO_LABEL = { disponible: 'DISPONIBLE', limitado: 'DISPONIBILIDAD LIMITADA', ocupado: 'OCUPADO' };
-const ESTADO_BADGE = {
-  disponible: { bg: 'rgba(74,222,128,0.2)',  color: '#dcfce7' },
-  limitado:   { bg: 'rgba(251,191,36,0.2)',  color: '#fef9c3' },
-  ocupado:    { bg: 'rgba(156,163,175,0.2)', color: '#f3f4f6' },
-};
+const HORARIOS = [
+  { id: 'manana',   label: 'Mañana',      hora: '8:00 am – 12:00 m' },
+  { id: 'tarde',    label: 'Tarde',        hora: '1:00 pm – 5:00 pm' },
+  { id: 'completo', label: 'Día completo', hora: '8:00 am – 5:00 pm' },
+];
 
+<<<<<<< HEAD
 // ── BookingCard integrada ──────────────────────────────────
 const BookingCard = ({ escritorioId, usuario, turnoSeleccionado, onConfirm, onCancel, reservando, reservaOk, reservaErr }) => {
+=======
+// CARD — layout vertical
+const BookingCard = ({ escritorioId, usuario, reservas, onConfirm, onCancel, reservando, reservaOk, reservaErr }) => {
+  const [horarioId, setHorarioId] = React.useState('manana');
+>>>>>>> James
   if (!escritorioId) return null;
+
+  const estado       = calcEstado(reservas, escritorioId);
+  const reservasDesk = reservas.filter(r => Number(r.escritorioId) === Number(escritorioId));
+  const tieneMonitor = CON_MONITOR.includes(escritorioId);
+  const estaOcupado  = estado === STATUS.OCUPADO;
+  const horarioSel   = HORARIOS.find(h => h.id === horarioId);
 
   return (
     <div style={{
       position: 'fixed',
       bottom: '20px',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      width: '90%',
-      maxWidth: '700px',
+      right: '24px',
+      width: '272px',
       zIndex: 50,
     }}>
       <div style={{
-        background: '#1c1917',
+        background: '#000000',
         color: '#fff',
         borderRadius: '24px',
-        padding: '14px 20px',
+        overflow: 'hidden',
         boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
         border: '1px solid rgba(255,255,255,0.07)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '16px',
-        flexWrap: 'wrap',
       }}>
 
-        {/* Foto + datos del empleado */}
-        {usuario && (
+        {/* ── SECCIÓN: Reserva para ── */}
+        <div style={{ padding: '18px 18px 14px' }}>
           <div style={{
-            display: 'flex', alignItems: 'center', gap: '12px',
-            paddingRight: '16px',
-            borderRight: '1px solid rgba(255,255,255,0.1)',
-            flexShrink: 0,
+            fontSize: '0.58rem', color: '#a8a29e',
+            textTransform: 'uppercase', letterSpacing: '0.1em',
+            fontWeight: '700', marginBottom: '14px',
           }}>
-            <div style={{ position: 'relative' }}>
+            Reserva para
+          </div>
+
+          {usuario && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+              {/* Foto centrada arriba */}
               {usuario.foto && usuario.foto !== 'null' ? (
                 <img
                   src={usuario.foto}
                   alt={usuario.nombre}
                   style={{
-                    width: '46px', height: '46px',
-                    borderRadius: '12px',
-                    objectFit: 'cover',
-                    border: '2px solid rgba(255,255,255,0.12)',
+                    width: '64px', height: '64px',
+                    borderRadius: '18px', objectFit: 'cover',
+                    border: '2px solid rgba(255,255,255,0.15)',
                   }}
                 />
               ) : (
                 <div style={{
-                  width: '46px', height: '46px',
-                  borderRadius: '12px',
-                  background: '#292524',
+                  width: '64px', height: '64px',
+                  borderRadius: '18px', background: '#292524',
                   border: '2px solid rgba(255,255,255,0.08)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   <IconUserCard />
                 </div>
               )}
-              {/* Punto verde */}
-              <div style={{
-                position: 'absolute', bottom: '-2px', right: '-2px',
-                width: '12px', height: '12px',
-                background: '#22c55e',
-                border: '2px solid #1c1917',
-                borderRadius: '50%',
-              }} />
-            </div>
-            <div>
-              <div style={{ fontSize: '0.58rem', color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '700' }}>
-                Reserva para
-              </div>
-              <div style={{ fontWeight: '800', fontSize: '0.9rem', maxWidth: '170px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {usuario.nombre}
-              </div>
-              <div style={{ fontSize: '0.68rem', color: '#f97316', fontWeight: '600' }}>
-                {usuario.cargo}
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* Escritorio seleccionado */}
-        <div style={{ flex: 1, minWidth: '100px' }}>
-          <div style={{ fontSize: '0.58rem', color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '700' }}>
-            Ubicación
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-            <IconMonitorCard />
-            <span style={{ fontWeight: '800', fontSize: '1rem' }}>Escritorio {escritorioId}</span>
-          </div>
-          {reservaErr && (
-            <div style={{ fontSize: '0.68rem', color: '#fca5a5', marginTop: '2px' }}>{reservaErr}</div>
+              {/* Datos centrados abajo */}
+              <div style={{ textAlign: 'center', width: '100%' }}>
+                <div style={{
+                  fontWeight: '800', fontSize: '0.95rem',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {usuario.nombre}
+                </div>
+                <div style={{ fontSize: '0.72rem', color: '#d6d3d1', fontWeight: '600', marginTop: '3px' }}>
+                  {usuario.cargo}
+                </div>
+                <div style={{ fontSize: '0.67rem', color: '#a8a29e', fontWeight: '500', marginTop: '2px' }}>
+                  {usuario.area_nombre}
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
-        {/* Botones */}
-        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+        {/* Divider */}
+        <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '0 18px' }} />
+
+        {/* ── SECCIÓN: Ubicación ── */}
+        <div style={{ padding: '14px 18px' }}>
+          <div style={{
+            fontSize: '0.58rem', color: '#a8a29e',
+            textTransform: 'uppercase', letterSpacing: '0.1em',
+            fontWeight: '700', marginBottom: '8px',
+          }}>
+            Ubicación
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <IconMonitorCard />
+              <span style={{ fontWeight: '800', fontSize: '0.95rem' }}>Escritorio {escritorioId}</span>
+            </div>
+            {tieneMonitor && (
+              <span style={{
+                fontSize: '0.6rem', fontWeight: '700',
+                background: 'rgba(255,255,255,0.1)', padding: '2px 8px',
+                borderRadius: '999px', color: '#e7e5e4',
+              }}>Con monitor</span>
+            )}
+          </div>
+
+          {/* Personas que ya reservaron */}
+          {reservasDesk.length > 0 && (
+            <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '56px', overflowY: 'auto' }}>
+              {reservasDesk.map((r, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.67rem', color: '#a8a29e' }}>
+                  <span>🖱️</span>
+                  <span style={{ fontWeight: '600', color: '#d6d3d1' }}>{r.usuario ?? r.nombre ?? r.correo}</span>
+                  {(r.horario || r.horaInicio) && (
+                    <span style={{ color: '#78716c' }}>· {r.horario ?? `${r.horaInicio}–${r.horaFin}`}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '0 18px' }} />
+
+        {/* ── SECCIÓN: Horario ── */}
+        <div style={{ padding: '14px 18px' }}>
+          <div style={{
+            fontSize: '0.58rem', color: '#a8a29e',
+            textTransform: 'uppercase', letterSpacing: '0.1em',
+            fontWeight: '700', marginBottom: '10px',
+          }}>
+            Horario
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {HORARIOS.map(h => {
+              const sel = horarioId === h.id;
+              return (
+                <button
+                  key={h.id}
+                  onClick={() => setHorarioId(h.id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '9px 12px', borderRadius: '12px', cursor: 'pointer',
+                    border: sel ? '1.5px solid #f97316' : '1.5px solid rgba(255,255,255,0.08)',
+                    background: sel ? 'rgba(249,115,22,0.12)' : 'rgba(255,255,255,0.04)',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <span style={{ fontWeight: '700', fontSize: '0.82rem', color: sel ? '#fdba74' : '#d6d3d1' }}>
+                    {h.label}
+                  </span>
+                  <span style={{ fontSize: '0.68rem', color: sel ? '#fb923c' : '#78716c', fontWeight: '600' }}>
+                    {h.hora}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '0 18px' }} />
+
+        {/* Feedback */}
+        {(reservaErr || reservaOk) && (
+          <div style={{ padding: '10px 18px 0' }}>
+            {reservaErr && (
+              <div style={{
+                fontSize: '0.7rem', color: '#fca5a5',
+                background: 'rgba(239,68,68,0.1)', borderRadius: '8px',
+                padding: '7px 10px',
+              }}>
+                {reservaErr}
+              </div>
+            )}
+            {reservaOk && (
+              <div style={{
+                fontSize: '0.75rem', color: '#86efac',
+                background: 'rgba(34,197,94,0.1)', borderRadius: '8px',
+                padding: '7px 10px', fontWeight: '700',
+                display: 'flex', alignItems: 'center', gap: '5px',
+              }}>
+                ✓ ¡Reservado con éxito!
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── BOTONES ── */}
+        <div style={{ padding: '14px 18px', display: 'flex', gap: '8px' }}>
           <button
             onClick={onCancel}
             style={{
-              padding: '9px 16px', borderRadius: '14px',
+              flex: 1, padding: '10px 0', borderRadius: '14px',
               background: '#292524', border: 'none',
-              color: '#a8a29e', fontWeight: '700', fontSize: '0.8rem',
-              cursor: 'pointer', transition: 'background 0.15s',
+              color: '#a8a29e', fontWeight: '700', fontSize: '0.82rem',
+              cursor: 'pointer',
             }}
           >
             Cancelar
           </button>
 
-          {reservaOk ? (
-            <div style={{
-              padding: '9px 22px', borderRadius: '14px',
-              background: '#22c55e', color: '#fff',
+          <button
+            onClick={() => onConfirm(horarioSel)}
+            disabled={reservando || estaOcupado || reservaOk}
+            style={{
+              flex: 1, padding: '10px 0', borderRadius: '14px',
+              background: estaOcupado ? '#57534e' : reservaOk ? '#22c55e' : '#f97316',
+              border: 'none',
+              color: estaOcupado ? '#a8a29e' : '#fff',
               fontWeight: '800', fontSize: '0.82rem',
-              display: 'flex', alignItems: 'center', gap: '6px',
-            }}>
-              ✅ ¡Reservado!
-            </div>
-          ) : (
-            <button
-              onClick={onConfirm}
-              disabled={reservando}
-              style={{
-                padding: '9px 26px', borderRadius: '14px',
-                background: '#f97316', border: 'none', color: '#fff',
-                fontWeight: '800', fontSize: '0.85rem',
-                cursor: reservando ? 'not-allowed' : 'pointer',
-                opacity: reservando ? 0.7 : 1,
-                boxShadow: '0 0 20px rgba(249,115,22,0.4)',
-                transition: 'opacity 0.2s',
-              }}
-            >
-              {reservando ? 'Reservando…' : 'Confirmar Reserva'}
-            </button>
-          )}
+              cursor: (reservando || estaOcupado || reservaOk) ? 'not-allowed' : 'pointer',
+              opacity: reservando ? 0.7 : 1,
+              boxShadow: (!estaOcupado && !reservaOk) ? '0 0 18px rgba(249,115,22,0.35)' : 'none',
+              transition: 'opacity 0.2s, background 0.3s',
+            }}
+          >
+            {estaOcupado ? 'No disponible' : reservando ? 'Reservando…' : reservaOk ? '¡Listo!' : 'Reservar'}
+          </button>
         </div>
+
       </div>
     </div>
   );
 };
 
-// ── Componente principal ───────────────────────────────────
+// Componente principal
 export default function Reservas() {
   const today    = new Date();
   const fechaISO = today.toISOString().split('T')[0];
@@ -231,8 +318,11 @@ export default function Reservas() {
   const [diaIndex,   setDiaIndex]   = useState(today.getDay() === 0 ? 6 : today.getDay() - 1);
   const [hoverId,    setHoverId]    = useState(null);
   const [selectedId, setSelectedId] = useState(null);
+<<<<<<< HEAD
   const [modalId,    setModalId]    = useState(null);
   const [turnoSeleccionado, setTurnoSeleccionado] = useState(null);
+=======
+>>>>>>> James
   const [reservas,   setReservas]   = useState([]);
   const [loadingR,   setLoadingR]   = useState(false);
   const [reservando, setReservando] = useState(false);
@@ -276,6 +366,7 @@ export default function Reservas() {
     setReservaErr(null);
   }, [fechaISO]);
 
+<<<<<<< HEAD
   const handleReservar = async () => {
     if (!usuario || !selectedId) {
       console.warn('⚠️ No hay usuario o escritorio seleccionado');
@@ -296,6 +387,10 @@ export default function Reservas() {
       turno: turnoSeleccionado.nombre
     });
     
+=======
+  const handleReservar = async (horario) => {
+    if (!usuario || !selectedId) return;
+>>>>>>> James
     setReservando(true);
     setReservaErr(null);
     
@@ -324,6 +419,7 @@ export default function Reservas() {
         cedula: usuario.document_number,
         nombre: usuario.nombre,
         fecha: fechaISO,
+<<<<<<< HEAD
         turno: `${turnoSeleccionado.nombre} (${turnoSeleccionado.horario})`,
         escritorio: `Escritorio ${selectedId}`,
         escritorioId: selectedId,
@@ -342,6 +438,13 @@ export default function Reservas() {
       
       console.log('✅ Reserva guardada exitosamente:', nuevaReserva);
       
+=======
+        userId: usuario.document_number,
+        horario: horario?.id,
+        horaInicio: horario?.hora.split('–')[0].trim(),
+        horaFin: horario?.hora.split('–')[1].trim(),
+      });
+>>>>>>> James
       setReservaOk(true);
       cargarReservas();
       
@@ -367,10 +470,6 @@ export default function Reservas() {
     if (estado === STATUS.LIMITADO) return sillaLim;
     return sillaDis;
   };
-
-  const modalEstado   = modalId ? calcEstado(reservas, modalId) : STATUS.DISPONIBLE;
-  const reservasModal = reservas.filter(r => Number(r.escritorioId) === Number(modalId));
-  const fechaStr = today.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
     <div style={{
@@ -480,10 +579,9 @@ export default function Reservas() {
                     src={getSilla(s.id)}
                     alt={`Silla ${s.id}`}
                     onClick={() => { if (!isAvail) return; setSelectedId(isSelect ? null : s.id); setReservaErr(null); }}
-                    onDoubleClick={() => isAvail && setModalId(s.id)}
                     onMouseEnter={() => setHoverId(s.id)}
                     onMouseLeave={() => setHoverId(null)}
-                    title="Clic: seleccionar · Doble clic: ver detalle"
+                    title="Clic para seleccionar"
                     style={{
                       position: 'absolute',
                       width: isHover || isSelect ? '22%' : '18%',
@@ -541,17 +639,22 @@ export default function Reservas() {
         </div>
       </div>
 
-      {/* ── BOOKING CARD con datos del usuario logueado ── */}
+      {/* ── BOOKING CARD vertical ── */}
       <BookingCard
         escritorioId={selectedId}
         usuario={usuario}
+<<<<<<< HEAD
         turnoSeleccionado={turnoSeleccionado}
+=======
+        reservas={reservas}
+>>>>>>> James
         onConfirm={handleReservar}
         onCancel={() => { setSelectedId(null); setTurnoSeleccionado(null); setReservaErr(null); }}
         reservando={reservando}
         reservaOk={reservaOk}
         reservaErr={reservaErr}
       />
+<<<<<<< HEAD
 
       {/* ── MODAL DETALLE ── */}
       {modalId && (
@@ -682,6 +785,8 @@ export default function Reservas() {
           </div>
         </div>
       )}
+=======
+>>>>>>> James
     </div>
   );
 }
