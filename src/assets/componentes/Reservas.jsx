@@ -10,6 +10,7 @@ const API_RESERVAS = '/api/reservas';
 const STATUS = { DISPONIBLE: 'disponible', LIMITADO: 'limitado', OCUPADO: 'ocupado' };
 const DIAS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
 const CON_MONITOR = [1, 3, 6];
+const ADMINS = ['1028783377'];
 
 const calcEstado = (reservas, escritorioId) => {
   const n = reservas.filter(r => Number(r.escritorioId) === Number(escritorioId)).length;
@@ -60,6 +61,11 @@ const IconMonitorCard = () => (
 );
 const IconUserCard = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#92614F" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+);
+const IconShield = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+  </svg>
 );
 
 // ── Booking Card ─────────────────────────────────────────────
@@ -178,6 +184,8 @@ export default function Reservas() {
   const navigate = useNavigate();
   const usuario  = location.state?.datosEmpleado || null;
 
+  const esAdmin = usuario && ADMINS.includes(String(usuario.document_number));
+
   const [diaIndex,   setDiaIndex]   = useState(today.getDay() === 0 ? 6 : today.getDay() - 1);
   const [hoverId,    setHoverId]    = useState(null);
   const [selectedId, setSelectedId] = useState(null);
@@ -258,6 +266,17 @@ export default function Reservas() {
                 <IconChevronRight />
               </button>
             </div>
+
+            {esAdmin && (
+              <button
+                className="btn-continuar"
+                style={{ padding: '6px 14px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+                onClick={() => navigate('/panel', { state: { datosEmpleado: usuario } })}
+              >
+                <IconShield /> Panel
+              </button>
+            )}
+
             <button className="btn-outline reservas-btn-atras" onClick={() => navigate(-1)}>
               <IconArrowLeft /> Atrás
             </button>
