@@ -15,12 +15,12 @@ const Politicas = () => {
     {
       titulo: "Límite de reservas",
       descripcion: (
-        <>Puedes reservar <strong>máximo 2 espacios</strong> por día en horarios diferentes</>
+        <>Puedes reservar <strong>máximo 1 espacio</strong> por día</>
       ),
     },
     {
       titulo: "Espacio compartido",
-      descripcion: "Mantén conversaciones en voz baja y usa audífonos. Para reuniones, reserva una sala privada desde tu Outlook",
+      descripcion: "Mantén conversaciones en voz baja y usa audífonos. Para reuniones, reserva una sala privada",
     },
     {
       titulo: "Confirmación",
