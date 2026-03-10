@@ -3,112 +3,154 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { cancelReserva, getReservasByUsuario, RESERVAS_UPDATED_EVENT } from "../../utils/reservasService";
 import VerificacionAsistencia from "./VerificacionAsistencia";
 
-const BASE         = 'https://macfer.crepesywaffles.com';
-const API_RESERVAS = `${BASE}/api/working-reservas`;
-
-// Metadatos de horarios por ID (igual que en Reservas.jsx)
-const HORARIO_META = {
-  1: { label: 'Mañana',      hora: '8:00 am – 12:00 m' },
-  2: { label: 'Tarde',        hora: '1:00 pm – 5:00 pm' },
-  3: { label: 'Día completo', hora: '8:00 am – 5:00 pm' },
+const ESTADO_STYLES = {
+  Pendiente: { background: "#FFF3CD", color: "#856404" },
+  Confirmada: { background: "#D4EDDA", color: "#155724" },
+  Cancelada: { background: "#F8D7DA", color: "#721C24" },
 };
 
-// ── Iconos ────────────────────────────────────────────────────
+const TURNO_LABELS = {
+  manana: "Mañana (8:00 - 12:00)",
+  tarde: "Tarde (1:00 - 5:00)",
+  completo: "Día completo",
+};
+
 const IconUser = () => (
   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#92614F" strokeWidth="2" strokeLinecap="round">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-  </svg>
-);
-const IconCalendar = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CC8A22" strokeWidth="2" strokeLinecap="round">
-    <rect x="3" y="4" width="18" height="18" rx="2"/>
-    <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-  </svg>
-);
-const IconMonitor = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CC8A22" strokeWidth="2" strokeLinecap="round">
-    <rect x="2" y="3" width="20" height="14" rx="2"/>
-    <line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
-  </svg>
-);
-const IconClock = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CC8A22" strokeWidth="2" strokeLinecap="round">
-    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-  </svg>
-);
-const IconArrowLeft = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-    <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
-  </svg>
-);
-const IconTrash = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="3 6 5 6 21 6"/>
-    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-    <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
-  </svg>
-);
-const IconChevron = ({ open }) => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-    style={{ transition: 'transform 0.25s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-    <polyline points="6 9 12 15 18 9"/>
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
   </svg>
 );
 
-// ── Hook breakpoint ───────────────────────────────────────────
+const IconCalendar = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CC8A22" strokeWidth="2" strokeLinecap="round">
+    <rect x="3" y="4" width="18" height="18" rx="2" />
+    <line x1="16" y1="2" x2="16" y2="6" />
+    <line x1="8" y1="2" x2="8" y2="6" />
+    <line x1="3" y1="10" x2="21" y2="10" />
+  </svg>
+);
+
+const IconMonitor = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CC8A22" strokeWidth="2" strokeLinecap="round">
+    <rect x="2" y="3" width="20" height="14" rx="2" />
+    <line x1="8" y1="21" x2="16" y2="21" />
+    <line x1="12" y1="17" x2="12" y2="21" />
+  </svg>
+);
+
+const IconClock = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CC8A22" strokeWidth="2" strokeLinecap="round">
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+);
+
+const IconArrowLeft = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+    <line x1="19" y1="12" x2="5" y2="12" />
+    <polyline points="12 19 5 12 12 5" />
+  </svg>
+);
+
+const IconTrash = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+    <path d="M10 11v6" />
+    <path d="M14 11v6" />
+    <path d="M9 6V4h6v2" />
+  </svg>
+);
+
+const IconChevron = ({ open }) => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    style={{ transition: "transform 0.25s", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+  >
+    <polyline points="6 9 12 15 18 9" />
+  </svg>
+);
+
 const useMobile = () => {
   const [mobile, setMobile] = useState(() => window.innerWidth < 768);
+
   useEffect(() => {
-    const fn = () => setMobile(window.innerWidth < 768);
-    window.addEventListener("resize", fn);
-    return () => window.removeEventListener("resize", fn);
+    const onResize = () => setMobile(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
+
   return mobile;
+};
+
+const getDeskLabel = (reserva) => reserva.escritorio || `Escritorio ${reserva.escritorioId || ""}`.trim() || "Sin escritorio";
+
+const getShiftLabel = (reserva) => {
+  if (TURNO_LABELS[reserva.turno]) {
+    return TURNO_LABELS[reserva.turno];
+  }
+
+  if (reserva.horario) {
+    return reserva.horario;
+  }
+
+  if (reserva.horaInicio && reserva.horaFin) {
+    return `${reserva.horaInicio} - ${reserva.horaFin}`;
+  }
+
+  return "N/A";
 };
 
 const ReservaCard = ({ reserva, cancelando, onCancelar, onVerified }) => {
   const [open, setOpen] = useState(false);
   const reservaKey = reserva.key ?? reserva.id;
 
-const getHorarioId = (r) => {
-  const rel = r.attributes?.working_horarios;
-  if (!rel) return null;
-  if (rel.data) return rel.data.id;
-  if (rel.id)   return rel.id;
-  return null;
-};
-
-// ── Tarjeta mobile colapsable ─────────────────────────────────
-const ReservaCard = ({ r, cancelando, onCancelar }) => {
-  const [open, setOpen] = useState(false);
-  const hMeta = HORARIO_META[r.horarioId];
   return (
-    <div style={{
-      borderRadius: "12px",
-      border: "1px solid rgba(80,54,41,0.1)",
-      background: "#FDFAF7",
-      overflow: "hidden",
-    }}>
+    <div
+      style={{
+        borderRadius: "12px",
+        border: "1px solid rgba(80,54,41,0.1)",
+        background: "#FDFAF7",
+        overflow: "hidden",
+      }}
+    >
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={() => setOpen((value) => !value)}
         style={{
-          width: "100%", display: "flex", alignItems: "center",
-          justifyContent: "space-between", padding: "12px 14px",
-          background: "none", border: "none", cursor: "pointer",
-          textAlign: "left", fontFamily: "inherit",
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "12px 14px",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          textAlign: "left",
+          fontFamily: "inherit",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
           <IconMonitor />
           <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "#503629", whiteSpace: "nowrap" }}>
-            Escritorio {r.puestoId ?? '—'}
+            {getDeskLabel(reserva)}
           </span>
-          <span style={{
-            padding: "2px 9px", borderRadius: "20px",
-            fontSize: "0.7rem", fontWeight: 600,
-            background: "#D4EDDA", color: "#155724",
-          }}>
-            Activa
+          <span
+            style={{
+              padding: "2px 9px",
+              borderRadius: "20px",
+              fontSize: "0.7rem",
+              fontWeight: 600,
+              ...(ESTADO_STYLES[reserva.estado] || { background: "#EEE", color: "#555" }),
+            }}
+          >
+            {reserva.estado}
           </span>
         </div>
         <IconChevron open={open} />
@@ -120,18 +162,20 @@ const ReservaCard = ({ r, cancelando, onCancelar }) => {
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <IconCalendar />
               <span className="text-body" style={{ fontSize: "0.82rem" }}>
-                {new Date(r.fecha + "T12:00:00").toLocaleDateString("es-CO", { year: "numeric", month: "short", day: "numeric" })}
+                {reserva.fecha
+                  ? new Date(`${reserva.fecha}T12:00:00`).toLocaleDateString("es-CO", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })
+                  : "N/A"}
               </span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <IconClock />
               <span className="text-body" style={{ fontSize: "0.82rem" }}>
-                {hMeta ? `${hMeta.label} · ${hMeta.hora}` : '—'}
+                {getShiftLabel(reserva)}
               </span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <span style={{ fontSize: "0.82rem", color: "#92614F" }}>👤</span>
-              <span className="text-body" style={{ fontSize: "0.82rem" }}>{r.nombre}</span>
             </div>
           </div>
 
@@ -164,6 +208,7 @@ const ReservaCard = ({ r, cancelando, onCancelar }) => {
                 ) : null
               )}
             </VerificacionAsistencia>
+
             {reserva.estado === "Pendiente" && (
               <button
                 onClick={() => onCancelar(reserva)}
@@ -196,49 +241,38 @@ const ReservaCard = ({ r, cancelando, onCancelar }) => {
   );
 };
 
-// ── Panel principal ───────────────────────────────────────────
 const Panel = () => {
-  const navigate      = useNavigate();
-  const location      = useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const datosEmpleado = location.state?.datosEmpleado || null;
-  const isMobile      = useMobile();
+  const isMobile = useMobile();
 
   const [profileData, setProfileData] = useState(datosEmpleado);
-  const [loading, setLoading] = useState(Boolean(datosEmpleado));
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [reservations, setReservations] = useState([]);
-  const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState("");
-  const [cancelando,   setCancelando]   = useState(null);
+  const [filtroEstado, setFiltroEstado] = useState("Todos");
+  const [cancelando, setCancelando] = useState(null);
 
   const reloadReservations = useCallback(async (empleadoRef = null) => {
     try {
       const empleado = empleadoRef || profileData;
       const cedulaUsuario = empleado?.documento || empleado?.document_number || profileData?.documento || profileData?.document_number;
 
-      const usuario = cedulaUsuario ? await getReservasByUsuario(cedulaUsuario) : [];
+      if (!cedulaUsuario) {
+        setReservations([]);
+        return;
+      }
 
-      // Normalizar cada reserva a un objeto plano fácil de mostrar
-      const normalizadas = data.map(r => ({
-        id:       r.id,
-        nombre:   r.attributes?.Nombre    ?? r.attributes?.documento ?? '—',
-        foto:     r.attributes?.foto      ?? null,
-        documento:r.attributes?.documento ?? '—',
-        area:     r.attributes?.area      ?? '—',
-        fecha:    r.attributes?.fecha_reserva ?? '—',
-        estado:   r.attributes?.estado ? 'Cancelada' : 'Activa',
-        puestoId: getPuestoId(r),
-        horarioId:getHorarioId(r),
-      }));
-
-      setReservations(normalizadas);
+      const usuario = await getReservasByUsuario(cedulaUsuario);
+      setReservations(usuario);
+      setError("");
     } catch (err) {
-      console.error(err);
+      console.error("Error al recargar reservas:", err);
+      setReservations([]);
       setError("Error al cargar las reservas.");
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [profileData]);
 
   useEffect(() => {
     if (!profileData) {
@@ -281,192 +315,273 @@ const Panel = () => {
       }
     };
 
-    fetchProfile();
+    void fetchProfile();
   }, [datosEmpleado, reloadReservations]);
 
   const handleCancelar = async (reserva) => {
     const reservaKey = reserva?.key ?? reserva?.id;
     setCancelando(reservaKey);
+
     try {
       await cancelReserva(reservaKey, reserva);
       await reloadReservations(profileData);
     } catch (err) {
       console.error(err);
-      alert('Error al cancelar la reserva. Intenta de nuevo.');
+      setError("Error al cancelar la reserva.");
     } finally {
       setCancelando(null);
     }
   };
 
-  // Solo mostrar reservas activas (estado = false en Strapi = "Activa" aquí)
-  const activas   = reservations.filter(r => r.estado === 'Activa');
-  const canceladas = reservations.filter(r => r.estado === 'Cancelada');
+  const filtros = ["Todos", "Pendiente", "Confirmada", "Cancelada"];
+  const reservasFiltradas =
+    filtroEstado === "Todos" ? reservations : reservations.filter((reserva) => reserva.estado === filtroEstado);
 
-  if (loading) return (
-    <div className="page-wrapper">
-      <div className="bienvenida-card">
-        <p className="text-muted" style={{ textAlign: "center" }}>Cargando reservas…</p>
-      </div>
-    </div>
-  );
+  const totalPendientes = reservations.filter((reserva) => reserva.estado === "Pendiente").length;
+  const totalConfirmadas = reservations.filter((reserva) => reserva.estado === "Confirmada").length;
+  const totalCanceladas = reservations.filter((reserva) => reserva.estado === "Cancelada").length;
 
-  if (error) return (
-    <div className="page-wrapper">
-      <div className="bienvenida-card">
-        <p style={{ color: "#c0392b", textAlign: "center" }}>{error}</p>
-        <button className="btn-continuar" onClick={cargarReservas} style={{ marginTop: 12 }}>
-          Reintentar
-        </button>
+  if (loading) {
+    return (
+      <div className="page-wrapper">
+        <div className="bienvenida-card">
+          <p className="text-muted" style={{ textAlign: "center" }}>Cargando reservas...</p>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  if (error && !profileData) {
+    return (
+      <div className="page-wrapper">
+        <div className="bienvenida-card">
+          <p className="text-muted" style={{ color: "#c0392b", textAlign: "center" }}>{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="page-wrapper" style={{
-      alignItems: "flex-start",
-      overflowY: "auto",
-      padding: isMobile ? "16px" : "28px 24px",
-    }}>
-      <div style={{
-        width: "100%", maxWidth: "1040px",
-        margin: "0 auto", display: "flex",
-        flexDirection: "column", gap: "16px",
-      }}>
-
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div />
-          <button className="btn-outline reservas-btn-atras"
+    <div className="page-wrapper" style={{ alignItems: "flex-start", padding: isMobile ? "16px" : "24px" }}>
+      <div style={{ width: "100%", maxWidth: "980px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "16px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+          <h1 className="bienvenida-saludo" style={{ margin: 0, fontSize: "1.35rem" }}>
+            Mi <span className="text-accent">Panel</span>
+          </h1>
+          <button
+            className="btn-outline reservas-btn-atras"
             onClick={() => navigate(-1)}
-            style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <IconArrowLeft /> Atrás
+            style={{ display: "flex", alignItems: "center", gap: "6px" }}
+          >
+            <IconArrowLeft /> Atras
           </button>
         </div>
 
-        {/* Layout */}
-        <div style={{
-          display: "flex",
-          flexDirection: isMobile ? "column" : "row",
-          gap: "16px", alignItems: "flex-start",
-        }}>
+        {error && (
+          <div className="bienvenida-card" style={{ padding: "12px 16px", color: "#c0392b" }}>
+            {error}
+          </div>
+        )}
 
-          {/* Perfil */}
-          <div className="bienvenida-card" style={{
-            width: isMobile ? "100%" : "240px",
-            flexShrink: 0, boxSizing: "border-box",
-          }}>
+        <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: "16px", alignItems: "flex-start" }}>
+          <div className="bienvenida-card" style={{ width: isMobile ? "100%" : "280px", flexShrink: 0 }}>
             <div className="bienvenida-avatar">
               {profileData?.foto && profileData.foto !== "null" ? (
                 <img src={profileData.foto} alt="Foto" className="bienvenida-foto" />
               ) : (
-                <div className="bienvenida-foto-placeholder"><IconUser /></div>
+                <div className="bienvenida-foto-placeholder">
+                  <IconUser />
+                </div>
               )}
             </div>
-            <h1 className="bienvenida-saludo">
-              ¡Hola, <span className="text-accent">{profileData?.nombre?.split(" ")[0]}</span>!
-            </h1>
+
+            <h2 className="bienvenida-saludo" style={{ marginTop: "10px" }}>
+              Hola, <span className="text-accent">{profileData?.nombre?.split(" ")?.[0] || "Empleado"}</span>
+            </h2>
+
             <div className="bienvenida-info">
               <div>
-                <div className="text-label">Cargo y Área</div>
-                <div className="bienvenida-cargo">{profileData?.cargo}</div>
-                <div className="text-muted">{profileData?.area_nombre}</div>
+                <div className="text-label">Cargo y Area</div>
+                <div className="bienvenida-cargo">{profileData?.cargo || "N/A"}</div>
+                <div className="text-muted">{profileData?.area_nombre || "N/A"}</div>
+              </div>
+              <div className="bienvenida-divider" />
+              <div>
+                <div className="text-label">Cedula</div>
+                <div className="text-body">{profileData?.documento || profileData?.document_number || "N/A"}</div>
+              </div>
+              <div className="bienvenida-divider" />
+              <div>
+                <div className="text-label">Resumen</div>
+                <div className="text-body">Pendientes: {totalPendientes}</div>
+                <div className="text-body">Confirmadas: {totalConfirmadas}</div>
+                <div className="text-body">Canceladas: {totalCanceladas}</div>
               </div>
             </div>
-            {/* Resumen rápido */}
-            <div style={{
-              marginTop: 16, padding: "10px 14px",
-              background: "rgba(80,54,41,0.05)", borderRadius: 10,
-              display: "flex", flexDirection: "column", gap: 6,
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
-                <span className="text-muted">Activas</span>
-                <span style={{ fontWeight: 700, color: "#155724" }}>{activas.length}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
-                <span className="text-muted">Canceladas</span>
-                <span style={{ fontWeight: 700, color: "#721C24" }}>{canceladas.length}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
-                <span className="text-muted">Total</span>
-                <span style={{ fontWeight: 700, color: "#503629" }}>{reservations.length}</span>
-              </div>
-            </div>
+
+            <button
+              className="btn-continuar"
+              style={{ width: "100%", marginTop: "12px" }}
+              onClick={() => navigate("/reservas", { state: { datosEmpleado: profileData } })}
+            >
+              Nueva Reserva
+            </button>
           </div>
 
-          {/* Tabla de reservas */}
-          <div className="bienvenida-card" style={{
-            flex: 1, padding: isMobile ? "16px" : "20px 24px",
-            minWidth: 0, boxSizing: "border-box",
-            width: isMobile ? "100%" : "auto",
-          }}>
-            <div style={{
-              display: "flex", alignItems: "center",
-              justifyContent: "space-between", marginBottom: "16px",
-            }}>
-              <h2 className="bienvenida-saludo" style={{ margin: 0, fontSize: "1.05rem" }}>
-                Reservas <span className="text-accent">activas</span>
+          <div className="bienvenida-card" style={{ flex: 1, width: "100%", minWidth: 0, padding: isMobile ? "16px" : "20px 24px" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: isMobile ? "flex-start" : "center",
+                justifyContent: "space-between",
+                flexDirection: isMobile ? "column" : "row",
+                marginBottom: "16px",
+                gap: "10px",
+              }}
+            >
+              <h2 className="bienvenida-saludo" style={{ margin: 0, fontSize: "1.1rem" }}>
+                Mis <span className="text-accent">reservas</span>
               </h2>
-              <span style={{
-                padding: "3px 12px", borderRadius: 20,
-                background: "#D4EDDA", color: "#155724",
-                fontSize: "0.75rem", fontWeight: 700,
-              }}>
-                {activas.length}
-              </span>
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                {filtros.map((filtro) => (
+                  <button
+                    key={filtro}
+                    onClick={() => setFiltroEstado(filtro)}
+                    className={filtroEstado === filtro ? "btn-continuar" : "btn-outline reservas-btn-atras"}
+                    style={{ padding: "4px 12px", fontSize: "0.78rem" }}
+                  >
+                    {filtro}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {activas.length === 0 && (
-              <p className="text-muted" style={{ fontSize: "0.85rem", textAlign: "center", padding: "24px 0" }}>
-                No hay reservas activas.
+            {reservasFiltradas.length === 0 && (
+              <p className="text-muted" style={{ textAlign: "center", padding: "20px 0" }}>
+                No hay reservas para este filtro.
               </p>
             )}
 
-            {/* MOBILE */}
-            {isMobile && activas.length > 0 && (
+            {isMobile && reservasFiltradas.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                {activas.map(r => (
-                  <ReservaCard key={r.id} r={r} cancelando={cancelando} onCancelar={handleCancelar} />
+                {reservasFiltradas.map((reserva) => (
+                  <ReservaCard
+                    key={reserva.key ?? reserva.id}
+                    reserva={reserva}
+                    cancelando={cancelando}
+                    onCancelar={handleCancelar}
+                    onVerified={() => reloadReservations(profileData)}
+                  />
                 ))}
               </div>
             )}
 
-            {/* DESKTOP */}
-            {!isMobile && activas.length > 0 && (
+            {!isMobile && reservasFiltradas.length > 0 && (
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ borderBottom: "2px solid rgba(80,54,41,0.12)" }}>
-                      {["Nombre", "Fecha", "Escritorio", "Turno", ""].map(h => (
-                        <th key={h} style={{
-                          padding: "8px 12px", textAlign: "left",
-                          fontSize: "0.7rem", fontWeight: 700,
-                          color: "#92614F", textTransform: "uppercase",
-                          letterSpacing: "0.06em", whiteSpace: "nowrap",
-                        }}>{h}</th>
+                      {["Fecha", "Escritorio", "Turno", "Estado", "Acciones"].map((col) => (
+                        <th
+                          key={col}
+                          style={{
+                            padding: "8px 12px",
+                            textAlign: "left",
+                            fontSize: "0.7rem",
+                            fontWeight: 700,
+                            color: "#92614F",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.06em",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {col}
+                        </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {activas.map((r, i) => {
-                      const hMeta = HORARIO_META[r.horarioId];
+                    {reservasFiltradas.map((reserva, index) => {
+                      const reservaKey = reserva.key ?? reserva.id;
+
                       return (
-                        <tr key={r.id}
-                          style={{ borderBottom: i < activas.length - 1 ? "1px solid rgba(80,54,41,0.08)" : "none", transition: "background 0.15s" }}
-                          onMouseEnter={e => e.currentTarget.style.background = "rgba(146,97,79,0.04)"}
-                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                        <tr
+                          key={reservaKey}
+                          style={{
+                            borderBottom: index < reservasFiltradas.length - 1 ? "1px solid rgba(80,54,41,0.08)" : "none",
+                          }}
                         >
-                          {/* Nombre */}
-                          <td style={{ padding: "12px 12px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              {r.foto && r.foto !== 'null' ? (
-                                <img src={r.foto} alt={r.nombre}
-                                  style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                              ) : (
-                                <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(80,54,41,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                  <span style={{ fontSize: 12 }}>👤</span>
-                                </div>
+                          <td style={{ padding: "12px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              <IconCalendar />
+                              <span className="text-body" style={{ whiteSpace: "nowrap" }}>
+                                {reserva.fecha
+                                  ? new Date(`${reserva.fecha}T12:00:00`).toLocaleDateString("es-CO", {
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
+                                    })
+                                  : "N/A"}
+                              </span>
+                            </div>
+                          </td>
+                          <td style={{ padding: "12px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              <IconMonitor />
+                              <span className="text-body">{getDeskLabel(reserva)}</span>
+                            </div>
+                          </td>
+                          <td style={{ padding: "12px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              <IconClock />
+                              <span className="text-body" style={{ whiteSpace: "nowrap" }}>
+                                {getShiftLabel(reserva)}
+                              </span>
+                            </div>
+                          </td>
+                          <td style={{ padding: "12px" }}>
+                            <span
+                              style={{
+                                padding: "3px 10px",
+                                borderRadius: "20px",
+                                fontSize: "0.75rem",
+                                fontWeight: 600,
+                                whiteSpace: "nowrap",
+                                ...(ESTADO_STYLES[reserva.estado] || { background: "#EEE", color: "#555" }),
+                              }}
+                            >
+                              {reserva.estado}
+                            </span>
+                          </td>
+                          <td style={{ padding: "12px", display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                            <VerificacionAsistencia reserva={reserva} onVerified={() => reloadReservations(profileData)}>
+                              {({ verify, loading: verifying, metadataLoading }) => (
+                                reserva.estado === "Pendiente" ? (
+                                  <button
+                                    onClick={() => void verify()}
+                                    disabled={verifying || metadataLoading}
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "5px",
+                                      padding: "4px 10px",
+                                      borderRadius: "8px",
+                                      border: "1px solid rgba(21,87,36,0.24)",
+                                      background: "rgba(46,125,50,0.08)",
+                                      color: "#1f6f3a",
+                                      fontSize: "0.75rem",
+                                      fontWeight: 600,
+                                      cursor: verifying || metadataLoading ? "not-allowed" : "pointer",
+                                      opacity: verifying || metadataLoading ? 0.6 : 1,
+                                      fontFamily: "inherit",
+                                    }}
+                                  >
+                                    {verifying ? "Verificando..." : metadataLoading ? "Cargando..." : "Confirmar asistencia"}
+                                  </button>
+                                ) : null
                               )}
                             </VerificacionAsistencia>
+
                             {reserva.estado === "Pendiente" && (
                               <button
                                 onClick={() => handleCancelar(reserva)}
@@ -499,7 +614,6 @@ const Panel = () => {
                 </table>
               </div>
             )}
-
           </div>
         </div>
       </div>
