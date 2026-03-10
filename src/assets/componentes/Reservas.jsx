@@ -34,7 +34,6 @@ const HORARIOS = [
   { id: 'completo', label: 'Día completo', hora: '8:00 am – 5:00 pm' },
 ];
 
-// ── Iconos ────────────────────────────────────────────────────
 const IconChevronLeft = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
 );
@@ -43,6 +42,9 @@ const IconChevronRight = () => (
 );
 const IconArrowLeft = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+);
+const IconShield = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
 );
 const IconCalendar = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -60,14 +62,12 @@ const IconMonitorCard = () => (
     <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
   </svg>
 );
-
 const IconUserCardLarge = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#92614F" strokeWidth="2" strokeLinecap="round">
     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
   </svg>
 );
 
-// ── Booking Card ──────────────────────────────────────────────
 const BookingCard = ({ escritorioId, usuario, reservas, onConfirm, onCancel, reservando, reservaOk, reservaErr }) => {
   const [horarioId, setHorarioId] = React.useState('manana');
   if (!escritorioId) return null;
@@ -158,7 +158,6 @@ const BookingCard = ({ escritorioId, usuario, reservas, onConfirm, onCancel, res
   );
 };
 
-// ── Componente principal ──────────────────────────────────────
 export default function Reservas() {
   const today    = new Date();
   const fechaISO = today.toISOString().split('T')[0];
@@ -216,30 +215,21 @@ export default function Reservas() {
     return sillaDis;
   };
 
-  const diaLabel = DIAS[diaIndex].charAt(0).toUpperCase() + DIAS[diaIndex].slice(1);
+  const diaLabel   = DIAS[diaIndex].charAt(0).toUpperCase() + DIAS[diaIndex].slice(1);
   const fechaLabel = `${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}`;
 
   return (
     <div className="reservas-wrapper">
       <div className="reservas-inner">
 
-        {/* ── Navbar ─────────────────────────────────────────── */}
         <header className="reservas-header">
-
-          {/* Logo + título */}
-          <div className="reservas-header-left">  
-            <div>
-              <div className="reservas-titulo">
-                Crepe-Working <span className="text-accent">1</span>
-              </div>
-
+          <div className="reservas-header-left">
+            <div className="reservas-titulo">
+              Crepe-Working <span className="text-accent">1</span>
             </div>
           </div>
 
-          {/* Controles derecha */}
-          <div className="reservas-header-right">
-
-            {/* Navegador de día */}
+          <div className="reservas-header-right" style={{ flexWrap: 'nowrap' }}>
             <div className="reservas-dia-nav">
               <button className="reservas-dia-btn"
                 onClick={() => setDiaIndex(d => (d - 1 + DIAS.length) % DIAS.length)}>
@@ -256,28 +246,30 @@ export default function Reservas() {
               </button>
             </div>
 
-            {/* Divisor */}
             <div style={{ width: 1, height: 26, background: 'rgba(80,54,41,0.15)', flexShrink: 0 }} />
 
-            {/* Panel admin */}
+            {/* Panel — solo icono, tamaño fijo */}
             {esAdmin && (
               <button
                 className="btn-continuar"
-                style={{ padding: '7px 16px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '999px' }}
+                style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
                 onClick={() => navigate('/panel', { state: { datosEmpleado: usuario } })}
-              >Panel</button>
+              >
+                <IconShield />
+              </button>
             )}
 
-            {/* Atrás */}
-            <button className="btn-outline reservas-btn-atras" onClick={() => navigate(-1)}>
-              <IconArrowLeft /> Atrás
+            {/* Atrás — solo icono, tamaño fijo */}
+            <button className="btn-outline reservas-btn-atras"
+              style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
+              onClick={() => navigate(-1)}>
+              <IconArrowLeft />
             </button>
-
           </div>
         </header>
 
-        {/* ── Mapa ───────────────────────────────────────────── */}
-        <div className="reservas-mapa">
+        {/* CAMBIO 3: padding lateral en el mapa */}
+        <div className="reservas-mapa" style={{ padding: '0 16px' }}>
           {loadingR ? (
             <div className="reservas-loading">Cargando escritorios…</div>
           ) : (
@@ -318,26 +310,19 @@ export default function Reservas() {
           )}
         </div>
 
-        {/* ── Footer / Leyenda ───────────────────────────────── */}
         <footer className="reservas-leyenda">
-
-          {/* Badge monitor */}
           <div className="reservas-leyenda-badge">
             <IconMonitorLeyenda />
             Con monitor: Esc. 1, 3 y 6
           </div>
 
-          <div className="reservas-leyenda-sep" />
-
-          {/* Estados */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
             {[
-              { img: sillaDis, label: 'Disponible',              color: '#5a9e5a' },
-              { img: sillaLim, label: 'Disponibilidad limitada',  color: '#CC8A22' },
-              { img: sillaOcu, label: 'Ocupado',                  color: '#92614F' },
-            ].map(({ img, label, color }) => (
+              { img: sillaDis, label: 'Disponible'              },
+              { img: sillaLim, label: 'Disponibilidad limitada'  },
+              { img: sillaOcu, label: 'Ocupado'                  },
+            ].map(({ img, label }) => (
               <div key={label} className="reservas-leyenda-item">
-                <div style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
                 <img src={img} alt={label} className="reservas-leyenda-img" />
                 <span className="text-muted" style={{ fontSize: '0.77rem', fontWeight: 600 }}>{label}</span>
               </div>
@@ -346,7 +331,6 @@ export default function Reservas() {
         </footer>
       </div>
 
-      {/* Booking Card */}
       <BookingCard
         escritorioId={selectedId}
         usuario={usuario}
