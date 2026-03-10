@@ -550,7 +550,9 @@
 
 .reservas-inner {
   width: 100%;
-  background-color: #fff;
+  background-image: url('/src/assets/fondo.png');
+  background-size: cover;
+  background-position: center;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -980,5 +982,133 @@
 
   &--ok {
     background-color: #4caf50;
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// 13. SALAS — selección de sala
+// Sigue el mismo patrón que .bienvenida-card / .politicas-card
+// ══════════════════════════════════════════════════════════
+
+// Amplía bienvenida-card cuando hay varias sala-cards
+.salas-card-container {
+  width: 340px;
+  max-width: 340px;
+}
+
+// Grid interno de tarjetas de sala
+.salas-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-lg;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+  margin-top: $spacing-xs;
+}
+
+// ── Sala Card — card interna dentro de bienvenida-card ────────
+
+.salas-card {
+  width: 220px;
+  border-radius: $radius-md;
+  overflow: hidden;
+  border: 1.5px solid rgba(80, 54, 41, 0.15);
+  background-color: $color-light-secondary;
+  box-shadow: $shadow-card;
+  cursor: pointer;
+  transition: all $transition-base;
+  flex-shrink: 0;
+}
+
+.salas-card-img-wrapper {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background-color: rgba(80, 54, 41, 0.04);
+  @include flex-center;
+  overflow: hidden;
+  position: relative;
+}
+
+.salas-card-img {
+  width: 85%;
+  height: 85%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(80, 54, 41, 0.15));
+  transition: transform $transition-base;
+
+  &--hover  { transform: scale(1.05); }
+  &--disabled { filter: grayscale(0.5) opacity(0.6); }
+}
+
+.salas-card-overlay {
+  position: absolute;
+  inset: 0;
+  @include flex-center;
+  background-color: rgba(255, 255, 255, 0.55);
+}
+
+.salas-card-badge-pronto {
+  background-color: rgba(80, 54, 41, 0.08);
+  border: 1px solid rgba(80, 54, 41, 0.15);
+  color: $color-accent-muted;
+  padding: $spacing-xs $spacing-md;
+  border-radius: $radius-full;
+}
+
+.salas-card-body {
+  padding: $spacing-md $spacing-lg $spacing-lg;
+}
+
+.salas-card-nombre {
+  font-family: $font-family-display;
+  font-weight: $font-weight-bold;
+  font-size: $font-size-sm;
+  color: $color-dark-primary;
+  margin-bottom: 0;
+}
+
+.salas-card-features {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: $spacing-md;
+}
+
+.salas-card-feature {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: $color-accent-muted;
+}
+
+.salas-card-footer {
+  @include flex-between;
+  padding-top: $spacing-sm;
+  border-top: 1px solid rgba(80, 54, 41, 0.1);
+}
+
+.salas-card-disponible {
+  font-size: $font-size-xs;
+  font-weight: $font-weight-bold;
+  color: $color-accent-deep;
+  background-color: rgba(127, 58, 20, 0.08);
+  padding: 3px $spacing-sm;
+  border-radius: $radius-full;
+  letter-spacing: 0.03em;
+}
+
+.salas-card-arrow-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: $radius-full;
+  background-color: rgba(127, 58, 20, 0.1);
+  color: $color-accent-deep;
+  @include flex-center;
+  transition: background-color $transition-fast, color $transition-fast;
+
+  &--hover {
+    background-color: $color-accent-deep;
+    color: $color-light-secondary;
   }
 }
