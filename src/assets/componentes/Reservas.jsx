@@ -6,19 +6,21 @@ import sillaLim from '../../assets/sillaLim.png';
 import sillaOcu from '../../assets/sillaOcu.png';
 import mesaImg  from '../../assets/mesa.png';
 
-const API_RESERVAS = '/api/reservas';
-const STATUS = { DISPONIBLE: 'disponible', LIMITADO: 'limitado', OCUPADO: 'ocupado' };
-const DIAS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
-const CON_MONITOR = [1, 3, 6];
-const ADMINS = ['1028783377'];
+// ─── Constantes ────────────────────────────────────────────────────────────────
+const API_HORARIOS  = 'https://macfer.crepesywaffles.com/api/working-horarios';
+const API_PUESTOS   = 'https://macfer.crepesywaffles.com/api/working-puestos';
+const API_RESERVAS  = 'https://macfer.crepesywaffles.com/api/working-reservas';
+const SALA_ID       = 1; // Crepe_working1
+const CON_MONITOR   = [1, 3, 6];
+const ADMINS        = ['1028783377'];
 
-const calcEstado = (reservas, escritorioId) => {
-  const n = reservas.filter(r => Number(r.escritorioId) === Number(escritorioId)).length;
-  if (n === 0) return STATUS.DISPONIBLE;
-  if (n >= 3)  return STATUS.OCUPADO;
-  return STATUS.LIMITADO;
-};
+// IDs de horario que vienen de la API (working-horarios)
+// turno 1 = AM (id:1), turno 2 = PM (id:2), turno 3 = día completo (id:3)
+const HORARIO_AM       = 1;
+const HORARIO_PM       = 2;
+const HORARIO_COMPLETO = 3;
 
+// Posiciones de las sillas en el mapa
 const SILLAS = [
   { id: 1, top: '-5%',  left: '0%',   rotate: '-15deg' },
   { id: 2, top: '-25%', left: '45%',  rotate: '25deg'  },
@@ -28,12 +30,61 @@ const SILLAS = [
   { id: 6, top: '75%',  right: '15%', rotate: '210deg' },
 ];
 
-const HORARIOS = [
-  { id: 'manana',   label: 'Mañana',      hora: '8:00 am – 12:00 m' },
-  { id: 'tarde',    label: 'Tarde',        hora: '1:00 pm – 5:00 pm' },
-  { id: 'completo', label: 'Día completo', hora: '8:00 am – 5:00 pm' },
-];
+// Etiquetas visuales de los horarios (se mapean desde la API)
+const HORARIO_META = {
+  [HORARIO_AM]:       { label: 'Mañana',      hora: '8:00 am – 12:00 m' },
+  [HORARIO_PM]:       { label: 'Tarde',        hora: '1:00 pm – 5:00 pm' },
+  [HORARIO_COMPLETO]: { label: 'Día completo', hora: '8:00 am – 5:00 pm' },
+};
 
+// ─── Utilidades de fecha ────────────────────────────────────────────────────────
+const toISO = (date) => date.toISOString().split('T')[0];
+const toLabel = (date) => {
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm}`;
+};
+const DIAS_NOMBRE = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+
+// ─── Lógica de disponibilidad ───────────────────────────────────────────────────
+/**
+ * Dado el array de reservas del día y el id del puesto,
+ * devuelve un Set con los IDs de horario que NO se pueden reservar.
+ */
+const turnosBloqueados = (reservas, puestoId) => {
+  const bloqueados = new Set();
+  const delPuesto = reservas.filter(
+    r => r.attributes?.puesto?.data?.id === puestoId
+  );
+  delPuesto.forEach(r => {
+    const hId = r.attributes?.horario?.data?.id;
+    if (hId === HORARIO_AM) {
+      bloqueados.add(HORARIO_AM);
+      bloqueados.add(HORARIO_COMPLETO);
+    } else if (hId === HORARIO_PM) {
+      bloqueados.add(HORARIO_PM);
+      bloqueados.add(HORARIO_COMPLETO);
+    } else if (hId === HORARIO_COMPLETO) {
+      bloqueados.add(HORARIO_AM);
+      bloqueados.add(HORARIO_PM);
+      bloqueados.add(HORARIO_COMPLETO);
+    }
+  });
+  return bloqueados;
+};
+
+/**
+ * Estado visual de la silla según cuántos turnos están bloqueados.
+ * 0 bloqueados → disponible | 1-2 → limitado | 3 → ocupado
+ */
+const calcEstado = (reservas, puestoId) => {
+  const b = turnosBloqueados(reservas, puestoId).size;
+  if (b === 0) return 'disponible';
+  if (b >= 3)  return 'ocupado';
+  return 'limitado';
+};
+
+// ─── Iconos SVG ────────────────────────────────────────────────────────────────
 const IconChevronLeft = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
 );
@@ -68,19 +119,53 @@ const IconUserCardLarge = () => (
   </svg>
 );
 
-const BookingCard = ({ escritorioId, usuario, reservas, onConfirm, onCancel, reservando, reservaOk, reservaErr }) => {
-  const [horarioId, setHorarioId] = React.useState('manana');
+// ─── BookingCard ────────────────────────────────────────────────────────────────
+const BookingCard = ({
+  escritorioId, usuario, reservas, horarios,
+  onConfirm, onCancel,
+  reservando, reservaOk, reservaErr,
+  yaReservoHoy,
+}) => {
+  const [horarioSelId, setHorarioSelId] = React.useState(null);
+
+  // Cuando cambia el escritorio, selecciona el primer turno disponible
+  React.useEffect(() => {
+    if (!escritorioId || !horarios.length) return;
+    const bloqueados = turnosBloqueados(reservas, escritorioId);
+    const primero = horarios.find(h => !bloqueados.has(h.id));
+    setHorarioSelId(primero ? primero.id : null);
+  }, [escritorioId, reservas, horarios]);
+
   if (!escritorioId) return null;
 
-  const estado       = calcEstado(reservas, escritorioId);
-  const reservasDesk = reservas.filter(r => Number(r.escritorioId) === Number(escritorioId));
+  const bloqueados   = turnosBloqueados(reservas, escritorioId);
   const tieneMonitor = CON_MONITOR.includes(escritorioId);
-  const estaOcupado  = estado === STATUS.OCUPADO;
-  const horarioSel   = HORARIOS.find(h => h.id === horarioId);
+  const todoBloqueado = bloqueados.size >= 3;
+
+  // Ocupantes ya reservados en este puesto
+  const reservasDesk = reservas.filter(
+    r => r.attributes?.puesto?.data?.id === escritorioId
+  );
+
+  const horarioSelObj = horarios.find(h => h.id === horarioSelId);
+  const meta = horarioSelId ? HORARIO_META[horarioSelId] : null;
+
+  // Razón por la que no se puede reservar
+  const motivoBloqueo = yaReservoHoy
+    ? 'Ya tienes una reserva para este día'
+    : todoBloqueado
+    ? 'Este escritorio no tiene turnos disponibles'
+    : !horarioSelId
+    ? 'Selecciona un turno'
+    : null;
+
+  const puedeReservar = !yaReservoHoy && !todoBloqueado && !!horarioSelId && !reservaOk;
 
   return (
     <div className="booking-card-wrapper">
       <div className="booking-card">
+
+        {/* Usuario */}
         <div className="booking-section">
           <div className="booking-section-label">Reserva para</div>
           {usuario && (
@@ -99,6 +184,8 @@ const BookingCard = ({ escritorioId, usuario, reservas, onConfirm, onCancel, res
           )}
         </div>
         <div className="booking-divider" />
+
+        {/* Escritorio */}
         <div className="booking-section">
           <div className="booking-section-label">Ubicación</div>
           <div className="booking-ubicacion-row">
@@ -106,118 +193,205 @@ const BookingCard = ({ escritorioId, usuario, reservas, onConfirm, onCancel, res
             <span className="booking-escritorio-nombre">Escritorio {escritorioId}</span>
             {tieneMonitor && <span className="booking-badge-monitor">Con monitor</span>}
           </div>
+          {/* Ocupantes actuales */}
           {reservasDesk.length > 0 && (
             <div className="booking-ocupantes">
-              {reservasDesk.map((r, i) => (
-                <div key={i} className="booking-ocupante-item">
-                  <span>🖱️</span>
-                  <span className="booking-ocupante-nombre">{r.usuario ?? r.nombre ?? r.correo}</span>
-                  {(r.horario || r.horaInicio) && (
-                    <span className="booking-ocupante-hora">· {r.horario ?? `${r.horaInicio}–${r.horaFin}`}</span>
-                  )}
-                </div>
-              ))}
+              {reservasDesk.map((r, i) => {
+                const hId   = r.attributes?.horario?.data?.id;
+                const hMeta = hId ? HORARIO_META[hId] : null;
+                const nombre = r.attributes?.usuario ?? '—';
+                return (
+                  <div key={i} className="booking-ocupante-item">
+                    <span>🖱️</span>
+                    <span className="booking-ocupante-nombre">{nombre}</span>
+                    {hMeta && (
+                      <span className="booking-ocupante-hora">· {hMeta.label}</span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
         <div className="booking-divider" />
+
+        {/* Selector de horario */}
         <div className="booking-section">
           <div className="booking-section-label">Horario</div>
           <div className="booking-horarios">
-            {HORARIOS.map(h => {
-              const sel = horarioId === h.id;
+            {horarios.map(h => {
+              const esBloqueado = bloqueados.has(h.id);
+              const esSel = horarioSelId === h.id;
+              const m = HORARIO_META[h.id];
               return (
-                <button key={h.id} onClick={() => setHorarioId(h.id)}
-                  className={`booking-horario-btn${sel ? ' booking-horario-btn--selected' : ''}`}>
-                  <span className="booking-horario-label">{h.label}</span>
-                  <span className="booking-horario-hora">{h.hora}</span>
+                <button
+                  key={h.id}
+                  onClick={() => !esBloqueado && setHorarioSelId(h.id)}
+                  disabled={esBloqueado || yaReservoHoy}
+                  className={`booking-horario-btn${esSel ? ' booking-horario-btn--selected' : ''}${esBloqueado ? ' booking-horario-btn--bloqueado' : ''}`}
+                  style={{ opacity: esBloqueado ? 0.4 : 1, cursor: esBloqueado ? 'not-allowed' : 'pointer' }}
+                >
+                  <span className="booking-horario-label">{m?.label ?? h.attributes?.nombre}</span>
+                  <span className="booking-horario-hora">{m?.hora ?? `${h.attributes?.inicio?.slice(0,5)} – ${h.attributes?.fin?.slice(0,5)}`}</span>
+                  {esBloqueado && <span style={{ fontSize: '0.65rem', color: '#c0392b', marginTop: 2 }}>No disponible</span>}
                 </button>
               );
             })}
           </div>
         </div>
         <div className="booking-divider" />
-        {(reservaErr || reservaOk) && (
+
+        {/* Feedback */}
+        {(reservaErr || reservaOk || motivoBloqueo) && (
           <div className="booking-section">
-            {reservaErr && <div className="booking-feedback booking-feedback--error">{reservaErr}</div>}
-            {reservaOk  && <div className="booking-feedback booking-feedback--ok">✓ ¡Reservado con éxito!</div>}
+            {reservaErr    && <div className="booking-feedback booking-feedback--error">{reservaErr}</div>}
+            {reservaOk     && <div className="booking-feedback booking-feedback--ok">✓ ¡Reservado con éxito!</div>}
+            {!reservaErr && !reservaOk && motivoBloqueo && (
+              <div className="booking-feedback booking-feedback--error" style={{ background: 'rgba(192,57,43,0.08)' }}>
+                {motivoBloqueo}
+              </div>
+            )}
           </div>
         )}
+
+        {/* Botones */}
         <div className="booking-botones">
           <button className="booking-btn-cancelar" onClick={onCancel}>Cancelar</button>
           <button
-            className={`booking-btn-confirmar${estaOcupado ? ' booking-btn-confirmar--ocupado' : ''}${reservaOk ? ' booking-btn-confirmar--ok' : ''}`}
-            onClick={() => onConfirm(horarioSel)}
-            disabled={reservando || estaOcupado || reservaOk}
+            className={`booking-btn-confirmar${!puedeReservar && !reservaOk ? ' booking-btn-confirmar--ocupado' : ''}${reservaOk ? ' booking-btn-confirmar--ok' : ''}`}
+            onClick={() => puedeReservar && onConfirm(horarioSelObj)}
+            disabled={reservando || !puedeReservar}
           >
-            {estaOcupado ? 'No disponible' : reservando ? 'Reservando…' : reservaOk ? '¡Listo!' : 'Reservar'}
+            {reservaOk   ? '¡Listo!'      :
+             reservando  ? 'Reservando…'  :
+             !puedeReservar ? 'No disponible' :
+             'Reservar'}
           </button>
         </div>
+
       </div>
     </div>
   );
 };
 
+// ─── Componente principal ───────────────────────────────────────────────────────
 export default function Reservas() {
-  const today    = new Date();
-  const fechaISO = today.toISOString().split('T')[0];
   const location = useLocation();
   const navigate = useNavigate();
   const usuario  = location.state?.datosEmpleado || null;
   const esAdmin  = usuario && ADMINS.includes(String(usuario.document_number));
 
-  const [diaIndex,   setDiaIndex]   = useState(today.getDay() === 0 ? 6 : today.getDay() - 1);
+  // ── Fechas disponibles: solo hoy y mañana ──
+  const hoy     = new Date();
+  const manana  = new Date(Date.now() + 86_400_000);
+  const FECHAS  = [
+    { date: hoy,    label: 'Hoy',    diaLabel: DIAS_NOMBRE[hoy.getDay()],   fechaLabel: toLabel(hoy) },
+    { date: manana, label: 'Mañana', diaLabel: DIAS_NOMBRE[manana.getDay()], fechaLabel: toLabel(manana) },
+  ];
+
+  const [fechaIndex, setFechaIndex] = useState(0);
+  const fechaActual = FECHAS[fechaIndex];
+  const fechaISO    = toISO(fechaActual.date);
+
+  // ── Estado ──
+  const [horarios,   setHorarios]   = useState([]);   // de /api/working-horarios
+  const [reservas,   setReservas]   = useState([]);   // de /api/working-reservas?fecha=...
+  const [loadingR,   setLoadingR]   = useState(false);
   const [hoverId,    setHoverId]    = useState(null);
   const [selectedId, setSelectedId] = useState(null);
-  const [reservas,   setReservas]   = useState([]);
-  const [loadingR,   setLoadingR]   = useState(false);
   const [reservando, setReservando] = useState(false);
   const [reservaOk,  setReservaOk]  = useState(false);
   const [reservaErr, setReservaErr] = useState(null);
 
+  // ── Carga de horarios (solo una vez al montar) ──
+  useEffect(() => {
+    fetch(API_HORARIOS)
+      .then(r => r.json())
+      .then(json => setHorarios(json.data ?? []))
+      .catch(() => setHorarios([]));
+  }, []);
+
+  // ── Carga de reservas del día seleccionado ──
   const cargarReservas = () => {
     setLoadingR(true);
-    axiosInstance.get(API_RESERVAS, { params: { fecha: fechaISO } })
-      .then(res => setReservas(Array.isArray(res.data) ? res.data : []))
+    // populate=* para que Strapi incluya puesto y horario relacionados
+    fetch(`${API_RESERVAS}?filters[fecha][$eq]=${fechaISO}&populate=*`)
+      .then(r => r.json())
+      .then(json => setReservas(Array.isArray(json.data) ? json.data : []))
       .catch(() => setReservas([]))
       .finally(() => setLoadingR(false));
   };
 
-  useEffect(() => { cargarReservas(); }, [diaIndex]);
+  useEffect(() => {
+    cargarReservas();
+    setSelectedId(null); // limpia selección al cambiar fecha
+    setReservaErr(null);
+  }, [fechaISO]);
 
-  const handleReservar = async (horario) => {
-    if (!usuario || !selectedId) return;
+  // ── ¿El usuario ya reservó hoy? ──
+  const yaReservoHoy = reservas.some(
+    r => String(r.attributes?.usuario) === String(usuario?.document_number)
+  );
+
+  // ── POST de reserva ──
+  const handleReservar = async (horarioObj) => {
+    if (!usuario || !selectedId || !horarioObj) return;
+
+    // Doble validación antes de enviar
+    if (yaReservoHoy) {
+      setReservaErr('Ya tienes una reserva para este día.');
+      return;
+    }
+    const bloq = turnosBloqueados(reservas, selectedId);
+    if (bloq.has(horarioObj.id)) {
+      setReservaErr('Este turno ya no está disponible.');
+      return;
+    }
+
     setReservando(true);
     setReservaErr(null);
     try {
-      await axiosInstance.post(API_RESERVAS, {
-        escritorioId: selectedId,
-        fecha: fechaISO,
-        userId: usuario.document_number,
-        horario: horario?.id,
-        horaInicio: horario?.hora.split('–')[0].trim(),
-        horaFin: horario?.hora.split('–')[1].trim(),
+      // Strapi espera el body en { data: { ... } }
+      // Las relaciones se pasan como { id: X }
+      await fetch(API_RESERVAS, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          data: {
+            fecha:   fechaISO,
+            usuario: String(usuario.document_number),
+            puesto:  { id: selectedId },
+            horario: { id: horarioObj.id },
+            sala:    { id: SALA_ID },
+          },
+        }),
+      }).then(async res => {
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.error?.message || 'Error al reservar.');
+        }
+        return res.json();
       });
+
       setReservaOk(true);
       cargarReservas();
       setTimeout(() => { setSelectedId(null); setReservaOk(false); }, 2500);
     } catch (err) {
-      setReservaErr(err?.response?.data?.message || 'Error al reservar.');
+      setReservaErr(err.message || 'Error al reservar.');
     } finally {
       setReservando(false);
     }
   };
 
+  // ── Imagen de silla según estado ──
   const getSilla = (id) => {
     const estado = calcEstado(reservas, id);
-    if (estado === STATUS.OCUPADO)  return sillaOcu;
-    if (estado === STATUS.LIMITADO) return sillaLim;
+    if (estado === 'ocupado')  return sillaOcu;
+    if (estado === 'limitado') return sillaLim;
     return sillaDis;
   };
 
-  const diaLabel   = DIAS[diaIndex].charAt(0).toUpperCase() + DIAS[diaIndex].slice(1);
-  const fechaLabel = `${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}`;
-
+  // ── Render ──
   return (
     <div className="reservas-wrapper">
       <div className="reservas-inner">
@@ -230,25 +404,38 @@ export default function Reservas() {
           </div>
 
           <div className="reservas-header-right" style={{ flexWrap: 'nowrap' }}>
+
+            {/* Selector de fecha: solo Hoy / Mañana */}
             <div className="reservas-dia-nav">
-              <button className="reservas-dia-btn"
-                onClick={() => setDiaIndex(d => (d - 1 + DIAS.length) % DIAS.length)}>
+              <button
+                className="reservas-dia-btn"
+                onClick={() => setFechaIndex(i => Math.max(0, i - 1))}
+                disabled={fechaIndex === 0}
+                style={{ opacity: fechaIndex === 0 ? 0.3 : 1 }}
+              >
                 <IconChevronLeft />
               </button>
               <div className="reservas-dia-label">
                 <IconCalendar />
-                <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>{diaLabel}</span>
-                <span style={{ opacity: 0.55, fontSize: '0.75rem', fontWeight: 500 }}>{fechaLabel}</span>
+                <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>
+                  {fechaActual.label}
+                </span>
+                <span style={{ opacity: 0.55, fontSize: '0.75rem', fontWeight: 500 }}>
+                  {fechaActual.diaLabel} {fechaActual.fechaLabel}
+                </span>
               </div>
-              <button className="reservas-dia-btn"
-                onClick={() => setDiaIndex(d => (d + 1) % DIAS.length)}>
+              <button
+                className="reservas-dia-btn"
+                onClick={() => setFechaIndex(i => Math.min(FECHAS.length - 1, i + 1))}
+                disabled={fechaIndex === FECHAS.length - 1}
+                style={{ opacity: fechaIndex === FECHAS.length - 1 ? 0.3 : 1 }}
+              >
                 <IconChevronRight />
               </button>
             </div>
 
             <div style={{ width: 1, height: 26, background: 'rgba(80,54,41,0.15)', flexShrink: 0 }} />
 
-            {/* Panel — solo icono, tamaño fijo */}
             {esAdmin && (
               <button
                 className="btn-continuar"
@@ -259,16 +446,17 @@ export default function Reservas() {
               </button>
             )}
 
-            {/* Atrás — solo icono, tamaño fijo */}
-            <button className="btn-outline reservas-btn-atras"
+            <button
+              className="btn-outline reservas-btn-atras"
               style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
-              onClick={() => navigate(-1)}>
+              onClick={() => navigate(-1)}
+            >
               <IconArrowLeft />
             </button>
           </div>
         </header>
 
-        {/* CAMBIO 3: padding lateral en el mapa */}
+        {/* Mapa de escritorios */}
         <div className="reservas-mapa" style={{ padding: '0 16px' }}>
           {loadingR ? (
             <div className="reservas-loading">Cargando escritorios…</div>
@@ -277,7 +465,7 @@ export default function Reservas() {
               <img src={mesaImg} alt="Mesa" className="reservas-mesa-img" />
               {SILLAS.map(s => {
                 const estado   = calcEstado(reservas, s.id);
-                const isAvail  = estado !== STATUS.OCUPADO;
+                const isAvail  = estado !== 'ocupado';
                 const isHover  = hoverId === s.id;
                 const isSelect = selectedId === s.id;
                 return (
@@ -285,7 +473,12 @@ export default function Reservas() {
                     key={s.id}
                     src={getSilla(s.id)}
                     alt={`Silla ${s.id}`}
-                    onClick={() => { if (!isAvail) return; setSelectedId(isSelect ? null : s.id); setReservaErr(null); }}
+                    onClick={() => {
+                      if (!isAvail) return;
+                      setSelectedId(isSelect ? null : s.id);
+                      setReservaErr(null);
+                      setReservaOk(false);
+                    }}
                     onMouseEnter={() => setHoverId(s.id)}
                     onMouseLeave={() => setHoverId(null)}
                     title={isAvail ? 'Clic para seleccionar' : 'No disponible'}
@@ -315,12 +508,11 @@ export default function Reservas() {
             <IconMonitorLeyenda />
             Con monitor: Esc. 1, 3 y 6
           </div>
-
           <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
             {[
-              { img: sillaDis, label: 'Disponible'              },
-              { img: sillaLim, label: 'Disponibilidad limitada'  },
-              { img: sillaOcu, label: 'Ocupado'                  },
+              { img: sillaDis, label: 'Disponible'             },
+              { img: sillaLim, label: 'Disponibilidad limitada' },
+              { img: sillaOcu, label: 'Ocupado'                 },
             ].map(({ img, label }) => (
               <div key={label} className="reservas-leyenda-item">
                 <img src={img} alt={label} className="reservas-leyenda-img" />
@@ -335,11 +527,13 @@ export default function Reservas() {
         escritorioId={selectedId}
         usuario={usuario}
         reservas={reservas}
+        horarios={horarios}
         onConfirm={handleReservar}
-        onCancel={() => { setSelectedId(null); setReservaErr(null); }}
+        onCancel={() => { setSelectedId(null); setReservaErr(null); setReservaOk(false); }}
         reservando={reservando}
         reservaOk={reservaOk}
         reservaErr={reservaErr}
+        yaReservoHoy={yaReservoHoy}
       />
     </div>
   );
