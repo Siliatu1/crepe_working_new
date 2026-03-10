@@ -1,470 +1,307 @@
-import React, { useState, useEffect } from 'react';
-import { Button, Modal, Alert, Progress, Tag, Spin, Steps } from 'antd';
-import { 
-  EnvironmentOutlined, 
-  CheckCircleOutlined, 
-  CloseCircleOutlined,
-  ClockCircleOutlined,
-  InfoCircleOutlined,
-  WarningOutlined,
-  MobileOutlined,
-  LockOutlined
-} from '@ant-design/icons';
-import { 
-  verifyAttendance, 
-  getVerificationTimeInfo,
-  getWorkplaceInfo,
-  isReservationForToday,
-  getCurrentPosition,
-  calculateDistance,
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { message } from 'antd';
+import {
+  checkGeolocationSupport,
   checkLocationPermission,
-  requestLocationPermission,
+  evaluateReservationStatus,
+  fetchWorkingHorarios,
+  fetchWorkingPuestos,
   getDeviceInfo,
   getPermissionInstructions,
-  checkGeolocationSupport
+  getVerificationTimeInfo,
+  getWorkplaceInfo,
+  requestLocationPermission,
+  verifyAttendance,
 } from '../../utils/geolocationService';
-import { 
-  updateReservaWithVerification,
-  cancelarReservasVencidas 
-} from '../../utils/reservasService';
+import { updateReservaWithVerification } from '../../utils/reservasService';
 
-const VerificacionAsistencia = ({ reserva, onVerified }) => {
-  const [loading, setLoading] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [verificationResult, setVerificationResult] = useState(null);
-  const [currentLocation, setCurrentLocation] = useState(null);
-  const [timeInfo, setTimeInfo] = useState(getVerificationTimeInfo());
-  const [workplaceInfo] = useState(getWorkplaceInfo());
-  const [permissionStatus, setPermissionStatus] = useState(null);
-  const [deviceInfo] = useState(getDeviceInfo());
-  const [showPermissionHelp, setShowPermissionHelp] = useState(false);
-  const [geoSupport] = useState(checkGeolocationSupport());
+const buildVerificationPayload = (reserva, result, deviceInfo) => {
+  const nextConfirmed = result.confirmed ?? (
+    result.newStatus === 'Confirmada'
+      ? true
+      : result.newStatus === 'Cancelada'
+      ? false
+      : reserva?.confirmada ?? null
+  );
 
-  // Actualizar información de tiempo cada minuto
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTimeInfo(getVerificationTimeInfo());
-      
-      // Cancelar reservas vencidas automáticamente
-      if (timeInfo.isPast) {
-        cancelarReservasVencidas();
-      }
-    }, 60000); // Cada 1 minuto
-
-    return () => clearInterval(interval);
-  }, [timeInfo.isPast]);
-
-  // Verificar permisos al abrir el modal
-  useEffect(() => {
-    if (showModal) {
-      checkPermissions();
-    }
-  }, [showModal]);
-
-  const checkPermissions = async () => {
-    const status = await checkLocationPermission();
-    setPermissionStatus(status);
-    console.log('📋 Estado de permisos:', status);
+  const payload = {
+    estado: result.newStatus,
+    confirmada: nextConfirmed,
+    verificacionAsistencia: {
+      fecha: new Date().toISOString(),
+      distancia: result.distance ?? null,
+      mensaje: result.message,
+      dispositivo: deviceInfo,
+      horario: result.timeInfo?.horario
+        ? {
+            id: result.timeInfo.horario.id,
+            nombre: result.timeInfo.horario.nombre,
+            inicio: result.timeInfo.shiftStartTime,
+            fin: result.timeInfo.shiftEndTime,
+          }
+        : null,
+      ubicacion: result.position
+        ? {
+            latitude: result.position.latitude,
+            longitude: result.position.longitude,
+            accuracy: result.position.accuracy,
+          }
+        : null,
+    },
   };
 
-  const handleVerifyLocation = async () => {
-    setLoading(true);
-    setVerificationResult(null);
-    
-    try {
-      console.log('🔍 Iniciando verificación de ubicación...');
-      
-      // Verificar soporte de geolocalización
-      if (!geoSupport.supported) {
-        Modal.error({
-          title: 'Geolocalización no soportada',
-          content: 'Tu navegador no soporta geolocalización. Por favor usa un navegador moderno como Chrome, Firefox, Safari o Edge.',
-        });
-        setLoading(false);
-        return;
-      }
+  if (result.newStatus === 'Cancelada') {
+    payload.motivoCancelacion = result.message;
+  }
 
-      // Verificar permisos primero
-      const hasPermission = await requestLocationPermission();
-      
-      if (!hasPermission) {
-        setShowPermissionHelp(true);
-        setLoading(false);
-        return;
+  if (result.newStatus === 'Confirmada') {
+    payload.motivoCancelacion = null;
+  }
+
+  return payload;
+};
+
+const VerificacionAsistencia = ({
+  reserva,
+  onVerified,
+  onStatusChange,
+  onAlert,
+  autoSync = true,
+  children,
+}) => {
+  const [messageApi, contextHolder] = message.useMessage();
+  const [loading, setLoading] = useState(false);
+  const [permissionStatus, setPermissionStatus] = useState(null);
+  const [metadata, setMetadata] = useState({
+    puestos: [],
+    horarios: [],
+    loading: true,
+    error: null,
+  });
+  const [lastResult, setLastResult] = useState(null);
+
+  const workplaceInfo = useMemo(() => getWorkplaceInfo(), []);
+  const deviceInfo = useMemo(() => getDeviceInfo(), []);
+  const geoSupport = useMemo(() => checkGeolocationSupport(), []);
+  const autoSyncRef = useRef(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadMetadata = async () => {
+      try {
+        const [puestos, horarios] = await Promise.all([
+          fetchWorkingPuestos(),
+          fetchWorkingHorarios(),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        setMetadata({ puestos, horarios, loading: false, error: null });
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        setMetadata((current) => ({
+          ...current,
+          loading: false,
+          error: error.message || 'No se pudieron cargar los puestos y horarios',
+        }));
       }
-      
-      // Verificar asistencia
-      const result = await verifyAttendance(reserva);
-      
-      console.log('📋 Resultado verificación:', result);
-      
-      if (result.success && result.newStatus !== reserva.estado) {
-        // Actualizar estado de la reserva
-        const updateData = {
-          estado: result.newStatus,
-          verificacionAsistencia: {
-            fecha: new Date().toISOString(),
-            distancia: result.distance,
-            mensaje: result.message,
-            dispositivo: deviceInfo
-          }
+    };
+
+    void loadMetadata();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const emitAlert = useCallback((type, content) => {
+    if (!content) {
+      return;
+    }
+
+    if (onAlert) {
+      onAlert({ type, content, reserva });
+      return;
+    }
+
+    messageApi.open({ type, content });
+  }, [messageApi, onAlert, reserva]);
+
+  const applyResult = useCallback((result) => {
+    if (!reserva || !result?.shouldUpdate) {
+      return result;
+    }
+
+    const reservaId = reserva.id ?? reserva.key;
+    const updated = updateReservaWithVerification(
+      reservaId,
+      buildVerificationPayload(reserva, result, deviceInfo)
+    );
+
+    if (!updated) {
+      return {
+        ...result,
+        success: false,
+        shouldUpdate: false,
+        alertType: 'error',
+        message: 'No se pudo actualizar la reserva localmente.',
+      };
+    }
+
+    const finalResult = {
+      ...result,
+      reservaActualizada: updated,
+    };
+
+    onStatusChange?.(updated, finalResult);
+    onVerified?.(updated);
+    return finalResult;
+  }, [deviceInfo, onStatusChange, onVerified, reserva]);
+
+  useEffect(() => {
+    if (!autoSync || metadata.loading || !reserva || reserva.estado !== 'Pendiente') {
+      return;
+    }
+
+    const reservationKey = `${reserva.id ?? reserva.key}:${reserva.estado}`;
+    if (autoSyncRef.current.has(reservationKey)) {
+      return;
+    }
+
+    const evaluation = evaluateReservationStatus(reserva, metadata.horarios);
+    if (!evaluation.shouldUpdate || evaluation.newStatus !== 'Cancelada') {
+      return;
+    }
+
+    autoSyncRef.current.add(reservationKey);
+    const finalResult = applyResult(evaluation);
+    setLastResult(finalResult);
+    emitAlert(finalResult.alertType || 'warning', finalResult.message);
+  }, [applyResult, autoSync, emitAlert, metadata.horarios, metadata.loading, reserva]);
+
+  const timeInfo = useMemo(
+    () => getVerificationTimeInfo(reserva, metadata.horarios),
+    [metadata.horarios, reserva]
+  );
+
+  const verify = useCallback(async () => {
+    if (!reserva) {
+      return null;
+    }
+
+    if (metadata.loading) {
+      emitAlert('info', 'Estamos cargando puestos y horarios. Intenta nuevamente en un momento.');
+      return null;
+    }
+
+    if (metadata.error) {
+      emitAlert('warning', metadata.error);
+    }
+
+    if (!geoSupport.supported) {
+      const result = {
+        success: false,
+        shouldUpdate: false,
+        newStatus: reserva.estado || 'Pendiente',
+        confirmed: reserva.confirmada ?? null,
+        alertType: 'error',
+        message: 'Tu navegador no soporta geolocalización.',
+      };
+
+      setLastResult(result);
+      emitAlert(result.alertType, result.message);
+      return result;
+    }
+
+    setLoading(true);
+
+    try {
+      const currentPermission = await checkLocationPermission();
+      setPermissionStatus(currentPermission);
+
+      const hasPermission = await requestLocationPermission();
+      setPermissionStatus(hasPermission ? 'granted' : 'denied');
+
+      if (!hasPermission) {
+        const instructions = getPermissionInstructions().steps.join(' ');
+        const permissionMessage = geoSupport.isSecureContext
+          ? `Debes habilitar la ubicación para confirmar la reserva. ${instructions}`
+          : 'La geolocalización requiere HTTPS o localhost para funcionar correctamente.';
+
+        const deniedResult = {
+          success: false,
+          shouldUpdate: false,
+          newStatus: reserva.estado || 'Pendiente',
+          confirmed: reserva.confirmada ?? null,
+          alertType: 'warning',
+          message: permissionMessage,
         };
 
-        if (result.newStatus === 'Cancelada') {
-          updateData.motivoCancelacion = result.message;
-        }
+        setLastResult(deniedResult);
+        emitAlert(deniedResult.alertType, deniedResult.message);
+        return deniedResult;
+      }
 
-        const updated = updateReservaWithVerification(reserva.id, updateData);
-        
-        if (updated) {
-          setVerificationResult({
-            ...result,
-            reservaActualizada: updated
-          });
-          
-          // Notificar al componente padre
-          if (onVerified) {
-            onVerified(updated);
-          }
-        }
-      } else {
-        setVerificationResult(result);
-      }
-      
-      setShowModal(true);
+      const result = await verifyAttendance(reserva, {
+        horarios: metadata.horarios,
+        workplaceInfo,
+      });
+
+      const finalResult = applyResult(result);
+      setLastResult(finalResult);
+      emitAlert(finalResult.alertType || (finalResult.success ? 'success' : 'warning'), finalResult.message);
+      return finalResult;
     } catch (error) {
-      console.error('Error al verificar ubicación:', error);
-      
-      // Si es error de permisos, mostrar ayuda
-      if (error.message && error.message.includes('denegado')) {
-        setShowPermissionHelp(true);
-      }
-      
-      setVerificationResult({
+      const failedResult = {
         success: false,
-        message: error.message || 'Error al verificar ubicación',
-        details: error.details
-      });
-      setShowModal(true);
+        shouldUpdate: false,
+        newStatus: reserva.estado || 'Pendiente',
+        confirmed: reserva.confirmada ?? null,
+        alertType: 'error',
+        message: error.message || 'Error al verificar la asistencia.',
+      };
+
+      setLastResult(failedResult);
+      emitAlert(failedResult.alertType, failedResult.message);
+      return failedResult;
     } finally {
       setLoading(false);
     }
-  };
+  }, [applyResult, emitAlert, geoSupport, metadata.error, metadata.horarios, metadata.loading, reserva, workplaceInfo]);
 
-  const handleCheckCurrentLocation = async () => {
-    setLoading(true);
-    try {
-      const position = await getCurrentPosition();
-      const distance = calculateDistance(
-        position.latitude,
-        position.longitude,
-        workplaceInfo.latitude,
-        workplaceInfo.longitude
-      );
-      
-      setCurrentLocation({
-        ...position,
-        distance: distance
-      });
-      
-      setShowModal(true);
-    } catch (error) {
-      Modal.error({
-        title: 'Error de ubicación',
-        content: error.message
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // No mostrar botón si la reserva no es para hoy
-  if (!isReservationForToday(reserva.fecha)) {
-    return null;
-  }
-
-  // No mostrar si ya está confirmada o cancelada
-  if (reserva.estado !== 'Pendiente') {
-    return (
-      <Tag 
-        color={reserva.estado === 'Confirmada' ? 'green' : 'red'}
-        icon={reserva.estado === 'Confirmada' ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
-      >
-        {reserva.estado}
-      </Tag>
-    );
-  }
-
-  const buttonStyle = {
-    background: timeInfo.isActive 
-      ? 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)'
-      : '#ccc',
-    border: 'none',
-    color: '#fff',
-    fontWeight: '600',
-    boxShadow: timeInfo.isActive ? '0 4px 12px rgba(76, 175, 80, 0.3)' : 'none',
-  };
+  const controller = useMemo(() => ({
+    verify,
+    loading,
+    metadataLoading: metadata.loading,
+    metadataError: metadata.error,
+    puestos: metadata.puestos,
+    horarios: metadata.horarios,
+    timeInfo,
+    workplaceInfo,
+    permissionStatus,
+    lastResult,
+    geoSupport,
+    canVerify: Boolean(
+      reserva &&
+      reserva.estado === 'Pendiente' &&
+      timeInfo.scheduleResolved &&
+      timeInfo.isToday &&
+      !timeInfo.isPast &&
+      !loading &&
+      !metadata.loading
+    ),
+  }), [geoSupport, lastResult, loading, metadata.error, metadata.horarios, metadata.loading, metadata.puestos, permissionStatus, reserva, timeInfo, verify, workplaceInfo]);
 
   return (
     <>
-      <Button
-        type="primary"
-        icon={<EnvironmentOutlined />}
-        onClick={handleVerifyLocation}
-        loading={loading}
-        disabled={!timeInfo.isActive || timeInfo.isPast}
-        style={buttonStyle}
-        size="small"
-      >
-        Confirmar Asistencia
-      </Button>
-
-      <Modal
-        title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <EnvironmentOutlined style={{ color: '#1890ff' }} />
-            <span>Verificación de Asistencia</span>
-          </div>
-        }
-        open={showModal}
-        onCancel={() => {
-          setShowModal(false);
-          setVerificationResult(null);
-          setCurrentLocation(null);
-        }}
-        footer={[
-          <Button 
-            key="close" 
-            onClick={() => {
-              setShowModal(false);
-              setVerificationResult(null);
-              setCurrentLocation(null);
-            }}
-          >
-            Cerrar
-          </Button>,
-          !verificationResult && timeInfo.isActive && (
-            <Button
-              key="verify"
-              type="primary"
-              icon={<EnvironmentOutlined />}
-              onClick={handleVerifyLocation}
-              loading={loading}
-            >
-              Verificar Ubicación
-            </Button>
-          )
-        ]}
-        width={600}
-      >
-        <div style={{ padding: '16px 0' }}>
-          {/* Horario de verificación */}
-          <Alert
-            message={
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ClockCircleOutlined />
-                <span>Horario de verificación: {timeInfo.startTime} - {timeInfo.endTime}</span>
-              </div>
-            }
-            description={timeInfo.message}
-            type={timeInfo.isActive ? 'success' : timeInfo.isPast ? 'error' : 'info'}
-            showIcon
-            style={{ marginBottom: '16px' }}
-          />
-
-          {/* Información del lugar */}
-          <div style={{ 
-            background: '#f5f5f5', 
-            padding: '16px', 
-            borderRadius: '8px',
-            marginBottom: '16px'
-          }}>
-            <p style={{ margin: '4px 0', fontWeight: '600' }}>
-              📍 Ubicación: {workplaceInfo.name}
-            </p>
-            <p style={{ margin: '4px 0', fontSize: '13px', color: '#666' }}>
-              Coordenadas: {workplaceInfo.latitude}°N, {Math.abs(workplaceInfo.longitude)}°O
-            </p>
-            <p style={{ margin: '4px 0', fontSize: '13px', color: '#666' }}>
-              Radio permitido: {workplaceInfo.radius} metros
-            </p>
-          </div>
-
-          {/* Resultado de la verificación */}
-          {verificationResult && (
-            <Alert
-              message={
-                verificationResult.newStatus === 'Confirmada' 
-                  ? '✅ Asistencia Confirmada' 
-                  : verificationResult.newStatus === 'Cancelada'
-                  ? '❌ Reserva Cancelada'
-                  : '⚠️ No se pudo verificar'
-              }
-              description={
-                <div>
-                  <p style={{ margin: '8px 0' }}>{verificationResult.message}</p>
-                  {verificationResult.distance && (
-                    <Progress
-                      percent={Math.min((verificationResult.distance / workplaceInfo.radius) * 100, 100)}
-                      status={verificationResult.distance <= workplaceInfo.radius ? 'success' : 'exception'}
-                      format={(percent) => `${verificationResult.distance.toFixed(0)}m / ${workplaceInfo.radius}m`}
-                    />
-                  )}
-                </div>
-              }
-              type={
-                verificationResult.newStatus === 'Confirmada' 
-                  ? 'success' 
-                  : verificationResult.newStatus === 'Cancelada'
-                  ? 'error'
-                  : 'warning'
-              }
-              showIcon
-              icon={
-                verificationResult.newStatus === 'Confirmada' 
-                  ? <CheckCircleOutlined />
-                  : verificationResult.newStatus === 'Cancelada'
-                  ? <CloseCircleOutlined />
-                  : <InfoCircleOutlined />
-              }
-            />
-          )}
-
-          {/* Ubicación actual (preview) */}
-          {currentLocation && !verificationResult && (
-            <div style={{ marginTop: '16px' }}>
-              <p style={{ fontWeight: '600', marginBottom: '8px' }}>
-                📍 Tu ubicación actual:
-              </p>
-              <p style={{ fontSize: '13px', margin: '4px 0' }}>
-                Latitud: {currentLocation.latitude.toFixed(6)}°
-              </p>
-              <p style={{ fontSize: '13px', margin: '4px 0' }}>
-                Longitud: {currentLocation.longitude.toFixed(6)}°
-              </p>
-              <p style={{ fontSize: '13px', margin: '4px 0' }}>
-                Precisión: ±{currentLocation.accuracy.toFixed(0)} metros
-              </p>
-              <p style={{ fontSize: '13px', margin: '4px 0', fontWeight: '600' }}>
-                Distancia al lugar: {currentLocation.distance.toFixed(0)} metros
-              </p>
-              
-              <Progress
-                percent={Math.min((currentLocation.distance / workplaceInfo.radius) * 100, 100)}
-                status={currentLocation.distance <= workplaceInfo.radius ? 'success' : 'exception'}
-                strokeColor={currentLocation.distance <= workplaceInfo.radius ? '#52c41a' : '#ff4d4f'}
-              />
-            </div>
-          )}
-
-          {/* Ayuda de permisos */}
-          {showPermissionHelp && !verificationResult && (
-            <Alert
-              message={
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <LockOutlined />
-                  <span>Permisos de ubicación requeridos</span>
-                </div>
-              }
-              description={
-                <div>
-                  <p style={{ marginBottom: '12px' }}>
-                    {deviceInfo.isMobile ? (
-                      <>
-                        <MobileOutlined style={{ marginRight: '8px' }} />
-                        Detectamos que estás en un dispositivo {deviceInfo.isIOS ? 'iOS' : 'Android'}
-                      </>
-                    ) : (
-                      'Para verificar tu asistencia necesitamos acceso a tu ubicación.'
-                    )}
-                  </p>
-                  
-                  <Steps
-                    direction="vertical"
-                    size="small"
-                    current={-1}
-                    items={getPermissionInstructions().steps.map((step, index) => ({
-                      title: `Paso ${index + 1}`,
-                      description: step
-                    }))}
-                  />
-                  
-                  {!geoSupport.isSecureContext && (
-                    <Alert
-                      message="⚠️ Conexión no segura"
-                      description="La geolocalización requiere una conexión HTTPS. Contacta al administrador."
-                      type="warning"
-                      style={{ marginTop: '12px' }}
-                      showIcon
-                    />
-                  )}
-                  
-                  <Button
-                    type="primary"
-                    icon={<EnvironmentOutlined />}
-                    onClick={() => {
-                      setShowPermissionHelp(false);
-                      handleVerifyLocation();
-                    }}
-                    style={{ marginTop: '16px', width: '100%' }}
-                  >
-                    He habilitado los permisos, intentar de nuevo
-                  </Button>
-                </div>
-              }
-              type="warning"
-              showIcon
-              icon={<WarningOutlined />}
-              style={{ marginTop: '16px' }}
-            />
-          )}
-
-          {/* Estado de permisos */}
-          {permissionStatus && !showPermissionHelp && !verificationResult && (
-            <div style={{ marginTop: '16px', marginBottom: '16px' }}>
-              <Tag 
-                color={
-                  permissionStatus === 'granted' ? 'success' : 
-                  permissionStatus === 'denied' ? 'error' : 
-                  'warning'
-                }
-                icon={permissionStatus === 'granted' ? <CheckCircleOutlined /> : <InfoCircleOutlined />}
-              >
-                Permisos de ubicación: {
-                  permissionStatus === 'granted' ? 'Otorgados ✓' :
-                  permissionStatus === 'denied' ? 'Denegados' :
-                  permissionStatus === 'prompt' ? 'Pendiente' :
-                  'No disponible'
-                }
-              </Tag>
-              {deviceInfo.isMobile && (
-                <Tag color="blue" icon={<MobileOutlined />} style={{ marginLeft: '8px' }}>
-                  {deviceInfo.isIOS ? 'iOS' : 'Android'} - {deviceInfo.browser.name}
-                </Tag>
-              )}
-            </div>
-          )}
-
-          {/* Instrucciones */}
-          {!verificationResult && !currentLocation && (
-            <Alert
-              message="¿Cómo funciona?"
-              description={
-                <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
-                  <li>Debes estar dentro del horario de verificación (8:00 AM - 8:25 AM)</li>
-                  <li>Debes estar dentro de {workplaceInfo.radius} metros del lugar de trabajo</li>
-                  <li>Si confirmas a tiempo y dentro del área, tu reserva será confirmada</li>
-                  <li>Si no confirmas antes de las 8:25 AM, tu reserva será cancelada automáticamente</li>
-                  <li>Si estás fuera del área, tu reserva será cancelada y el escritorio quedará disponible</li>
-                </ul>
-              }
-              type="info"
-              showIcon
-              icon={<InfoCircleOutlined />}
-            />
-          )}
-        </div>
-      </Modal>
+      {contextHolder}
+      {typeof children === 'function' ? children(controller) : null}
     </>
   );
 };

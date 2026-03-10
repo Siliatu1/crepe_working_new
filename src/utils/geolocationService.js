@@ -1,21 +1,302 @@
+import axiosInstance from '../api/axiosInstance';
+
 // ========================================
 // GEOLOCATION SERVICE
 // Servicio para verificación de ubicación y gestión de asistencia
 // ========================================
 
-// Coordenadas del lugar de trabajo - Crepes & Waffles
 const WORKPLACE_COORDS = {
   latitude: 4.74488,
   longitude: -74.04483,
-  name: "Crepe-Working 1"
+  name: 'Crepe-Working 1'
 };
 
-// Radio permitido en metros
-const ALLOWED_RADIUS_METERS = 500;
+const ALLOWED_RADIUS_METERS = 1000;
+const VERIFICATION_WINDOW_MINUTES = 25;
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const WORKING_PUESTOS_ENDPOINT = 'https://macfer.crepesywaffles.com/api/working-puestos?pagination[pageSize]=40000';
+const WORKING_HORARIOS_ENDPOINT = 'https://macfer.crepesywaffles.com/api/working-horarios?pagination[pageSize]=40000';
 
-// Horario de verificación
-const VERIFICATION_START_TIME = { hour: 8, minute: 0 };  // 8:00 AM
-const VERIFICATION_END_TIME = { hour: 8, minute: 25 };   // 8:25 AM
+const DEFAULT_HORARIOS = [
+  { id: 'manana', nombre: 'Turno 1', inicio: '08:00:00', fin: '12:00:00' },
+  { id: 'tarde', nombre: 'Turno 2', inicio: '13:00:00', fin: '17:00:00' },
+  { id: 'completo', nombre: 'Turno 3', inicio: '08:00:00', fin: '17:00:00' }
+];
+
+const metadataCache = {
+  puestos: null,
+  puestosFetchedAt: 0,
+  horarios: null,
+  horariosFetchedAt: 0
+};
+
+const normalizeText = (value) =>
+  String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+
+const getTodayString = (referenceDate = new Date()) => {
+  const year = referenceDate.getFullYear();
+  const month = String(referenceDate.getMonth() + 1).padStart(2, '0');
+  const day = String(referenceDate.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const extractAttributes = (item) => item?.attributes ?? item ?? {};
+
+const normalizeCollection = (payload) => {
+  if (Array.isArray(payload?.data)) {
+    return payload.data;
+  }
+
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  return [];
+};
+
+const buildDateFromMinutes = (dateString, totalMinutes) => {
+  const [year, month, day] = String(dateString ?? '').split('-').map(Number);
+
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  const safeMinutes = Math.max(0, totalMinutes);
+  const hours = Math.floor(safeMinutes / 60);
+  const minutes = safeMinutes % 60;
+  return new Date(year, month - 1, day, hours, minutes, 0, 0);
+};
+
+const formatMinutes = (totalMinutes) => {
+  const safeMinutes = ((totalMinutes % 1440) + 1440) % 1440;
+  const hours = String(Math.floor(safeMinutes / 60)).padStart(2, '0');
+  const minutes = String(safeMinutes % 60).padStart(2, '0');
+  return `${hours}:${minutes}`;
+};
+
+const parseTimeToMinutes = (value, hint = '') => {
+  if (value == null || value === '') {
+    return null;
+  }
+
+  const rawValue = String(value).trim().toLowerCase();
+  if (!rawValue) {
+    return null;
+  }
+
+  const meridianMatch = rawValue.match(/^(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?\s*(am|pm)$/i);
+  if (meridianMatch) {
+    let hours = Number(meridianMatch[1]);
+    const minutes = Number(meridianMatch[2] ?? '0');
+    const meridian = meridianMatch[4].toLowerCase();
+
+    if (Number.isNaN(hours) || Number.isNaN(minutes) || minutes >= 60) {
+      return null;
+    }
+
+    if (meridian === 'am' && hours === 12) {
+      hours = 0;
+    }
+
+    if (meridian === 'pm' && hours < 12) {
+      hours += 12;
+    }
+
+    return hours * 60 + minutes;
+  }
+
+  const parts = rawValue.replace(/\s/g, '').split(':');
+  if (parts.length < 2) {
+    return null;
+  }
+
+  let hours = Number(parts[0]);
+  const minutes = Number(parts[1]);
+  const normalizedHint = normalizeText(hint);
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes) || hours > 24 || minutes >= 60) {
+    return null;
+  }
+
+  if (hours < 8 && (normalizedHint.includes('turno2') || normalizedHint.includes('tarde'))) {
+    hours += 12;
+  }
+
+  if (hours === 24) {
+    hours = 0;
+  }
+
+  return hours * 60 + minutes;
+};
+
+const normalizeHorarioId = (nombre, startMinutes, endMinutes, index) => {
+  const normalizedName = normalizeText(nombre);
+
+  if (normalizedName.includes('turno1') || (startMinutes === 480 && endMinutes === 720)) {
+    return 'manana';
+  }
+
+  if (normalizedName.includes('turno2') || (startMinutes === 780 && endMinutes === 1020)) {
+    return 'tarde';
+  }
+
+  if (normalizedName.includes('turno3') || (startMinutes === 480 && endMinutes === 1020)) {
+    return 'completo';
+  }
+
+  return `horario-${index + 1}`;
+};
+
+const normalizeHorario = (item, index) => {
+  const attributes = extractAttributes(item);
+  const startMinutes = parseTimeToMinutes(attributes.inicio, attributes.nombre);
+  const endMinutes = parseTimeToMinutes(attributes.fin, attributes.nombre);
+
+  return {
+    id: normalizeHorarioId(attributes.nombre, startMinutes, endMinutes, index),
+    sourceId: item?.id ?? attributes.id ?? index + 1,
+    nombre: attributes.nombre || `Turno ${index + 1}`,
+    inicio: attributes.inicio,
+    fin: attributes.fin,
+    startMinutes,
+    endMinutes,
+    verificationWindowMinutes: VERIFICATION_WINDOW_MINUTES,
+    verificationEndMinutes:
+      startMinutes == null ? null : startMinutes + VERIFICATION_WINDOW_MINUTES
+  };
+};
+
+const getDefaultHorarios = () => DEFAULT_HORARIOS.map(normalizeHorario);
+
+const normalizePuesto = (item, index) => {
+  const attributes = extractAttributes(item);
+  const parsedPosition = Number(String(attributes.nombre ?? '').replace(/\D/g, ''));
+
+  return {
+    id: item?.id ?? attributes.id ?? index + 1,
+    nombre: attributes.nombre || `escritorio${index + 1}`,
+    estado: Boolean(attributes.estado),
+    puestoNumero: Number.isNaN(parsedPosition) ? index + 1 : parsedPosition
+  };
+};
+
+const resolveHorarioFromReserva = (reserva, horarios = []) => {
+  const sourceHorarios = Array.isArray(horarios) && horarios.length > 0
+    ? horarios
+    : getDefaultHorarios();
+
+  const normalizedHorario = normalizeText(reserva?.horario);
+  const normalizedTurno = normalizeText(reserva?.turno);
+  const normalizedHorarioNombre = normalizeText(reserva?.horarioNombre);
+  const startMinutes = parseTimeToMinutes(reserva?.horaInicio, reserva?.turno);
+  const endMinutes = parseTimeToMinutes(reserva?.horaFin, reserva?.turno);
+
+  return sourceHorarios.find((horario) => {
+    const horarioSourceId = String(horario.sourceId ?? '');
+    const horarioName = normalizeText(horario.nombre);
+
+    return (
+      normalizedHorario === normalizeText(horario.id) ||
+      normalizedHorario === horarioName ||
+      normalizedTurno === horarioName ||
+      normalizedHorarioNombre === horarioName ||
+      String(reserva?.horarioId ?? '') === horarioSourceId ||
+      String(reserva?.workingHorarioId ?? '') === horarioSourceId ||
+      (startMinutes != null && startMinutes === horario.startMinutes &&
+        (endMinutes == null || endMinutes === horario.endMinutes)) ||
+      (normalizedTurno.includes('manana') && horario.id === 'manana') ||
+      (normalizedTurno.includes('tarde') && horario.id === 'tarde') ||
+      ((normalizedTurno.includes('completo') || normalizedTurno.includes('dia')) && horario.id === 'completo')
+    );
+  }) ?? null;
+};
+
+const isReservationConfirmed = (reserva) =>
+  reserva?.estado === 'Confirmada' || reserva?.confirmada === true;
+
+const isReservationCanceled = (reserva) =>
+  reserva?.estado === 'Cancelada' || reserva?.confirmada === false;
+
+const buildPendingResult = (reserva, overrides = {}) => ({
+  success: false,
+  shouldUpdate: false,
+  newStatus: reserva?.estado || 'Pendiente',
+  confirmed: reserva?.confirmada ?? null,
+  alertType: 'info',
+  ...overrides
+});
+
+export const fetchWorkingPuestos = async ({ force = false } = {}) => {
+  const now = Date.now();
+
+  if (!force && metadataCache.puestos && now - metadataCache.puestosFetchedAt < CACHE_TTL_MS) {
+    return metadataCache.puestos;
+  }
+
+  try {
+    const response = await axiosInstance.get(WORKING_PUESTOS_ENDPOINT);
+    const puestos = normalizeCollection(response.data).map(normalizePuesto);
+
+    metadataCache.puestos = puestos;
+    metadataCache.puestosFetchedAt = now;
+    return puestos;
+  } catch (error) {
+    console.warn('No se pudieron cargar los puestos remotos:', error);
+
+    if (metadataCache.puestos) {
+      return metadataCache.puestos;
+    }
+
+    const fallback = Array.from({ length: 6 }, (_, index) => ({
+      id: index + 1,
+      nombre: `escritorio${index + 1}`,
+      estado: false,
+      puestoNumero: index + 1
+    }));
+
+    metadataCache.puestos = fallback;
+    metadataCache.puestosFetchedAt = now;
+    return fallback;
+  }
+};
+
+export const fetchWorkingHorarios = async ({ force = false } = {}) => {
+  const now = Date.now();
+
+  if (!force && metadataCache.horarios && now - metadataCache.horariosFetchedAt < CACHE_TTL_MS) {
+    return metadataCache.horarios;
+  }
+
+  try {
+    const response = await axiosInstance.get(WORKING_HORARIOS_ENDPOINT);
+    const horarios = normalizeCollection(response.data)
+      .map(normalizeHorario)
+      .filter((horario) => horario.startMinutes != null && horario.endMinutes != null);
+
+    if (horarios.length === 0) {
+      throw new Error('La API no devolvió horarios válidos');
+    }
+
+    metadataCache.horarios = horarios;
+    metadataCache.horariosFetchedAt = now;
+    return horarios;
+  } catch (error) {
+    console.warn('No se pudieron cargar los horarios remotos:', error);
+
+    if (metadataCache.horarios) {
+      return metadataCache.horarios;
+    }
+
+    const fallback = getDefaultHorarios();
+    metadataCache.horarios = fallback;
+    metadataCache.horariosFetchedAt = now;
+    return fallback;
+  }
+};
 
 /**
  * Calcula la distancia entre dos coordenadas usando la fórmula de Haversine
@@ -199,139 +480,307 @@ export const getCurrentPosition = () => {
 };
 
 /**
+ * Verifica si la fecha de una reserva es hoy
+ * @param {string} fechaReserva - Fecha en formato ISO (YYYY-MM-DD)
+ * @param {Date} referenceDate - Fecha de referencia
+ * @returns {boolean} true si la reserva es para hoy
+ */
+export const isReservationForToday = (fechaReserva, referenceDate = new Date()) => {
+  return fechaReserva === getTodayString(referenceDate);
+};
+
+/**
+ * Obtiene información de la ventana de verificación de una reserva
+ */
+export const getVerificationTimeInfo = (reserva, horarios = [], referenceDate = new Date()) => {
+  const horario = resolveHorarioFromReserva(reserva, horarios);
+  const fechaReserva = reserva?.fecha;
+  const isToday = isReservationForToday(fechaReserva, referenceDate);
+
+  if (!horario || !fechaReserva) {
+    return {
+      scheduleResolved: false,
+      isToday,
+      isBefore: false,
+      isActive: false,
+      isPast: false,
+      startTime: null,
+      endTime: null,
+      shiftStartTime: null,
+      shiftEndTime: null,
+      horario: null,
+      message: 'No se pudo resolver el horario de la reserva'
+    };
+  }
+
+  const verificationStart = buildDateFromMinutes(fechaReserva, horario.startMinutes);
+  const verificationEnd = buildDateFromMinutes(
+    fechaReserva,
+    horario.startMinutes + horario.verificationWindowMinutes
+  );
+  const shiftEnd = buildDateFromMinutes(fechaReserva, horario.endMinutes);
+
+  if (!verificationStart || !verificationEnd || !shiftEnd) {
+    return {
+      scheduleResolved: false,
+      isToday,
+      isBefore: false,
+      isActive: false,
+      isPast: false,
+      startTime: null,
+      endTime: null,
+      shiftStartTime: null,
+      shiftEndTime: null,
+      horario,
+      message: 'El horario de la reserva no tiene una hora válida'
+    };
+  }
+
+  const isBefore = referenceDate < verificationStart;
+  const isPast = referenceDate > verificationEnd;
+  const isActive = !isBefore && !isPast;
+
+  let message = `Puedes confirmar entre ${formatMinutes(horario.startMinutes)} y ${formatMinutes(horario.startMinutes + horario.verificationWindowMinutes)}.`;
+  if (!isToday) {
+    message = 'La reserva no corresponde al día actual.';
+  } else if (isBefore) {
+    message = `La confirmación para este turno inicia a las ${formatMinutes(horario.startMinutes)}.`;
+  } else if (isPast) {
+    message = `La ventana de confirmación terminó a las ${formatMinutes(horario.startMinutes + horario.verificationWindowMinutes)}.`;
+  }
+
+  return {
+    scheduleResolved: true,
+    isToday,
+    isBefore,
+    isActive,
+    isPast,
+    startTime: formatMinutes(horario.startMinutes),
+    endTime: formatMinutes(horario.startMinutes + horario.verificationWindowMinutes),
+    shiftStartTime: formatMinutes(horario.startMinutes),
+    shiftEndTime: formatMinutes(horario.endMinutes),
+    verificationStart,
+    verificationEnd,
+    shiftEnd,
+    horario,
+    message
+  };
+};
+
+/**
  * Verifica si la hora actual está dentro del rango de verificación
  * @returns {boolean} true si está dentro del horario de verificación
  */
-export const isWithinVerificationTime = () => {
-  const now = new Date();
-  const currentHour = now.getHours();
-  const currentMinute = now.getMinutes();
-  
-  const startMinutes = VERIFICATION_START_TIME.hour * 60 + VERIFICATION_START_TIME.minute;
-  const endMinutes = VERIFICATION_END_TIME.hour * 60 + VERIFICATION_END_TIME.minute;
-  const currentMinutes = currentHour * 60 + currentMinute;
-  
-  return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+export const isWithinVerificationTime = (reserva, horarios = [], referenceDate = new Date()) => {
+  if (!reserva) {
+    const currentMinutes = referenceDate.getHours() * 60 + referenceDate.getMinutes();
+    return currentMinutes >= 480 && currentMinutes <= 505;
+  }
+
+  return getVerificationTimeInfo(reserva, horarios, referenceDate).isActive;
 };
 
 /**
  * Verifica si ya pasó el tiempo límite de verificación
  * @returns {boolean} true si ya pasó el tiempo límite
  */
-export const isPastVerificationDeadline = () => {
-  const now = new Date();
-  const currentHour = now.getHours();
-  const currentMinute = now.getMinutes();
-  
-  const deadlineMinutes = VERIFICATION_END_TIME.hour * 60 + VERIFICATION_END_TIME.minute;
-  const currentMinutes = currentHour * 60 + currentMinute;
-  
-  return currentMinutes > deadlineMinutes;
+export const isPastVerificationDeadline = (reserva, horarios = [], referenceDate = new Date()) => {
+  if (!reserva) {
+    const currentMinutes = referenceDate.getHours() * 60 + referenceDate.getMinutes();
+    return currentMinutes > 505;
+  }
+
+  return getVerificationTimeInfo(reserva, horarios, referenceDate).isPast;
 };
 
 /**
- * Verifica si la fecha de una reserva es hoy
- * @param {string} fechaReserva - Fecha en formato ISO (YYYY-MM-DD)
- * @returns {boolean} true si la reserva es para hoy
+ * Evalúa si una reserva pendiente debe cancelarse por vencimiento del turno
  */
-export const isReservationForToday = (fechaReserva) => {
-  const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
-  return fechaReserva === todayStr;
+export const evaluateReservationStatus = (reserva, horarios = [], referenceDate = new Date()) => {
+  const timeInfo = getVerificationTimeInfo(reserva, horarios, referenceDate);
+
+  if (!reserva) {
+    return buildPendingResult(reserva, {
+      message: 'No se recibió información de la reserva',
+      alertType: 'error'
+    });
+  }
+
+  if (!timeInfo.scheduleResolved) {
+    return buildPendingResult(reserva, {
+      message: timeInfo.message,
+      timeInfo,
+      alertType: 'warning'
+    });
+  }
+
+  if (!timeInfo.isToday) {
+    return buildPendingResult(reserva, {
+      message: 'La reserva no corresponde al día actual',
+      timeInfo
+    });
+  }
+
+  if (isReservationConfirmed(reserva)) {
+    return {
+      success: true,
+      shouldUpdate: false,
+      newStatus: 'Confirmada',
+      confirmed: true,
+      message: 'La reserva ya fue confirmada',
+      timeInfo,
+      alertType: 'success'
+    };
+  }
+
+  if (isReservationCanceled(reserva)) {
+    return {
+      success: true,
+      shouldUpdate: false,
+      newStatus: 'Cancelada',
+      confirmed: false,
+      message: 'La reserva ya estaba cancelada',
+      timeInfo,
+      alertType: 'warning'
+    };
+  }
+
+  if (timeInfo.isBefore) {
+    return buildPendingResult(reserva, {
+      message: timeInfo.message,
+      timeInfo
+    });
+  }
+
+  if (timeInfo.isPast) {
+    return {
+      success: true,
+      shouldUpdate: true,
+      newStatus: 'Cancelada',
+      confirmed: false,
+      message: `Reserva cancelada por no confirmar dentro de los primeros ${VERIFICATION_WINDOW_MINUTES} minutos del turno.`,
+      timeInfo,
+      alertType: 'warning'
+    };
+  }
+
+  return buildPendingResult(reserva, {
+    message: `La reserva sigue pendiente. Puedes confirmar hasta las ${timeInfo.endTime}.`,
+    timeInfo,
+    alertType: 'info'
+  });
 };
 
 /**
- * Verifica la asistencia del usuario y actualiza el estado de la reserva
+ * Verifica la asistencia del usuario y devuelve el nuevo estado de la reserva
  * @param {Object} reserva - Objeto de reserva
+ * @param {Object} options - Horarios y posición opcionales
  * @returns {Promise<{success: boolean, newStatus: string, message: string, distance?: number}>}
  */
-export const verifyAttendance = async (reserva) => {
+export const verifyAttendance = async (reserva, options = {}) => {
   try {
-    console.log('🔍 Verificando asistencia para reserva:', reserva.id);
-    
-    // Verificar si la reserva es para hoy
-    if (!isReservationForToday(reserva.fecha)) {
-      return {
-        success: false,
-        newStatus: reserva.estado,
-        message: 'La reserva no es para hoy'
-      };
+    console.log('🔍 Verificando asistencia para reserva:', reserva?.id);
+
+    const horarios = Array.isArray(options.horarios) && options.horarios.length > 0
+      ? options.horarios
+      : await fetchWorkingHorarios();
+    const timeInfo = getVerificationTimeInfo(reserva, horarios, options.referenceDate ?? new Date());
+
+    if (!timeInfo.scheduleResolved) {
+      return buildPendingResult(reserva, {
+        message: timeInfo.message,
+        timeInfo,
+        alertType: 'warning'
+      });
     }
-    
-    // Verificar si está fuera del horario y cancelar automáticamente
-    if (isPastVerificationDeadline() && reserva.estado === 'Pendiente') {
+
+    if (!timeInfo.isToday) {
+      return buildPendingResult(reserva, {
+        message: 'La reserva no es para hoy',
+        timeInfo
+      });
+    }
+
+    if (isReservationConfirmed(reserva)) {
       return {
         success: true,
-        newStatus: 'Cancelada',
-        message: 'Reserva cancelada por no confirmar asistencia a tiempo'
+        shouldUpdate: false,
+        newStatus: 'Confirmada',
+        confirmed: true,
+        message: 'La reserva ya fue confirmada previamente',
+        timeInfo,
+        alertType: 'success'
       };
     }
-    
-    // Verificar si está dentro del horario de confirmación
-    if (!isWithinVerificationTime()) {
+
+    if (timeInfo.isBefore) {
+      return buildPendingResult(reserva, {
+        message: timeInfo.message,
+        timeInfo
+      });
+    }
+
+    if (timeInfo.isPast) {
       return {
-        success: false,
-        newStatus: reserva.estado,
-        message: 'Fuera del horario de verificación (8:00 AM - 8:25 AM)'
+        success: true,
+        shouldUpdate: !isReservationCanceled(reserva),
+        newStatus: 'Cancelada',
+        confirmed: false,
+        message: `La reserva quedó cancelada porque no se confirmó durante los primeros ${VERIFICATION_WINDOW_MINUTES} minutos del turno.`,
+        timeInfo,
+        alertType: 'warning'
       };
     }
-    
-    // Obtener ubicación del usuario
-    const position = await getCurrentPosition();
-    
+
+    const workplaceInfo = options.workplaceInfo ?? getWorkplaceInfo();
+    const position = options.position ?? await getCurrentPosition();
+
     console.log(`📍 Ubicación usuario: ${position.latitude}, ${position.longitude}`);
     console.log(`📍 Precisión: ${position.accuracy} metros`);
-    
-    // Calcular distancia
+
     const distance = calculateDistance(
       position.latitude,
       position.longitude,
-      WORKPLACE_COORDS.latitude,
-      WORKPLACE_COORDS.longitude
+      workplaceInfo.latitude,
+      workplaceInfo.longitude
     );
-    
-    // Verificar si está dentro del radio permitido
-    if (distance <= ALLOWED_RADIUS_METERS) {
+
+    if (distance <= workplaceInfo.radius) {
       return {
         success: true,
+        shouldUpdate: true,
         newStatus: 'Confirmada',
-        message: `Asistencia confirmada. Distancia: ${distance.toFixed(0)} metros`,
-        distance: distance
-      };
-    } else {
-      return {
-        success: true,
-        newStatus: 'Cancelada',
-        message: `Fuera del área permitida. Distancia: ${distance.toFixed(0)} metros (máximo ${ALLOWED_RADIUS_METERS}m)`,
-        distance: distance
+        confirmed: true,
+        withinPerimeter: true,
+        message: `Asistencia confirmada. Distancia: ${distance.toFixed(0)} metros.`,
+        distance,
+        position,
+        timeInfo,
+        alertType: 'success'
       };
     }
-    
-  } catch (error) {
-    console.error('Error al verificar asistencia:', error);
+
     return {
       success: false,
-      newStatus: reserva.estado,
-      message: error.message || 'Error al verificar ubicación'
+      shouldUpdate: false,
+      newStatus: reserva?.estado || 'Pendiente',
+      confirmed: null,
+      withinPerimeter: false,
+      message: `Estás a ${distance.toFixed(0)} metros del punto. Debes estar dentro de ${workplaceInfo.radius} metros antes de las ${timeInfo.endTime}.`,
+      distance,
+      position,
+      timeInfo,
+      alertType: 'warning'
     };
-  }
-};
+  } catch (error) {
+    console.error('Error al verificar asistencia:', error);
 
-/**
- * Obtiene información sobre el horario de verificación
- * @returns {Object} Información del horario
- */
-export const getVerificationTimeInfo = () => {
-  const status = isWithinVerificationTime();
-  const isPast = isPastVerificationDeadline();
-  
-  return {
-    startTime: `${VERIFICATION_START_TIME.hour.toString().padStart(2, '0')}:${VERIFICATION_START_TIME.minute.toString().padStart(2, '0')}`,
-    endTime: `${VERIFICATION_END_TIME.hour.toString().padStart(2, '0')}:${VERIFICATION_END_TIME.minute.toString().padStart(2, '0')}`,
-    isActive: status,
-    isPast: isPast,
-    message: status ? 'Horario activo' : isPast ? 'Horario vencido' : 'Horario no iniciado'
-  };
+    return buildPendingResult(reserva, {
+      message: error.message || 'Error al verificar ubicación',
+      details: error.details,
+      alertType: 'error'
+    });
+  }
 };
 
 /**
@@ -449,6 +898,5 @@ export const checkGeolocationSupport = () => {
 export const WORKPLACE_LOCATION = WORKPLACE_COORDS;
 export const VERIFICATION_RADIUS = ALLOWED_RADIUS_METERS;
 export const VERIFICATION_HOURS = {
-  start: VERIFICATION_START_TIME,
-  end: VERIFICATION_END_TIME
+  windowMinutes: VERIFICATION_WINDOW_MINUTES
 };

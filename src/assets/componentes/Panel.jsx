@@ -162,7 +162,34 @@ const ReservaCard = ({ reserva, cancelando, onCancelar, onVerified }) => {
           </div>
 
           <div style={{ display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" }}>
-            <VerificacionAsistencia reserva={reserva} onVerified={onVerified} />
+            <VerificacionAsistencia reserva={reserva} onVerified={onVerified}>
+              {({ verify, loading: verifying, metadataLoading }) => (
+                reserva.estado === "Pendiente" ? (
+                  <button
+                    onClick={() => void verify()}
+                    disabled={verifying || metadataLoading}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "6px",
+                      padding: "8px 10px",
+                      borderRadius: "8px",
+                      border: "1px solid rgba(21,87,36,0.24)",
+                      background: "rgba(46,125,50,0.08)",
+                      color: "#1f6f3a",
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      cursor: verifying || metadataLoading ? "not-allowed" : "pointer",
+                      opacity: verifying || metadataLoading ? 0.6 : 1,
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    {verifying ? "Verificando..." : metadataLoading ? "Cargando..." : "Confirmar asistencia"}
+                  </button>
+                ) : null
+              )}
+            </VerificacionAsistencia>
             {reserva.estado === "Pendiente" && (
               <button
                 onClick={() => onCancelar(reserva.key ?? reserva.id)}
@@ -489,7 +516,33 @@ const Panel = () => {
                             </span>
                           </td>
                           <td style={{ padding: "12px", display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-                            <VerificacionAsistencia reserva={reserva} onVerified={() => reloadReservations(profileData)} />
+                            <VerificacionAsistencia reserva={reserva} onVerified={() => reloadReservations(profileData)}>
+                              {({ verify, loading: verifying, metadataLoading }) => (
+                                reserva.estado === "Pendiente" ? (
+                                  <button
+                                    onClick={() => void verify()}
+                                    disabled={verifying || metadataLoading}
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "5px",
+                                      padding: "4px 10px",
+                                      borderRadius: "8px",
+                                      border: "1px solid rgba(21,87,36,0.24)",
+                                      background: "rgba(46,125,50,0.08)",
+                                      color: "#1f6f3a",
+                                      fontSize: "0.75rem",
+                                      fontWeight: 600,
+                                      cursor: verifying || metadataLoading ? "not-allowed" : "pointer",
+                                      opacity: verifying || metadataLoading ? 0.6 : 1,
+                                      fontFamily: "inherit",
+                                    }}
+                                  >
+                                    {verifying ? "Verificando..." : metadataLoading ? "Cargando..." : "Confirmar asistencia"}
+                                  </button>
+                                ) : null
+                              )}
+                            </VerificacionAsistencia>
                             {reserva.estado === "Pendiente" && (
                               <button
                                 onClick={() => handleCancelar(reservaKey)}

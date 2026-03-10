@@ -3,6 +3,10 @@
 // Cuando esté disponible el backend, reemplazar con llamadas a la API
 
 import reservasData from '../data/reservas.json';
+import {
+  evaluateReservationStatus,
+  fetchWorkingHorarios,
+} from './geolocationService';
 
 // Clave para localStorage
 const STORAGE_KEY = 'reservaciones';
@@ -55,6 +59,7 @@ export const addReserva = (reserva) => {
       key: Date.now(),
       id: Date.now(),
       estado: 'Pendiente',
+      confirmada: null,
       createdAt: new Date().toISOString(),
     };
     
@@ -78,6 +83,12 @@ export const updateReservaEstado = (id, nuevoEstado) => {
     const index = reservas.findIndex(r => r.id === id || r.key === id);
     if (index !== -1) {
       reservas[index].estado = nuevoEstado;
+      if (nuevoEstado === 'Confirmada') {
+        reservas[index].confirmada = true;
+      }
+      if (nuevoEstado === 'Cancelada') {
+        reservas[index].confirmada = false;
+      }
       reservas[index].updatedAt = new Date().toISOString();
       saveReservas(reservas);
       return true;
@@ -177,7 +188,8 @@ export const updateReservaWithVerification = (id, updateData) => {
 export const getReservasPendientesHoy = () => {
   try {
     const reservas = getReservas();
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     
     return reservas.filter(r => 
       r.fecha === today && r.estado === 'Pendiente'
@@ -189,27 +201,29 @@ export const getReservasPendientesHoy = () => {
 };
 
 // Verificar reservas vencidas y cancelarlas automáticamente
-export const cancelarReservasVencidas = () => {
+export const cancelarReservasVencidas = async () => {
   try {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const currentMinutes = currentHour * 60 + currentMinute;
-    const deadlineMinutes = 8 * 60 + 25; // 8:25 AM
-    
-    // Solo ejecutar después de las 8:25 AM
-    if (currentMinutes <= deadlineMinutes) {
-      return { canceled: 0, message: 'No es hora de cancelar reservas vencidas' };
-    }
-    
+    const horarios = await fetchWorkingHorarios();
     const reservasPendientes = getReservasPendientesHoy();
     let canceladas = 0;
     
     reservasPendientes.forEach(reserva => {
+      const evaluation = evaluateReservationStatus(reserva, horarios);
+
+      if (!evaluation.shouldUpdate || evaluation.newStatus !== 'Cancelada') {
+        return;
+      }
+
       const updated = updateReservaWithVerification(reserva.id, {
         estado: 'Cancelada',
-        motivoCancelacion: 'No confirmó asistencia a tiempo',
-        canceladaAutomaticamente: true
+        confirmada: false,
+        motivoCancelacion: evaluation.message,
+        canceladaAutomaticamente: true,
+        verificacionAsistencia: {
+          fecha: new Date().toISOString(),
+          mensaje: evaluation.message,
+          tipo: 'auto-cancelacion'
+        }
       });
       
       if (updated) {
@@ -217,6 +231,13 @@ export const cancelarReservasVencidas = () => {
         console.log(`🚫 Reserva ${reserva.id} cancelada automáticamente`);
       }
     });
+
+    if (canceladas === 0) {
+      return {
+        canceled: 0,
+        message: 'No hay reservas vencidas para cancelar'
+      };
+    }
     
     return {
       canceled: canceladas,

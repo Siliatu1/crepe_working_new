@@ -18,6 +18,17 @@ $color-btn-primary-hover:   $color-dark-secondary;
 $color-btn-outline-border:  $color-dark-primary;
 $color-btn-outline-text:    $color-dark-primary;
 $color-focus:               $color-accent-warm;
+$color-border:              rgba($color-dark-primary, 0.16);
+$color-light:               $color-accent-soft;
+
+// Alias legacy para parciales existentes
+$primary-dark:  $color-dark-primary;
+$primary-light: $color-accent-gold;
+$primary-cream: $color-accent-soft;
+$accent-white:  $color-light-secondary;
+$color-text:    $color-dark-primary;
+$shadow-sm:     0 8px 20px rgba($color-dark-primary, 0.10);
+$shadow-md:     0 16px 32px rgba($color-dark-primary, 0.16);
 
 // ESTADO
 $color-success: #4caf50;
