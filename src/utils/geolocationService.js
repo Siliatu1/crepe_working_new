@@ -1,10 +1,5 @@
 import axiosInstance from '../api/axiosInstance';
 
-// ========================================
-// GEOLOCATION SERVICE
-// Servicio para verificación de ubicación y gestión de asistencia
-// ========================================
-
 const WORKPLACE_COORDS = {
   latitude: 4.74488,
   longitude: -74.04483,
@@ -14,8 +9,7 @@ const WORKPLACE_COORDS = {
 const ALLOWED_RADIUS_METERS = 1000;
 const VERIFICATION_WINDOW_MINUTES = 25;
 const CACHE_TTL_MS = 5 * 60 * 1000;
-const WORKING_PUESTOS_ENDPOINT = 'https://macfer.crepesywaffles.com/api/working-puestos?pagination[pageSize]=40000';
-const WORKING_HORARIOS_ENDPOINT = 'https://macfer.crepesywaffles.com/api/working-horarios?pagination[pageSize]=40000';
+const WORKING_RESERVAS_ENDPOINT = 'https://macfer.crepesywaffles.com/api/working-reservas';
 
 const DEFAULT_HORARIOS = [
   { id: 'manana', nombre: 'Turno 1', inicio: '08:00:00', fin: '12:00:00' },
@@ -28,6 +22,17 @@ const metadataCache = {
   puestosFetchedAt: 0,
   horarios: null,
   horariosFetchedAt: 0
+};
+
+const fetchReservationsDataset = async () => {
+  const response = await axiosInstance.get(WORKING_RESERVAS_ENDPOINT, {
+    params: {
+      populate: '*',
+      'pagination[pageSize]': 40000,
+    },
+  });
+
+  return normalizeCollection(response.data);
 };
 
 const normalizeText = (value) =>
@@ -238,8 +243,32 @@ export const fetchWorkingPuestos = async ({ force = false } = {}) => {
   }
 
   try {
-    const response = await axiosInstance.get(WORKING_PUESTOS_ENDPOINT);
-    const puestos = normalizeCollection(response.data).map(normalizePuesto);
+    const reservations = await fetchReservationsDataset();
+    const puestosMap = new Map();
+
+    reservations.forEach((item) => {
+      const attrs = extractAttributes(item);
+      const rel = attrs?.working_puestos?.data ?? attrs?.working_puestos;
+
+      if (rel) {
+        const normalized = normalizePuesto(rel, puestosMap.size);
+        puestosMap.set(String(normalized.id), normalized);
+      }
+
+      if (attrs?.escritorioId != null) {
+        const escritorioId = Number(attrs.escritorioId);
+        if (!Number.isNaN(escritorioId) && !puestosMap.has(String(escritorioId))) {
+          puestosMap.set(String(escritorioId), {
+            id: escritorioId,
+            nombre: attrs.escritorio || `escritorio${escritorioId}`,
+            estado: false,
+            puestoNumero: escritorioId,
+          });
+        }
+      }
+    });
+
+    const puestos = Array.from(puestosMap.values());
 
     metadataCache.puestos = puestos;
     metadataCache.puestosFetchedAt = now;
@@ -272,10 +301,37 @@ export const fetchWorkingHorarios = async ({ force = false } = {}) => {
   }
 
   try {
-    const response = await axiosInstance.get(WORKING_HORARIOS_ENDPOINT);
-    const horarios = normalizeCollection(response.data)
-      .map(normalizeHorario)
-      .filter((horario) => horario.startMinutes != null && horario.endMinutes != null);
+    const reservations = await fetchReservationsDataset();
+    const horariosMap = new Map();
+
+    reservations.forEach((item) => {
+      const attrs = extractAttributes(item);
+      const rel = attrs?.working_horarios?.data ?? attrs?.working_horarios;
+
+      if (rel) {
+        const normalized = normalizeHorario(rel, horariosMap.size);
+        if (normalized.startMinutes != null && normalized.endMinutes != null) {
+          horariosMap.set(String(normalized.sourceId), normalized);
+        }
+      }
+
+      if (attrs?.horario || attrs?.turno || attrs?.horaInicio) {
+        const fallbackHorario = normalizeHorario({
+          id: attrs?.horarioId ?? horariosMap.size + 1,
+          attributes: {
+            nombre: attrs.horario || attrs.turno || `Turno ${horariosMap.size + 1}`,
+            inicio: attrs.horaInicio || '08:00:00',
+            fin: attrs.horaFin || '17:00:00',
+          },
+        }, horariosMap.size);
+
+        if (fallbackHorario.startMinutes != null && fallbackHorario.endMinutes != null) {
+          horariosMap.set(String(fallbackHorario.sourceId), fallbackHorario);
+        }
+      }
+    });
+
+    const horarios = Array.from(horariosMap.values());
 
     if (horarios.length === 0) {
       throw new Error('La API no devolvió horarios válidos');
@@ -337,7 +393,7 @@ export const isWithinRadius = (userLat, userLon) => {
     WORKPLACE_COORDS.longitude
   );
   
-  console.log(`📍 Distancia al lugar de trabajo: ${distance.toFixed(2)} metros`);
+  console.log(` Distancia al lugar de trabajo: ${distance.toFixed(2)} metros`);
   
   return distance <= ALLOWED_RADIUS_METERS;
 };
@@ -373,17 +429,17 @@ export const requestLocationPermission = async () => {
     const permissionStatus = await checkLocationPermission();
     
     if (permissionStatus === 'granted') {
-      console.log('✅ Permiso de ubicación ya otorgado');
+      console.log('Permiso de ubicación ya otorgado');
       return true;
     }
     
     if (permissionStatus === 'denied') {
-      console.log('❌ Permiso de ubicación denegado previamente');
+      console.log(' Permiso de ubicación denegado previamente');
       return false;
     }
 
     // Intentar obtener ubicación para activar el prompt de permisos
-    console.log('📍 Solicitando permiso de ubicación...');
+    console.log(' Solicitando permiso de ubicación...');
     await getCurrentPosition();
     return true;
   } catch (error) {
@@ -735,8 +791,8 @@ export const verifyAttendance = async (reserva, options = {}) => {
     const workplaceInfo = options.workplaceInfo ?? getWorkplaceInfo();
     const position = options.position ?? await getCurrentPosition();
 
-    console.log(`📍 Ubicación usuario: ${position.latitude}, ${position.longitude}`);
-    console.log(`📍 Precisión: ${position.accuracy} metros`);
+    console.log(` Ubicación usuario: ${position.latitude}, ${position.longitude}`);
+    console.log(` Precisión: ${position.accuracy} metros`);
 
     const distance = calculateDistance(
       position.latitude,

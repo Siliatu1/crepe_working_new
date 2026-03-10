@@ -1,10 +1,7 @@
 import { useEffect } from 'react';
 import { cancelarReservasVencidas } from '../utils/reservasService';
 
-/**
- * Hook personalizado para cancelar automáticamente reservas vencidas
- * Se ejecuta cada minuto para verificar si hay reservas que deben cancelarse
- */
+
 const useAutoCancelarReservas = (enabled = true) => {
   useEffect(() => {
     if (!enabled) return;
@@ -20,15 +17,15 @@ const useAutoCancelarReservas = (enabled = true) => {
       }
     };
 
-    // Ejecutar inmediatamente al montar
+
     void verificarYCancelar();
 
-    // Configurar intervalo cada 1 minuto
+
     const interval = setInterval(() => {
       void verificarYCancelar();
     }, 60000);
 
-    // Limpiar al desmontar
+
     return () => {
       isMounted = false;
       clearInterval(interval);

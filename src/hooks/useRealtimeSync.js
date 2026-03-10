@@ -1,9 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react';
 
-/**
- * Hook para sincronización en tiempo real de reservas
- * Usa eventos del navegador y polling como respaldo.
- */
+
 const useRealtimeSync = (onSync) => {
   const lastSyncRef = useRef(Date.now());
   const syncIntervalRef = useRef(null);
@@ -19,7 +16,7 @@ const useRealtimeSync = (onSync) => {
 
   useEffect(() => {
     const handleCustomSync = () => {
-      console.log('📡 Evento de sincronización recibido');
+      console.log(' Evento de sincronización recibido');
       triggerSync('custom-event');
     };
 
@@ -36,7 +33,7 @@ const useRealtimeSync = (onSync) => {
   useEffect(() => {
     syncIntervalRef.current = setInterval(() => {
       const timeSinceLastSync = Date.now() - lastSyncRef.current;
-      // Solo sincronizar si han pasado más de 25 segundos desde la última sync
+
       if (timeSinceLastSync > 25000) {
         console.log('⏰ Sincronización automática (polling)');
         triggerSync('polling');
@@ -50,7 +47,7 @@ const useRealtimeSync = (onSync) => {
     };
   }, [triggerSync]);
 
-  // Función para notificar cambios (llamar después de crear/editar/eliminar)
+
   const notifyChange = useCallback(() => {
     window.dispatchEvent(new CustomEvent('reservas-updated'));
     window.dispatchEvent(new CustomEvent('working-reservas-updated'));
