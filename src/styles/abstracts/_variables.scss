@@ -1,98 +1,72 @@
-// ========================================
-// VARIABLES - Sistema global y compatibilidad
-// ========================================
+// PRINCIPAL
+$color-dark-primary:     #503629;   // Textos principales, títulos, bordes oscuros
+$color-light-primary:    transparent;   // Fondos de secciones / elementos suaves
+$color-dark-secondary:   #3C1F1C;   // Textos muy oscuros, hover, énfasis
+$color-light-secondary:  #FFFFFF;   // Fondo principal de la app (blanco)
 
-// Paleta principal
-$color-dark-primary: #503629;
-$color-light-primary: #F1E4B2;
-$color-dark-secondary: #3C1F1C;
-$color-light-secondary: #FFFFFF;
+// SECUNDARIA
+$color-accent-deep:      #7F3A14;   // Botón primario base
+$color-accent-medium:    #995A1F;   // Botón primario alternativo
+$color-accent-warm:      #CC8A22;   // Focus de inputs, acentos interactivos
+$color-accent-gold:      #F0B44E;   // Detalles, highlights
+$color-accent-muted:     #92614F;   // Elementos secundarios
+$color-accent-soft:      #FFFFFF;   // Fondos muy suaves de acentos
 
-// Acentos
-$color-accent-deep: #7F3A14;
-$color-accent-medium: #995A1F;
-$color-accent-warm: #CC8A22;
-$color-accent-gold: #F0B44E;
-$color-accent-muted: #92614F;
-$color-accent-soft: #FFFFFF;
+// Alias funcionales
+$color-btn-primary:         $color-accent-deep;
+$color-btn-primary-hover:   $color-dark-secondary;
+$color-btn-outline-border:  $color-dark-primary;
+$color-btn-outline-text:    $color-dark-primary;
+$color-focus:               $color-accent-warm;
 
-// Alias de compatibilidad (nombres legacy)
-$primary-dark: $color-dark-primary;
-$primary-light: $color-accent-muted;
-$primary-cream: #EFE7DA;
-$accent-brown: $color-dark-primary;
-$accent-orange: #E1DACA;
-$accent-white: $color-light-secondary;
-
-$color-dark: $color-dark-primary;
-$color-light: #f5f5f5;
-$color-text: #555555;
-$color-border: #e0e0e0;
-
-// Alias funcionales de botones
-$color-btn-primary: $color-accent-deep;
-$color-btn-primary-hover: $color-dark-secondary;
-$color-btn-outline-border: $color-dark-primary;
-$color-btn-outline-text: $color-dark-primary;
-$color-focus: $color-accent-warm;
-
-// Estado
+// ESTADO
 $color-success: #4caf50;
 $color-warning: #ffc107;
-$color-error: #f44336;
+$color-error:   #f44336;
 
-// Tipografia
-$font-family-base: 'DM Sans', sans-serif;
-$font-family-display: 'Sora', sans-serif;
+// TIPOGRAFÍA
+$font-family-base:    'DM Sans', sans-serif;    // Cuerpo / párrafos
+$font-family-display: 'Sora', sans-serif;       // Títulos / labels / nombres
 
-$font-weight-regular: 400;
-$font-weight-medium: 500;
+$font-weight-regular:  400;
+$font-weight-medium:   500;
 $font-weight-semibold: 600;
-$font-weight-bold: 700;
-$font-weight-black: 900;
+$font-weight-bold:     700;
+$font-weight-black:    900;
 
-$font-size-xs: 0.75rem;
-$font-size-sm: 0.875rem;
+$font-size-xs:   0.75rem;
+$font-size-sm:   0.875rem;
 $font-size-base: 1rem;
-$font-size-lg: 1.125rem;
-$font-size-xl: 1.25rem;
-$font-size-2xl: 1.5rem;
-$font-size-3xl: 1.875rem;
+$font-size-lg:   1.125rem;
+$font-size-xl:   1.25rem;
+$font-size-2xl:  1.5rem;
+$font-size-3xl:  1.875rem;
 
-// Espaciado
-$spacing-xs: 4px;
-$spacing-sm: 8px;
-$spacing-md: 12px;
-$spacing-lg: 16px;
-$spacing-xl: 20px;
+// ESPACIADO
+$spacing-xs:  4px;
+$spacing-sm:  8px;
+$spacing-md:  12px;
+$spacing-lg:  16px;
+$spacing-xl:  20px;
 $spacing-2xl: 24px;
 $spacing-3xl: 32px;
 $spacing-4xl: 40px;
 
-// Bordes
-$radius-sm: 8px;
-$radius-md: 12px;
-$radius-lg: 16px;
-$radius-xl: 24px;
+// BORDES / RADIOS
+$radius-sm:   8px;
+$radius-md:   12px;
+$radius-lg:   16px;
+$radius-xl:   24px;
 $radius-full: 999px;
 
-// Sombras
+// SOMBRA
 $shadow-card: 0 2px 12px rgba(80, 54, 41, 0.10);
-$shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.12);
-$shadow-md: 0 10px 30px rgba(0, 0, 0, 0.16);
-$shadow-lg: 0 8px 20px rgba(0, 0, 0, 0.15);
-$shadow-primary: 0 4px 12px rgba(80, 54, 41, 0.24);
-$shadow-primary-lg: 0 6px 20px rgba(80, 54, 41, 0.30);
-$shadow-accent: 0 4px 8px rgba(204, 138, 34, 0.20);
-$shadow-accent-lg: 0 6px 12px rgba(204, 138, 34, 0.26);
 
-// Transiciones
-$transition-fast: 0.2s;
-$transition-base: 0.3s;
-$transition-slow: 0.5s;
-$transition-easing: ease;
+// TRANSICIONES
+$transition-fast: 0.2s ease;
+$transition-base: 0.3s ease;
 
-// Breakpoints
+// BREAKPOINTS
 $breakpoint-sm: 480px;
 $breakpoint-md: 768px;
 $breakpoint-lg: 1024px;
