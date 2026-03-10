@@ -3,9 +3,14 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Table, Button, Input, DatePicker, Select, Modal, Form, message, Space, Tag, Popconfirm, Avatar } from 'antd';
 import { SearchOutlined, PlusOutlined, EditOutlined, DeleteOutlined, LogoutOutlined, ReloadOutlined, ArrowLeftOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import reservasIniciales from '../../data/reservas.json';
 import useRealtimeSync from '../../hooks/useRealtimeSync';
-import syncService from '../../utils/syncService';
+import {
+  cancelReserva,
+  createReservaRecord,
+  deleteReservaRecord,
+  getReservas,
+  updateReservaRecord,
+} from '../../utils/reservasService';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -46,16 +51,10 @@ const AdminPanel = () => {
   });
 
   // Cargar reservas
-  const cargarReservas = () => {
+  const cargarReservas = async () => {
     setLoading(true);
     try {
-      // Cargar del localStorage
-      const reservasLS = JSON.parse(localStorage.getItem('reservas') || '[]');
-      
-      // Combinar con reservas iniciales del JSON
-      const todasReservas = [...reservasIniciales, ...reservasLS];
-      
-      // Agregar key única para cada reserva
+      const todasReservas = await getReservas();
       const reservasConKey = todasReservas.map((r, index) => ({
         ...r,
         key: r.id || r.key || index,
@@ -72,8 +71,20 @@ const AdminPanel = () => {
   };
 
   useEffect(() => {
-    cargarReservas();
+    void cargarReservas();
   }, []);
+
+  const getHorarioRange = (horario) => {
+    if (horario === 'manana') {
+      return { horaInicio: '08:00', horaFin: '12:00' };
+    }
+
+    if (horario === 'tarde') {
+      return { horaInicio: '13:00', horaFin: '17:00' };
+    }
+
+    return { horaInicio: '08:00', horaFin: '17:00' };
+  };
 
   // Filtrar reservas
   const reservasFiltradas = reservas.filter(reserva => {
@@ -131,59 +142,36 @@ const AdminPanel = () => {
   // Guardar reserva (crear o editar)
   const guardarReserva = async (values) => {
     try {
-      const reservasLS = JSON.parse(localStorage.getItem('reservas') || '[]');
+      const horarioRange = getHorarioRange(values.horario);
+      const payload = {
+        cedula: values.cedula,
+        nombre: values.nombre,
+        fecha: dayjs(values.fecha).format('YYYY-MM-DD'),
+        escritorio: `Escritorio ${values.escritorio}`,
+        escritorioId: Number(values.escritorio),
+        horario: values.horario,
+        turno: values.horario,
+        horaInicio: horarioRange.horaInicio,
+        horaFin: horarioRange.horaFin,
+        estado: values.estado || 'Pendiente',
+        confirmada: values.estado === 'Confirmada',
+        correo: values.correo || '',
+        cargo: values.cargo || '',
+        area: values.area || '',
+        foto: editingReserva?.foto || '',
+      };
       
       if (editingReserva) {
-        // Editar reserva existente
-        const index = reservasLS.findIndex(r => r.key === editingReserva.key || r.id === editingReserva.id);
-        
-        if (index !== -1) {
-          reservasLS[index] = {
-            ...reservasLS[index],
-            cedula: values.cedula,
-            nombre: values.nombre,
-            fecha: dayjs(values.fecha).format('YYYY-MM-DD'),
-            escritorio: `Escritorio ${values.escritorio}`,
-            escritorioId: Number(values.escritorio),
-            horario: values.horario,
-            estado: values.estado,
-            correo: values.correo,
-            cargo: values.cargo,
-            area: values.area,
-            updatedAt: new Date().toISOString(),
-          };
-          syncService.saveReservas(reservasLS);
-          notifyChange(); // Notificar cambios en tiempo real
-          message.success('Reserva actualizada correctamente');
-        }
+        await updateReservaRecord(editingReserva.id, payload, editingReserva);
+        notifyChange();
+        message.success('Reserva actualizada correctamente');
       } else {
-        // Crear nueva reserva
-        const nuevaReserva = {
-          id: Date.now(),
-          key: Date.now(),
-          cedula: values.cedula,
-          nombre: values.nombre,
-          fecha: dayjs(values.fecha).format('YYYY-MM-DD'),
-          escritorio: `Escritorio ${values.escritorio}`,
-          escritorioId: Number(values.escritorio),
-          horario: values.horario,
-          turno: values.horario || 'Mañana',
-          horaInicio: '08:00',
-          horaFin: '17:00',
-          estado: values.estado || 'Confirmada',
-          correo: values.correo || '',
-          cargo: values.cargo || '',
-          area: values.area || '',
-          createdAt: new Date().toISOString(),
-        };
-        
-        reservasLS.push(nuevaReserva);
-        syncService.saveReservas(reservasLS);
-        notifyChange(); // Notificar cambios en tiempo real
+        await createReservaRecord(payload);
+        notifyChange();
         message.success('Reserva creada correctamente');
       }
 
-      cargarReservas();
+      await cargarReservas();
       setIsModalVisible(false);
       form.resetFields();
     } catch (error) {
@@ -195,19 +183,10 @@ const AdminPanel = () => {
   // Cancelar reserva
   const cancelarReserva = async (record) => {
     try {
-      const reservasLS = JSON.parse(localStorage.getItem('reservas') || '[]');
-      const index = reservasLS.findIndex(r => r.key === record.key || r.id === record.id);
-      
-      if (index !== -1) {
-        reservasLS[index].estado = 'Cancelada';
-        reservasLS[index].updatedAt = new Date().toISOString();
-        syncService.saveReservas(reservasLS);
-        notifyChange(); // Notificar cambios en tiempo real
-        message.success('Reserva cancelada correctamente');
-        cargarReservas();
-      } else {
-        message.warning('Esta reserva no se puede modificar');
-      }
+      await cancelReserva(record.id, record, 'Reserva cancelada desde el panel administrador.');
+      notifyChange();
+      message.success('Reserva cancelada correctamente');
+      await cargarReservas();
     } catch (error) {
       console.error('Error cancelando reserva:', error);
       message.error('Error al cancelar la reserva');
@@ -217,12 +196,10 @@ const AdminPanel = () => {
   // Eliminar reserva
   const eliminarReserva = async (record) => {
     try {
-      const reservasLS = JSON.parse(localStorage.getItem('reservas') || '[]');
-      const nuevasReservas = reservasLS.filter(r => r.key !== record.key && r.id !== record.id);
-      syncService.saveReservas(nuevasReservas);
-      notifyChange(); // Notificar cambios en tiempo real
+      await deleteReservaRecord(record.id);
+      notifyChange();
       message.success('Reserva eliminada correctamente');
-      cargarReservas();
+      await cargarReservas();
     } catch (error) {
       console.error('Error eliminando reserva:', error);
       message.error('Error al eliminar la reserva');

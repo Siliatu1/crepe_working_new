@@ -19,7 +19,7 @@ const WORKING_HORARIOS_ENDPOINT = 'https://macfer.crepesywaffles.com/api/working
 
 const DEFAULT_HORARIOS = [
   { id: 'manana', nombre: 'Turno 1', inicio: '08:00:00', fin: '12:00:00' },
-  { id: 'tarde', nombre: 'Turno 2', inicio: '13:00:00', fin: '17:00:00' },
+  { id: 'tarde', nombre: 'Turno 2', inicio: '12:00:00', fin: '17:00:00' },
   { id: 'completo', nombre: 'Turno 3', inicio: '08:00:00', fin: '17:00:00' }
 ];
 

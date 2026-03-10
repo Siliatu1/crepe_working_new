@@ -133,15 +133,16 @@ const VerificacionAsistencia = ({
     messageApi.open({ type, content });
   }, [messageApi, onAlert, reserva]);
 
-  const applyResult = useCallback((result) => {
+  const applyResult = useCallback(async (result) => {
     if (!reserva || !result?.shouldUpdate) {
       return result;
     }
 
     const reservaId = reserva.id ?? reserva.key;
-    const updated = updateReservaWithVerification(
+    const updated = await updateReservaWithVerification(
       reservaId,
-      buildVerificationPayload(reserva, result, deviceInfo)
+      buildVerificationPayload(reserva, result, deviceInfo),
+      reserva
     );
 
     if (!updated) {
@@ -179,10 +180,25 @@ const VerificacionAsistencia = ({
       return;
     }
 
-    autoSyncRef.current.add(reservationKey);
-    const finalResult = applyResult(evaluation);
-    setLastResult(finalResult);
-    emitAlert(finalResult.alertType || 'warning', finalResult.message);
+    let active = true;
+
+    const runAutoSync = async () => {
+      autoSyncRef.current.add(reservationKey);
+      const finalResult = await applyResult(evaluation);
+
+      if (!active) {
+        return;
+      }
+
+      setLastResult(finalResult);
+      emitAlert(finalResult.alertType || 'warning', finalResult.message);
+    };
+
+    void runAutoSync();
+
+    return () => {
+      active = false;
+    };
   }, [applyResult, autoSync, emitAlert, metadata.horarios, metadata.loading, reserva]);
 
   const timeInfo = useMemo(
@@ -253,7 +269,7 @@ const VerificacionAsistencia = ({
         workplaceInfo,
       });
 
-      const finalResult = applyResult(result);
+      const finalResult = await applyResult(result);
       setLastResult(finalResult);
       emitAlert(finalResult.alertType || (finalResult.success ? 'success' : 'warning'), finalResult.message);
       return finalResult;

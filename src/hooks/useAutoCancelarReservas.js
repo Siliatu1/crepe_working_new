@@ -16,7 +16,7 @@ const useAutoCancelarReservas = (enabled = true) => {
       const result = await cancelarReservasVencidas();
 
       if (isMounted && result.canceled > 0) {
-        console.log(`🚫 Auto-cancelación: ${result.message}`);
+        console.log(` Auto-cancelación: ${result.message}`);
       }
     };
 

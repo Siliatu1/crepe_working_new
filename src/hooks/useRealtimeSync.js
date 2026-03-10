@@ -2,8 +2,7 @@ import { useEffect, useCallback, useRef } from 'react';
 
 /**
  * Hook para sincronización en tiempo real de reservas
- * Actualmente usa localStorage events (funciona entre pestañas)
- * Preparado para migrar a WebSockets/Webhooks cuando tengan API
+ * Usa eventos del navegador y polling como respaldo.
  */
 const useRealtimeSync = (onSync) => {
   const lastSyncRef = useRef(Date.now());
@@ -18,36 +17,18 @@ const useRealtimeSync = (onSync) => {
     lastSyncRef.current = Date.now();
   }, [onSync]);
 
-  // Escuchar cambios en localStorage (entre pestañas/tabs)
-  useEffect(() => {
-    const handleStorageChange = (e) => {
-      // Solo sincronizar si cambió las reservas
-      if (e.key === 'reservas' && e.newValue !== e.oldValue) {
-        console.log('📡 Cambio detectado en otra pestaña');
-        triggerSync('storage-event');
-      }
-    };
-
-    // Agregar listener para cambios en storage
-    window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [triggerSync]);
-
-  // Evento custom para sincronización en la misma pestaña
   useEffect(() => {
     const handleCustomSync = () => {
-      console.log('📡 Evento de sincronización en misma pestaña');
+      console.log('📡 Evento de sincronización recibido');
       triggerSync('custom-event');
     };
 
-    // Escuchar evento custom
     window.addEventListener('reservas-updated', handleCustomSync);
+    window.addEventListener('working-reservas-updated', handleCustomSync);
 
     return () => {
       window.removeEventListener('reservas-updated', handleCustomSync);
+      window.removeEventListener('working-reservas-updated', handleCustomSync);
     };
   }, [triggerSync]);
 
@@ -71,10 +52,8 @@ const useRealtimeSync = (onSync) => {
 
   // Función para notificar cambios (llamar después de crear/editar/eliminar)
   const notifyChange = useCallback(() => {
-    // Disparar evento custom para la misma pestaña
     window.dispatchEvent(new CustomEvent('reservas-updated'));
-    
-    // localStorage change ya se detecta automáticamente en otras pestañas
+    window.dispatchEvent(new CustomEvent('working-reservas-updated'));
     console.log('✅ Notificación de cambio enviada');
   }, []);
 

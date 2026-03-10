@@ -1,10 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
-import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
-import { getReservas } from "../../utils/reservasService";
+import { cancelReserva, getReservasByUsuario, RESERVAS_UPDATED_EVENT } from "../../utils/reservasService";
 import VerificacionAsistencia from "./VerificacionAsistencia";
-import useAutoCancelarReservas from "../../hooks/useAutoCancelarReservas";
-import useRealtimeSync from "../../hooks/useRealtimeSync";
 
 const IconUser = () => (
   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#92614F" strokeWidth="2" strokeLinecap="round">
@@ -95,6 +92,7 @@ const useMobile = () => {
 
 const ReservaCard = ({ reserva, cancelando, onCancelar, onVerified }) => {
   const [open, setOpen] = useState(false);
+  const reservaKey = reserva.key ?? reserva.id;
 
   return (
     <div
@@ -192,8 +190,8 @@ const ReservaCard = ({ reserva, cancelando, onCancelar, onVerified }) => {
             </VerificacionAsistencia>
             {reserva.estado === "Pendiente" && (
               <button
-                onClick={() => onCancelar(reserva.key ?? reserva.id)}
-                disabled={cancelando === (reserva.key ?? reserva.id)}
+                onClick={() => onCancelar(reserva)}
+                disabled={cancelando === reservaKey}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -206,13 +204,13 @@ const ReservaCard = ({ reserva, cancelando, onCancelar, onVerified }) => {
                   color: "#c0392b",
                   fontSize: "0.8rem",
                   fontWeight: 600,
-                  cursor: cancelando === (reserva.key ?? reserva.id) ? "not-allowed" : "pointer",
-                  opacity: cancelando === (reserva.key ?? reserva.id) ? 0.6 : 1,
+                  cursor: cancelando === reservaKey ? "not-allowed" : "pointer",
+                  opacity: cancelando === reservaKey ? 0.6 : 1,
                   fontFamily: "inherit",
                 }}
               >
                 <IconTrash />
-                {cancelando === (reserva.key ?? reserva.id) ? "Cancelando..." : "Cancelar"}
+                {cancelando === reservaKey ? "Cancelando..." : "Cancelar"}
               </button>
             )}
           </div>
@@ -229,27 +227,18 @@ const Panel = () => {
   const isMobile = useMobile();
 
   const [profileData, setProfileData] = useState(datosEmpleado);
-  const [loading, setLoading] = useState(!datosEmpleado);
+  const [loading, setLoading] = useState(Boolean(datosEmpleado));
   const [error, setError] = useState("");
   const [reservations, setReservations] = useState([]);
   const [filtroEstado, setFiltroEstado] = useState("Todos");
   const [cancelando, setCancelando] = useState(null);
 
-  useAutoCancelarReservas(true);
-
-  const reloadReservations = useCallback((empleadoRef = null) => {
+  const reloadReservations = useCallback(async (empleadoRef = null) => {
     try {
-      const cedulaStorage = localStorage.getItem("cedula");
-      const empleadoStorage = localStorage.getItem("empleadoData");
-      const empleadoLocal = empleadoStorage ? JSON.parse(empleadoStorage) : null;
-      const empleado = empleadoRef || empleadoLocal || profileData;
-      const cedulaUsuario =
-        cedulaStorage || empleado?.documento || empleado?.document_number || profileData?.documento || profileData?.document_number;
+      const empleado = empleadoRef || profileData;
+      const cedulaUsuario = empleado?.documento || empleado?.document_number || profileData?.documento || profileData?.document_number;
 
-      const todas = getReservas();
-      const usuario = cedulaUsuario
-        ? todas.filter((reserva) => String(reserva.cedula) === String(cedulaUsuario))
-        : [];
+      const usuario = cedulaUsuario ? await getReservasByUsuario(cedulaUsuario) : [];
 
       setReservations(usuario);
     } catch (err) {
@@ -258,36 +247,39 @@ const Panel = () => {
     }
   }, [profileData]);
 
-  useRealtimeSync(() => reloadReservations(profileData));
+  useEffect(() => {
+    if (!profileData) {
+      return undefined;
+    }
+
+    const handleRefresh = () => {
+      void reloadReservations(profileData);
+    };
+
+    const intervalId = window.setInterval(handleRefresh, 30000);
+
+    window.addEventListener(RESERVAS_UPDATED_EVENT, handleRefresh);
+    window.addEventListener("focus", handleRefresh);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener(RESERVAS_UPDATED_EVENT, handleRefresh);
+      window.removeEventListener("focus", handleRefresh);
+    };
+  }, [profileData, reloadReservations]);
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        let empleado = datosEmpleado;
-        const storedEmpleado = localStorage.getItem("empleadoData");
-        const storedCedula = localStorage.getItem("cedula");
-        const sessionEmpleado = sessionStorage.getItem("cw_empleado");
+        const empleado = datosEmpleado;
 
-        if (!empleado && sessionEmpleado) {
-          empleado = JSON.parse(sessionEmpleado);
-        }
-
-        if (!empleado && storedEmpleado) {
-          empleado = JSON.parse(storedEmpleado);
-        }
-
-        if (!empleado && storedCedula) {
-          const response = await axios.get(
-            `https://apialohav2.crepesywaffles.com/buk/empleados3?documento=${storedCedula}`
-          );
-          empleado = response?.data?.data?.[0] || null;
-          if (empleado) {
-            localStorage.setItem("empleadoData", JSON.stringify(empleado));
-          }
+        if (!empleado) {
+          setError("No se encontraron datos del empleado. Vuelve a ingresar por la pantalla inicial.");
+          return;
         }
 
         setProfileData(empleado);
-        reloadReservations(empleado);
+        await reloadReservations(empleado);
       } catch (err) {
         console.error(err);
         setError("Error al cargar los datos del perfil");
@@ -299,15 +291,12 @@ const Panel = () => {
     fetchProfile();
   }, [datosEmpleado, reloadReservations]);
 
-  const handleCancelar = async (reservaKey) => {
+  const handleCancelar = async (reserva) => {
+    const reservaKey = reserva?.key ?? reserva?.id;
     setCancelando(reservaKey);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 700));
-      setReservations((prev) =>
-        prev.map((reserva) =>
-          (reserva.key ?? reserva.id) === reservaKey ? { ...reserva, estado: "Cancelada" } : reserva
-        )
-      );
+      await cancelReserva(reservaKey, reserva);
+      await reloadReservations(profileData);
     } catch (err) {
       console.error(err);
     } finally {
@@ -545,7 +534,7 @@ const Panel = () => {
                             </VerificacionAsistencia>
                             {reserva.estado === "Pendiente" && (
                               <button
-                                onClick={() => handleCancelar(reservaKey)}
+                                onClick={() => handleCancelar(reserva)}
                                 disabled={cancelando === reservaKey}
                                 style={{
                                   display: "inline-flex",

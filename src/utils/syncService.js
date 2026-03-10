@@ -1,51 +1,27 @@
-/**
- * Servicio de sincronización de reservas
- * Maneja operaciones CRUD con notificación automática
- * Preparado para migrar a API/Webhooks
- */
-
-// Configuración (cambiar cuando tengan API)
 const CONFIG = {
-  USE_API: false, // Cambiar a true cuando tengan backend
-  API_URL: 'https://tu-api.com/api/reservas',
+  USE_API: true,
+  API_URL: 'https://macfer.crepesywaffles.com/api/working-reservas',
   WEBHOOK_URL: null, // URL del webhook cuando esté disponible
-  STORAGE_KEY: 'reservas',
 };
+
+let reservasCache = [];
 
 /**
  * Obtener todas las reservas
  */
 export const getAllReservas = () => {
-  if (CONFIG.USE_API) {
-    // TODO: Implementar cuando tengan API
-    // return fetch(CONFIG.API_URL).then(res => res.json());
-  }
-  
-  // Modo localStorage
-  const stored = localStorage.getItem(CONFIG.STORAGE_KEY);
-  return stored ? JSON.parse(stored) : [];
+  return reservasCache;
 };
 
 /**
  * Guardar reservas y notificar cambios
  */
 export const saveReservas = (reservas) => {
-  if (CONFIG.USE_API) {
-    // TODO: Implementar cuando tengan API
-    // return fetch(CONFIG.API_URL, {
-    //   method: 'POST',
-    //   body: JSON.stringify(reservas)
-    // });
-  }
-  
-  // Modo localStorage
-  localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(reservas));
-  
-  // Notificar cambio (dispara sincronización en otros componentes)
+  reservasCache = Array.isArray(reservas) ? [...reservas] : [];
   window.dispatchEvent(new CustomEvent('reservas-updated', {
     detail: { timestamp: Date.now() }
   }));
-  
+
   console.log('💾 Reservas guardadas y notificación enviada');
 };
 

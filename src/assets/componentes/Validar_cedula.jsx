@@ -27,9 +27,6 @@ const ValidarCedula = () => {
       const empleado = response.data.data[0];
       const fechaHoraIngreso = new Date();
 
-      localStorage.setItem("empleadoData", JSON.stringify(empleado));
-      localStorage.setItem("cedula", cedula);
-
       navigate("/bienvenida", {
         state: {
           datosEmpleado: empleado,
