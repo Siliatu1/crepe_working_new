@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import sillaDis from '../../assets/sillaDis.png';
 import sillaLim from '../../assets/sillaLim.png';
 import sillaOcu from '../../assets/sillaOcu.png';
 import mesaImg  from '../../assets/mesa.png';
+import useRealtimeSync from '../../hooks/useRealtimeSync';
 
 // ─── URLs ────────────────────────────────────────────────────────────────────
 const BASE         = 'https://macfer.crepesywaffles.com';
@@ -13,9 +14,9 @@ const API_RESERVAS = `${BASE}/api/working-reservas`;
 // ─── Constantes ──────────────────────────────────────────────────────────────
 const CON_MONITOR = [1, 3, 6];
 const ADMINS      = ['1028783377'];
-const H_AM        = 1;   // turno 1 = Mañana
-const H_PM        = 2;   // turno 2 = Tarde
-const H_COMPLETO  = 3;   // turno 3 = Día completo
+const H_AM        = 1;
+const H_PM        = 2;
+const H_COMPLETO  = 3;
 
 const HORARIO_META = {
   [H_AM]:       { label: 'Mañana',      hora: '8:00 am – 12:00 m' },
@@ -34,65 +35,133 @@ const SILLAS = [
 
 const DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 
-// ─── Utilidades ──────────────────────────────────────────────────────────────
+// ─── Utilidades de fecha ──────────────────────────────────────────────────────
 const toISO   = d => d.toISOString().split('T')[0];
 const toLabel = d =>
   `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
 
-/**
- * Construye la URL de GET con populate explícito.
- * Strapi v4 requiere nombrar cada relación para que los datos se incluyan.
- * populate=* a veces no funciona si los permisos de las relaciones
- * no están habilitados en Settings → Roles → Public.
- */
+// ─── URL con populate completo ────────────────────────────────────────────────
+// populate=* trae TODAS las relaciones con todos sus campos
 const buildGetUrl = (fecha) =>
-  `${API_RESERVAS}` +
-  `?filters[fecha_reserva][$eq]=${fecha}` +
-  `&populate[working_puestos][fields][0]=id` +   // solo necesitamos el id del puesto
-  `&populate[working_horarios][fields][0]=id`;    // solo necesitamos el id del horario
+  `${API_RESERVAS}?filters[fecha_reserva][$eq]=${fecha}&populate=*`;
 
-// ─── Lógica de disponibilidad ─────────────────────────────────────────────────
+// ─── Diagnóstico de estructura de la API ─────────────────────────────────────
+// Llama esto una vez para ver en consola exactamente qué devuelve Strapi
+const logEstructura = (reservas) => {
+  if (!reservas.length) return;
+  const r = reservas[0];
+  console.group('🔍 [DEBUG] Estructura de reserva de la API');
+  console.log('Reserva completa:', JSON.stringify(r, null, 2));
+  console.log('r.id:', r.id);
+  console.log('r.attributes:', r.attributes);
+  console.log('r.attributes.working_puestos:', r.attributes?.working_puestos);
+  console.log('r.attributes.working_horarios:', r.attributes?.working_horarios);
+  // También verificar si viene en raíz (algunos Strapi v4 sin attributes)
+  console.log('r.working_puestos (raíz):', r.working_puestos);
+  console.log('r.working_horarios (raíz):', r.working_horarios);
+  console.groupEnd();
+};
+
+// ─── Extracción de IDs — cubre TODOS los formatos de Strapi v4 ───────────────
 /**
- * Extrae el id del puesto de una reserva.
- * Strapi puede devolver la relación de dos formas:
- *   A) { data: { id: X } }         ← con populate
- *   B) { id: X }                   ← si Strapi lo serializa directo
- * Esta función maneja ambos casos.
+ * Strapi v4 puede devolver relaciones en estos formatos:
+ *
+ * FORMATO A (populate estándar):
+ *   { data: { id: 1, attributes: {...} } }
+ *
+ * FORMATO B (populate con fields):
+ *   { data: { id: 1 } }
+ *
+ * FORMATO C (sin populate / relación plana):
+ *   { id: 1 }
+ *
+ * FORMATO D (número directo, raro pero posible):
+ *   1
+ *
+ * FORMATO E (array — si la relación es hasMany):
+ *   { data: [ { id: 1 } ] }
+ *
+ * FORMATO F (sin attributes wrapper — algunos configs de Strapi):
+ *   campo en raíz del objeto reserva
  */
+const extractId = (rel) => {
+  if (rel === null || rel === undefined) return null;
+
+  // Formato D: número directo
+  if (typeof rel === 'number') return rel;
+
+  // Formato C: { id: X }
+  if (typeof rel === 'object' && rel.id !== undefined) return rel.id;
+
+  // Formato A/B: { data: { id: X } }
+  if (rel.data !== null && rel.data !== undefined) {
+    const d = rel.data;
+    if (typeof d === 'number') return d;
+    if (Array.isArray(d) && d.length > 0) return d[0].id ?? null;
+    if (typeof d === 'object' && d.id !== undefined) return d.id;
+  }
+
+  return null;
+};
+
 const getPuestoId = (r) => {
-  const rel = r.attributes?.working_puestos;
-  if (!rel) return null;
-  if (rel.data) return rel.data.id;   // forma A
-  if (rel.id)   return rel.id;        // forma B
+  // Intentar con attributes primero
+  const conAttr = extractId(r.attributes?.working_puestos);
+  if (conAttr !== null) return conAttr;
+
+  // Fallback: campo en raíz del objeto
+  const enRaiz = extractId(r.working_puestos);
+  if (enRaiz !== null) return enRaiz;
+
+  console.warn('[getPuestoId] No se pudo extraer puesto de:', r);
   return null;
 };
 
 const getHorarioId = (r) => {
-  const rel = r.attributes?.working_horarios;
-  if (!rel) return null;
-  if (rel.data) return rel.data.id;
-  if (rel.id)   return rel.id;
+  const conAttr = extractId(r.attributes?.working_horarios);
+  if (conAttr !== null) return conAttr;
+
+  const enRaiz = extractId(r.working_horarios);
+  if (enRaiz !== null) return enRaiz;
+
+  console.warn('[getHorarioId] No se pudo extraer horario de:', r);
   return null;
 };
 
+// ─── Lógica de disponibilidad ─────────────────────────────────────────────────
+/**
+ * Turno bloqueado según reglas de negocio:
+ *   Reserva AM       → bloquea AM  + COMPLETO
+ *   Reserva PM       → bloquea PM  + COMPLETO
+ *   Reserva COMPLETO → bloquea AM  + PM + COMPLETO
+ */
 const turnosBloqueados = (reservas, puestoId) => {
   const bloq = new Set();
   reservas
     .filter(r => getPuestoId(r) === puestoId)
     .forEach(r => {
       const hId = getHorarioId(r);
-      if (hId === H_AM)       { bloq.add(H_AM);      bloq.add(H_COMPLETO); }
-      else if (hId === H_PM)  { bloq.add(H_PM);      bloq.add(H_COMPLETO); }
-      else if (hId === H_COMPLETO) { bloq.add(H_AM); bloq.add(H_PM); bloq.add(H_COMPLETO); }
+      if (hId === H_AM)            { bloq.add(H_AM);  bloq.add(H_COMPLETO); }
+      else if (hId === H_PM)       { bloq.add(H_PM);  bloq.add(H_COMPLETO); }
+      else if (hId === H_COMPLETO) { bloq.add(H_AM);  bloq.add(H_PM); bloq.add(H_COMPLETO); }
     });
   return bloq;
 };
 
+/**
+ * Estado visual:
+ *   'disponible' → 🟢 verde    (ningún turno tomado)
+ *   'limitado'   → 🟡 amarillo (solo AM o solo PM)
+ *   'ocupado'    → 🔴 rojo     (AM+PM o DÍA COMPLETO)
+ */
 const calcEstado = (reservas, puestoId) => {
-  const n = turnosBloqueados(reservas, puestoId).size;
-  if (n === 0) return 'disponible';
-  if (n >= 3)  return 'ocupado';
-  return 'limitado';
+  const rp = reservas.filter(r => getPuestoId(r) === puestoId);
+  const tieneAM       = rp.some(r => getHorarioId(r) === H_AM);
+  const tienePM       = rp.some(r => getHorarioId(r) === H_PM);
+  const tieneCompleto = rp.some(r => getHorarioId(r) === H_COMPLETO);
+  if (tieneCompleto || (tieneAM && tienePM)) return 'ocupado';
+  if (tieneAM || tienePM)                    return 'limitado';
+  return 'disponible';
 };
 
 // ─── Iconos ───────────────────────────────────────────────────────────────────
@@ -124,6 +193,12 @@ const IconCalendar = () => (
     <line x1="3"  y1="10" x2="21" y2="10"/>
   </svg>
 );
+const IconRefresh = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="23 4 23 10 17 10"/>
+    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+  </svg>
+);
 const IconMonitorLeyenda = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
     <rect x="2" y="3" width="20" height="14" rx="2"/>
@@ -145,6 +220,77 @@ const IconUserCardLarge = () => (
   </svg>
 );
 
+// ─── Iconos extra ────────────────────────────────────────────────────────────
+const IconUser = () => (
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+    <circle cx="12" cy="7" r="4"/>
+  </svg>
+);
+const IconMonitorSmall = () => (
+  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+    <rect x="2" y="3" width="20" height="14" rx="2"/>
+    <line x1="8" y1="21" x2="16" y2="21"/>
+    <line x1="12" y1="17" x2="12" y2="21"/>
+  </svg>
+);
+
+// ─── OcupantesPanel — panel izquierdo con estado de cada escritorio ───────────
+const OcupantesPanel = ({ reservas }) => {
+  const TURNO_CORTO = { [H_AM]: 'AM', [H_PM]: 'PM', [H_COMPLETO]: 'Full' };
+
+  return (
+    <div className="ocupantes-panel">
+      <div className="ocupantes-panel__titulo text-label">
+        Escritorios
+      </div>
+      <div className="ocupantes-panel__lista">
+        {[1, 2, 3, 4, 5, 6].map(id => {
+          const estado       = calcEstado(reservas, id);
+          const rp           = reservas.filter(r => getPuestoId(r) === id);
+          const tieneMonitor = CON_MONITOR.includes(id);
+
+          return (
+            <div key={id} className={`ocupantes-item ocupantes-item--${estado}`}>
+              {/* Cabecera */}
+              <div className="ocupantes-item__header">
+                <div className={`ocupantes-item__dot ocupantes-item__dot--${estado}`} />
+                <span className="ocupantes-item__nombre">Esc. {id}</span>
+                {tieneMonitor && (
+                  <span className="ocupantes-item__badge">
+                    <IconMonitorSmall /> Monitor
+                  </span>
+                )}
+              </div>
+
+              {/* Ocupantes o libre */}
+              {rp.length === 0 ? (
+                <p className="ocupantes-item__libre text-muted">Disponible</p>
+              ) : (
+                rp.map((r, i) => {
+                  const hId        = getHorarioId(r);
+                  const turnoLabel = TURNO_CORTO[hId] ?? '';
+                  const nombre     = r.attributes?.Nombre ?? r.attributes?.documento ?? r.Nombre ?? r.documento ?? '—';
+                  const nombreCorto = nombre.split(' ').slice(0, 2).join(' ');
+                  return (
+                    <div key={i} className="ocupantes-item__persona">
+                      <IconUser />
+                      <span className="ocupantes-item__persona-nombre">{nombreCorto}</span>
+                      {turnoLabel && (
+                        <span className="ocupantes-item__turno">{turnoLabel}</span>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 // ─── BookingCard ──────────────────────────────────────────────────────────────
 const BookingCard = ({
   escritorioId, usuario, reservas, horarios,
@@ -156,8 +302,8 @@ const BookingCard = ({
 
   React.useEffect(() => {
     if (!escritorioId || !horarios.length) return;
-    const bloq     = turnosBloqueados(reservas, escritorioId);
-    const primero  = horarios.find(h => !bloq.has(h.id));
+    const bloq    = turnosBloqueados(reservas, escritorioId);
+    const primero = horarios.find(h => !bloq.has(h.id));
     setHorarioSelId(primero?.id ?? null);
   }, [escritorioId, reservas, horarios]);
 
@@ -168,7 +314,6 @@ const BookingCard = ({
   const tieneMonitor  = CON_MONITOR.includes(escritorioId);
   const horarioSelObj = horarios.find(h => h.id === horarioSelId);
   const puedeReservar = !yaReservoHoy && !todoBloqueado && !!horarioSelId && !reservaOk;
-
   const reservasDelPuesto = reservas.filter(r => getPuestoId(r) === escritorioId);
 
   const aviso = yaReservoHoy
@@ -181,7 +326,6 @@ const BookingCard = ({
     <div className="booking-card-wrapper">
       <div className="booking-card">
 
-        {/* Usuario */}
         <div className="booking-section">
           <div className="booking-section-label">Reserva para</div>
           {usuario && (
@@ -201,7 +345,6 @@ const BookingCard = ({
         </div>
         <div className="booking-divider" />
 
-        {/* Escritorio */}
         <div className="booking-section">
           <div className="booking-section-label">Ubicación</div>
           <div className="booking-ubicacion-row">
@@ -218,11 +361,9 @@ const BookingCard = ({
                   <div key={i} className="booking-ocupante-item">
                     <span>🖱️</span>
                     <span className="booking-ocupante-nombre">
-                      {r.attributes?.Nombre ?? r.attributes?.documento ?? '—'}
+                      {r.attributes?.Nombre ?? r.attributes?.documento ?? r.Nombre ?? r.documento ?? '—'}
                     </span>
-                    {hMeta && (
-                      <span className="booking-ocupante-hora">· {hMeta.label}</span>
-                    )}
+                    {hMeta && <span className="booking-ocupante-hora">· {hMeta.label}</span>}
                   </div>
                 );
               })}
@@ -231,27 +372,27 @@ const BookingCard = ({
         </div>
         <div className="booking-divider" />
 
-        {/* Horarios */}
         <div className="booking-section">
           <div className="booking-section-label">Horario</div>
           <div className="booking-horarios">
             {horarios.map(h => {
-              const esBloq = bloq.has(h.id);
-              const esSel  = horarioSelId === h.id;
-              const meta   = HORARIO_META[h.id];
+              const esBloq      = bloq.has(h.id);
+              const esSel       = horarioSelId === h.id;
+              const meta        = HORARIO_META[h.id];
+              const deshabilitado = esBloq || yaReservoHoy;
               return (
                 <button
                   key={h.id}
-                  onClick={() => !esBloq && !yaReservoHoy && setHorarioSelId(h.id)}
-                  disabled={esBloq || yaReservoHoy}
+                  onClick={() => !deshabilitado && setHorarioSelId(h.id)}
+                  disabled={deshabilitado}
                   className={[
                     'booking-horario-btn',
                     esSel  ? 'booking-horario-btn--selected'  : '',
                     esBloq ? 'booking-horario-btn--bloqueado' : '',
                   ].join(' ')}
                   style={{
-                    opacity: esBloq || yaReservoHoy ? 0.38 : 1,
-                    cursor:  esBloq || yaReservoHoy ? 'not-allowed' : 'pointer',
+                    opacity: deshabilitado ? 0.38 : 1,
+                    cursor:  deshabilitado ? 'not-allowed' : 'pointer',
                   }}
                 >
                   <span className="booking-horario-label">{meta?.label}</span>
@@ -268,21 +409,18 @@ const BookingCard = ({
         </div>
         <div className="booking-divider" />
 
-        {/* Feedback */}
         {(aviso || reservaErr || reservaOk) && (
           <div className="booking-section">
             {reservaOk  && <div className="booking-feedback booking-feedback--ok">✓ ¡Reservado con éxito!</div>}
             {reservaErr && <div className="booking-feedback booking-feedback--error">{reservaErr}</div>}
             {!reservaOk && !reservaErr && aviso && (
-              <div className="booking-feedback booking-feedback--error"
-                style={{ background: 'rgba(192,57,43,0.08)' }}>
+              <div className="booking-feedback booking-feedback--error" style={{ background: 'rgba(192,57,43,0.08)' }}>
                 {aviso}
               </div>
             )}
           </div>
         )}
 
-        {/* Botones */}
         <div className="booking-botones">
           <button className="booking-btn-cancelar" onClick={onCancel}>Cancelar</button>
           <button
@@ -332,8 +470,8 @@ export default function Reservas() {
   const [reservando, setReservando] = useState(false);
   const [reservaOk,  setReservaOk]  = useState(false);
   const [reservaErr, setReservaErr] = useState(null);
+  const [ultimaSync, setUltimaSync] = useState(null);
 
-  // Carga horarios una sola vez
   useEffect(() => {
     fetch(API_HORARIOS)
       .then(r => r.json())
@@ -341,23 +479,31 @@ export default function Reservas() {
       .catch(() => setHorarios([]));
   }, []);
 
-  // Carga reservas del día con populate explícito de las relaciones
-  const cargarReservas = () => {
+  const cargarReservas = useCallback(() => {
     setLoadingR(true);
     fetch(buildGetUrl(fechaISO))
       .then(r => r.json())
       .then(json => {
         const data = Array.isArray(json.data) ? json.data : [];
-        // Log de diagnóstico: puedes ver en consola si llegan las relaciones
-        console.log('[Reservas] cargadas para', fechaISO, data);
+
+        // ── DIAGNÓSTICO: ver estructura exacta que devuelve Strapi ──
+        // Esto aparece en la consola del navegador (F12 → Console)
+        console.group(`📦 [API] Reservas para ${fechaISO} — total: ${data.length}`);
+        logEstructura(data);
+        data.forEach((r, i) => {
+          console.log(`  Reserva[${i}] id=${r.id} | puestoId=${getPuestoId(r)} | horarioId=${getHorarioId(r)} | documento=${r.attributes?.documento ?? r.documento}`);
+        });
+        console.groupEnd();
+
         setReservas(data);
+        setUltimaSync(new Date());
       })
       .catch(err => {
         console.error('[Reservas] error cargando:', err);
         setReservas([]);
       })
       .finally(() => setLoadingR(false));
-  };
+  }, [fechaISO]);
 
   useEffect(() => {
     cargarReservas();
@@ -366,16 +512,30 @@ export default function Reservas() {
     setReservaOk(false);
   }, [fechaISO]);
 
-  // 1 reserva por persona por día
+  useRealtimeSync(cargarReservas);
+
+  // Si la silla seleccionada se ocupa, deseleccionar
+  useEffect(() => {
+    if (selectedId && calcEstado(reservas, selectedId) === 'ocupado') {
+      setSelectedId(null);
+      setReservaErr('Este escritorio acaba de ser reservado por otro usuario.');
+    }
+  }, [reservas, selectedId]);
+
   const yaReservoHoy = reservas.some(
-    r => String(r.attributes?.documento) === String(usuario?.document_number)
+    r => String(r.attributes?.documento ?? r.documento) === String(usuario?.document_number)
   );
 
   const handleReservar = async (horarioObj) => {
     if (!usuario || !selectedId || !horarioObj) return;
-    if (yaReservoHoy) { setReservaErr('Ya tienes una reserva para este día.'); return; }
+
+    if (yaReservoHoy) {
+      setReservaErr('Ya tienes una reserva para este día.');
+      return;
+    }
+
     if (turnosBloqueados(reservas, selectedId).has(horarioObj.id)) {
-      setReservaErr('Este turno ya no está disponible.');
+      setReservaErr('Este turno ya no está disponible. Elige otro.');
       return;
     }
 
@@ -383,14 +543,6 @@ export default function Reservas() {
     setReservaErr(null);
 
     try {
-      /*
-       * IMPORTANTE — formato que Strapi v4 espera para relaciones:
-       *   campo_relacion: { id: X }
-       *
-       * Si el servidor devuelve 400 "relation expected" puede ser que
-       * Strapi espere solo el número: campo_relacion: X
-       * En ese caso cambia { id: selectedId } por selectedId directamente.
-       */
       const body = {
         data: {
           Nombre:           usuario.nombre      ?? '',
@@ -415,9 +567,7 @@ export default function Reservas() {
       const resJson = await res.json().catch(() => ({}));
       console.log('[Reservas] POST response:', resJson);
 
-      if (!res.ok) {
-        throw new Error(resJson?.error?.message ?? `Error ${res.status}`);
-      }
+      if (!res.ok) throw new Error(resJson?.error?.message ?? `Error ${res.status}`);
 
       setReservaOk(true);
       cargarReservas();
@@ -436,6 +586,13 @@ export default function Reservas() {
     return sillaDis;
   };
 
+  const getTooltip = (id) => {
+    const e = calcEstado(reservas, id);
+    if (e === 'ocupado')  return 'Escritorio lleno — sin turnos disponibles';
+    if (e === 'limitado') return 'Clic para ver turnos disponibles';
+    return 'Clic para reservar';
+  };
+
   return (
     <div className="reservas-wrapper">
       <div className="reservas-inner">
@@ -445,6 +602,12 @@ export default function Reservas() {
             <div className="reservas-titulo">
               Crepe-Working <span className="text-accent">1</span>
             </div>
+            {ultimaSync && (
+              <div style={{ fontSize: '0.65rem', color: 'rgba(80,54,41,0.45)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                <IconRefresh />
+                Actualizado {ultimaSync.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            )}
           </div>
 
           <div className="reservas-header-right" style={{ flexWrap: 'nowrap' }}>
@@ -476,6 +639,16 @@ export default function Reservas() {
 
             <div style={{ width: 1, height: 26, background: 'rgba(80,54,41,0.15)', flexShrink: 0 }} />
 
+            <button
+              className="reservas-dia-btn"
+              onClick={cargarReservas}
+              disabled={loadingR}
+              title="Actualizar disponibilidad"
+              style={{ opacity: loadingR ? 0.45 : 1 }}
+            >
+              <IconRefresh />
+            </button>
+
             {esAdmin && (
               <button
                 className="btn-continuar"
@@ -496,11 +669,17 @@ export default function Reservas() {
           </div>
         </header>
 
-        <div className="reservas-mapa" style={{ padding: '0 16px' }}>
+        <div className="reservas-mapa reservas-mapa--con-panel">
+
+          {/* Panel de ocupantes — izquierda */}
+          {!loadingR && (
+            <OcupantesPanel reservas={reservas} />
+          )}
+
           {loadingR ? (
             <div className="reservas-loading">Cargando escritorios…</div>
           ) : (
-            <div className="reservas-mesa-container" style={{ width: 'clamp(420px, 74vh, 840px)' }}>
+            <div className="reservas-mesa-container">
               <img src={mesaImg} alt="Mesa" className="reservas-mesa-img" />
               {SILLAS.map(s => {
                 const estado   = calcEstado(reservas, s.id);
@@ -511,7 +690,7 @@ export default function Reservas() {
                   <img
                     key={s.id}
                     src={getSilla(s.id)}
-                    alt={`Silla ${s.id}`}
+                    alt={`Escritorio ${s.id}`}
                     onClick={() => {
                       if (!isAvail) return;
                       setSelectedId(isSelect ? null : s.id);
@@ -520,7 +699,7 @@ export default function Reservas() {
                     }}
                     onMouseEnter={() => setHoverId(s.id)}
                     onMouseLeave={() => setHoverId(null)}
-                    title={isAvail ? 'Clic para seleccionar' : 'No disponible'}
+                    title={getTooltip(s.id)}
                     style={{
                       position:   'absolute',
                       width:      isHover || isSelect ? '22%' : '18%',
@@ -549,9 +728,9 @@ export default function Reservas() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
             {[
-              { img: sillaDis, label: 'Disponible'              },
-              { img: sillaLim, label: 'Disponibilidad limitada'  },
-              { img: sillaOcu, label: 'Ocupado'                  },
+              { img: sillaDis, label: 'Disponible'             },
+              { img: sillaLim, label: 'Disponibilidad limitada' },
+              { img: sillaOcu, label: 'Ocupado'                 },
             ].map(({ img, label }) => (
               <div key={label} className="reservas-leyenda-item">
                 <img src={img} alt={label} className="reservas-leyenda-img" />
