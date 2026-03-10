@@ -8,7 +8,7 @@ const Politicas = () => {
   const [aceptado, setAceptado] = useState(false);
 
   const handleAceptar = () => {
-    if (aceptado) navigate("/reservas", { state: { datosEmpleado } });
+    if (aceptado) navigate("/salas", { state: { datosEmpleado } });
   };
 
   const politicas = [
