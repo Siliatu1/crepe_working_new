@@ -5,6 +5,7 @@ import Politicas from './assets/componentes/Politicas.jsx'
 import Salas from './assets/componentes/Salas.jsx'
 import Reservas from './assets/componentes/Reservas.jsx'
 import Panel from './assets/componentes/Panel.jsx'
+import AdminPanel from './assets/componentes/AdminPanel.jsx'
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route path="/salas" element={<Salas />} />
         <Route path="/reservas" element={<Reservas />} />
         <Route path="/panel" element={<Panel />} />
+        <Route path="/admin" element={<AdminPanel />} />
       </Routes>
     </div>
   );
