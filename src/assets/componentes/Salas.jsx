@@ -15,12 +15,7 @@ const IconChair = () => (
     <path d="M6 10v10"/><path d="M18 10v10"/><path d="M9 20h6"/>
   </svg>
 );
-const IconArrowRight = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-    <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
-  </svg>
-);
-
+ 
 // ── Salas disponibles ─────────────────────────────────────────
 const SALAS = [
   {
@@ -30,7 +25,7 @@ const SALAS = [
     monitores: 3,
     ruta: "/reservas",
     disponible: true,
-  },
+  }
 ];
 
 const ADMINS = ["1028783377"];
@@ -53,11 +48,6 @@ const SalaCard = ({ sala, onClick }) => {
           alt={sala.nombre}
           className={`salas-card-img${hover && sala.disponible ? " salas-card-img--hover" : ""}${!sala.disponible ? " salas-card-img--disabled" : ""}`}
         />
-        {!sala.disponible && (
-          <div className="salas-card-overlay">
-            <span className="salas-card-badge-pronto text-label">Próximamente</span>
-          </div>
-        )}
       </div>
 
       {/* Info */}
@@ -76,15 +66,6 @@ const SalaCard = ({ sala, onClick }) => {
             <span className="text-muted">{sala.monitores} con monitor</span>
           </div>
         </div>
-
-        {sala.disponible && (
-          <div className="salas-card-footer">
-            <span className="salas-card-disponible">Disponible hoy</span>
-            <div className={`salas-card-arrow-btn${hover ? " salas-card-arrow-btn--hover" : ""}`}>
-              <IconArrowRight />
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

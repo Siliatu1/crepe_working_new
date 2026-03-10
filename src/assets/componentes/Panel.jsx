@@ -1,140 +1,117 @@
-import React, { useCallback, useEffect, useState } from "react";
-import axios from "axios";
-import { useLocation, useNavigate } from "react-router-dom";
-import { getReservas } from "../../utils/reservasService";
-import VerificacionAsistencia from "./VerificacionAsistencia";
-import useAutoCancelarReservas from "../../hooks/useAutoCancelarReservas";
-import useRealtimeSync from "../../hooks/useRealtimeSync";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 
+const BASE         = 'https://macfer.crepesywaffles.com';
+const API_RESERVAS = `${BASE}/api/working-reservas`;
+
+// Metadatos de horarios por ID (igual que en Reservas.jsx)
+const HORARIO_META = {
+  1: { label: 'Mañana',      hora: '8:00 am – 12:00 m' },
+  2: { label: 'Tarde',        hora: '1:00 pm – 5:00 pm' },
+  3: { label: 'Día completo', hora: '8:00 am – 5:00 pm' },
+};
+
+// ── Iconos ────────────────────────────────────────────────────
 const IconUser = () => (
   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#92614F" strokeWidth="2" strokeLinecap="round">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
   </svg>
 );
-
 const IconCalendar = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CC8A22" strokeWidth="2" strokeLinecap="round">
-    <rect x="3" y="4" width="18" height="18" rx="2" />
-    <line x1="16" y1="2" x2="16" y2="6" />
-    <line x1="8" y1="2" x2="8" y2="6" />
-    <line x1="3" y1="10" x2="21" y2="10" />
+    <rect x="3" y="4" width="18" height="18" rx="2"/>
+    <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
   </svg>
 );
-
 const IconMonitor = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CC8A22" strokeWidth="2" strokeLinecap="round">
-    <rect x="2" y="3" width="20" height="14" rx="2" />
-    <line x1="8" y1="21" x2="16" y2="21" />
-    <line x1="12" y1="17" x2="12" y2="21" />
+    <rect x="2" y="3" width="20" height="14" rx="2"/>
+    <line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
   </svg>
 );
-
 const IconClock = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CC8A22" strokeWidth="2" strokeLinecap="round">
-    <circle cx="12" cy="12" r="10" />
-    <polyline points="12 6 12 12 16 14" />
+    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
   </svg>
 );
-
 const IconArrowLeft = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-    <line x1="19" y1="12" x2="5" y2="12" />
-    <polyline points="12 19 5 12 12 5" />
+    <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
   </svg>
 );
-
 const IconTrash = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="3 6 5 6 21 6" />
-    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-    <path d="M10 11v6" />
-    <path d="M14 11v6" />
-    <path d="M9 6V4h6v2" />
+    <polyline points="3 6 5 6 21 6"/>
+    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+    <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
   </svg>
 );
-
 const IconChevron = ({ open }) => (
-  <svg
-    width="14"
-    height="14"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2.5"
-    strokeLinecap="round"
-    style={{ transition: "transform 0.25s", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
-  >
-    <polyline points="6 9 12 15 18 9" />
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+    style={{ transition: 'transform 0.25s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+    <polyline points="6 9 12 15 18 9"/>
   </svg>
 );
 
-const ESTADO_STYLES = {
-  Pendiente: { background: "#FFF3CD", color: "#856404" },
-  Confirmada: { background: "#D4EDDA", color: "#155724" },
-  Cancelada: { background: "#F8D7DA", color: "#721C24" },
-};
-
-const TURNO_LABELS = {
-  manana: "Manana (8:00 - 12:00)",
-  tarde: "Tarde (1:00 - 5:00)",
-  completo: "Dia completo",
-};
-
+// ── Hook breakpoint ───────────────────────────────────────────
 const useMobile = () => {
   const [mobile, setMobile] = useState(() => window.innerWidth < 768);
-
   useEffect(() => {
-    const onResize = () => setMobile(window.innerWidth < 768);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    const fn = () => setMobile(window.innerWidth < 768);
+    window.addEventListener("resize", fn);
+    return () => window.removeEventListener("resize", fn);
   }, []);
-
   return mobile;
 };
 
-const ReservaCard = ({ reserva, cancelando, onCancelar, onVerified }) => {
-  const [open, setOpen] = useState(false);
+// ── Helpers ───────────────────────────────────────────────────
+const getPuestoId = (r) => {
+  const rel = r.attributes?.working_puestos;
+  if (!rel) return null;
+  if (rel.data) return rel.data.id;
+  if (rel.id)   return rel.id;
+  return null;
+};
 
+const getHorarioId = (r) => {
+  const rel = r.attributes?.working_horarios;
+  if (!rel) return null;
+  if (rel.data) return rel.data.id;
+  if (rel.id)   return rel.id;
+  return null;
+};
+
+// ── Tarjeta mobile colapsable ─────────────────────────────────
+const ReservaCard = ({ r, cancelando, onCancelar }) => {
+  const [open, setOpen] = useState(false);
+  const hMeta = HORARIO_META[r.horarioId];
   return (
-    <div
-      style={{
-        borderRadius: "12px",
-        border: "1px solid rgba(80,54,41,0.1)",
-        background: "#FDFAF7",
-        overflow: "hidden",
-      }}
-    >
+    <div style={{
+      borderRadius: "12px",
+      border: "1px solid rgba(80,54,41,0.1)",
+      background: "#FDFAF7",
+      overflow: "hidden",
+    }}>
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(o => !o)}
         style={{
-          width: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "12px 14px",
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          textAlign: "left",
-          fontFamily: "inherit",
+          width: "100%", display: "flex", alignItems: "center",
+          justifyContent: "space-between", padding: "12px 14px",
+          background: "none", border: "none", cursor: "pointer",
+          textAlign: "left", fontFamily: "inherit",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
           <IconMonitor />
           <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "#503629", whiteSpace: "nowrap" }}>
-            {reserva.escritorio || `Escritorio ${reserva.escritorioId || ""}`.trim()}
+            Escritorio {r.puestoId ?? '—'}
           </span>
-          <span
-            style={{
-              padding: "2px 9px",
-              borderRadius: "20px",
-              fontSize: "0.7rem",
-              fontWeight: 600,
-              ...(ESTADO_STYLES[reserva.estado] || { background: "#EEE", color: "#555" }),
-            }}
-          >
-            {reserva.estado}
+          <span style={{
+            padding: "2px 9px", borderRadius: "20px",
+            fontSize: "0.7rem", fontWeight: 600,
+            background: "#D4EDDA", color: "#155724",
+          }}>
+            Activa
           </span>
         </div>
         <IconChevron open={open} />
@@ -146,427 +123,344 @@ const ReservaCard = ({ reserva, cancelando, onCancelar, onVerified }) => {
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <IconCalendar />
               <span className="text-body" style={{ fontSize: "0.82rem" }}>
-                {new Date(`${reserva.fecha}T12:00:00`).toLocaleDateString("es-CO", {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                })}
+                {new Date(r.fecha + "T12:00:00").toLocaleDateString("es-CO", { year: "numeric", month: "short", day: "numeric" })}
               </span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <IconClock />
               <span className="text-body" style={{ fontSize: "0.82rem" }}>
-                {TURNO_LABELS[reserva.turno] || reserva.turno || reserva.horario || "N/A"}
+                {hMeta ? `${hMeta.label} · ${hMeta.hora}` : '—'}
               </span>
             </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ fontSize: "0.82rem", color: "#92614F" }}>👤</span>
+              <span className="text-body" style={{ fontSize: "0.82rem" }}>{r.nombre}</span>
+            </div>
           </div>
-
-          <div style={{ display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" }}>
-            <VerificacionAsistencia reserva={reserva} onVerified={onVerified}>
-              {({ verify, loading: verifying, metadataLoading }) => (
-                reserva.estado === "Pendiente" ? (
-                  <button
-                    onClick={() => void verify()}
-                    disabled={verifying || metadataLoading}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "6px",
-                      padding: "8px 10px",
-                      borderRadius: "8px",
-                      border: "1px solid rgba(21,87,36,0.24)",
-                      background: "rgba(46,125,50,0.08)",
-                      color: "#1f6f3a",
-                      fontSize: "0.8rem",
-                      fontWeight: 600,
-                      cursor: verifying || metadataLoading ? "not-allowed" : "pointer",
-                      opacity: verifying || metadataLoading ? 0.6 : 1,
-                      fontFamily: "inherit",
-                    }}
-                  >
-                    {verifying ? "Verificando..." : metadataLoading ? "Cargando..." : "Confirmar asistencia"}
-                  </button>
-                ) : null
-              )}
-            </VerificacionAsistencia>
-            {reserva.estado === "Pendiente" && (
-              <button
-                onClick={() => onCancelar(reserva.key ?? reserva.id)}
-                disabled={cancelando === (reserva.key ?? reserva.id)}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "6px",
-                  padding: "8px 10px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(220,53,69,0.3)",
-                  background: "rgba(220,53,69,0.06)",
-                  color: "#c0392b",
-                  fontSize: "0.8rem",
-                  fontWeight: 600,
-                  cursor: cancelando === (reserva.key ?? reserva.id) ? "not-allowed" : "pointer",
-                  opacity: cancelando === (reserva.key ?? reserva.id) ? 0.6 : 1,
-                  fontFamily: "inherit",
-                }}
-              >
-                <IconTrash />
-                {cancelando === (reserva.key ?? reserva.id) ? "Cancelando..." : "Cancelar"}
-              </button>
-            )}
-          </div>
+          <button
+            onClick={() => onCancelar(r.id)}
+            disabled={cancelando === r.id}
+            style={{
+              marginTop: "12px", width: "100%",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+              padding: "8px", borderRadius: "8px",
+              border: "1px solid rgba(220,53,69,0.3)",
+              background: "rgba(220,53,69,0.06)",
+              color: "#c0392b", fontSize: "0.8rem", fontWeight: 600,
+              cursor: cancelando === r.id ? "not-allowed" : "pointer",
+              opacity: cancelando === r.id ? 0.6 : 1,
+              fontFamily: "inherit",
+            }}
+          >
+            <IconTrash />
+            {cancelando === r.id ? "Cancelando…" : "Cancelar reserva"}
+          </button>
         </div>
       )}
     </div>
   );
 };
 
+// ── Panel principal ───────────────────────────────────────────
 const Panel = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate      = useNavigate();
+  const location      = useLocation();
   const datosEmpleado = location.state?.datosEmpleado || null;
-  const isMobile = useMobile();
+  const isMobile      = useMobile();
 
-  const [profileData, setProfileData] = useState(datosEmpleado);
-  const [loading, setLoading] = useState(!datosEmpleado);
-  const [error, setError] = useState("");
+  const [profileData,  setProfileData]  = useState(datosEmpleado);
   const [reservations, setReservations] = useState([]);
-  const [filtroEstado, setFiltroEstado] = useState("Todos");
-  const [cancelando, setCancelando] = useState(null);
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState("");
+  const [cancelando,   setCancelando]   = useState(null);
 
-  useAutoCancelarReservas(true);
-
-  const reloadReservations = useCallback((empleadoRef = null) => {
+  // Carga todas las reservas y las normaliza en un formato simple
+  const cargarReservas = async () => {
+    setLoading(true);
+    setError("");
     try {
-      const cedulaStorage = localStorage.getItem("cedula");
-      const empleadoStorage = localStorage.getItem("empleadoData");
-      const empleadoLocal = empleadoStorage ? JSON.parse(empleadoStorage) : null;
-      const empleado = empleadoRef || empleadoLocal || profileData;
-      const cedulaUsuario =
-        cedulaStorage || empleado?.documento || empleado?.document_number || profileData?.documento || profileData?.document_number;
+      // Traemos todas las reservas con relaciones populadas
+      const url =
+        `${API_RESERVAS}` +
+        `?populate[working_puestos][fields][0]=id&populate[working_puestos][fields][1]=nombre` +
+        `&populate[working_horarios][fields][0]=id&populate[working_horarios][fields][1]=nombre` +
+        `&sort=fecha_reserva:desc` +
+        `&pagination[pageSize]=200`;
 
-      const todas = getReservas();
-      const usuario = cedulaUsuario
-        ? todas.filter((reserva) => String(reserva.cedula) === String(cedulaUsuario))
-        : [];
+      const res  = await fetch(url);
+      const json = await res.json();
+      const data = Array.isArray(json.data) ? json.data : [];
 
-      setReservations(usuario);
+      // Normalizar cada reserva a un objeto plano fácil de mostrar
+      const normalizadas = data.map(r => ({
+        id:       r.id,
+        nombre:   r.attributes?.Nombre    ?? r.attributes?.documento ?? '—',
+        foto:     r.attributes?.foto      ?? null,
+        documento:r.attributes?.documento ?? '—',
+        area:     r.attributes?.area      ?? '—',
+        fecha:    r.attributes?.fecha_reserva ?? '—',
+        estado:   r.attributes?.estado ? 'Cancelada' : 'Activa',
+        puestoId: getPuestoId(r),
+        horarioId:getHorarioId(r),
+      }));
+
+      setReservations(normalizadas);
     } catch (err) {
-      console.error("Error al recargar reservas:", err);
-      setReservations([]);
+      console.error(err);
+      setError("Error al cargar las reservas.");
+    } finally {
+      setLoading(false);
     }
-  }, [profileData]);
+  };
 
-  useRealtimeSync(() => reloadReservations(profileData));
+  useEffect(() => { cargarReservas(); }, []);
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        let empleado = datosEmpleado;
-        const storedEmpleado = localStorage.getItem("empleadoData");
-        const storedCedula = localStorage.getItem("cedula");
-        const sessionEmpleado = sessionStorage.getItem("cw_empleado");
-
-        if (!empleado && sessionEmpleado) {
-          empleado = JSON.parse(sessionEmpleado);
-        }
-
-        if (!empleado && storedEmpleado) {
-          empleado = JSON.parse(storedEmpleado);
-        }
-
-        if (!empleado && storedCedula) {
-          const response = await axios.get(
-            `https://apialohav2.crepesywaffles.com/buk/empleados3?documento=${storedCedula}`
-          );
-          empleado = response?.data?.data?.[0] || null;
-          if (empleado) {
-            localStorage.setItem("empleadoData", JSON.stringify(empleado));
-          }
-        }
-
-        setProfileData(empleado);
-        reloadReservations(empleado);
-      } catch (err) {
-        console.error(err);
-        setError("Error al cargar los datos del perfil");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProfile();
-  }, [datosEmpleado, reloadReservations]);
-
-  const handleCancelar = async (reservaKey) => {
-    setCancelando(reservaKey);
+  // Cancelar = marcar estado:true en Strapi (DELETE o PUT según lo que tengas habilitado)
+  const handleCancelar = async (id) => {
+    setCancelando(id);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 700));
-      setReservations((prev) =>
-        prev.map((reserva) =>
-          (reserva.key ?? reserva.id) === reservaKey ? { ...reserva, estado: "Cancelada" } : reserva
-        )
+      const res = await fetch(`${API_RESERVAS}/${id}`, {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ data: { estado: true } }),
+      });
+      if (!res.ok) throw new Error('No se pudo cancelar');
+      // Actualizar localmente sin recargar todo
+      setReservations(prev =>
+        prev.map(r => r.id === id ? { ...r, estado: 'Cancelada' } : r)
       );
     } catch (err) {
       console.error(err);
+      alert('Error al cancelar la reserva. Intenta de nuevo.');
     } finally {
       setCancelando(null);
     }
   };
 
-  const filtros = ["Todos", "Pendiente", "Confirmada", "Cancelada"];
-  const reservasFiltradas =
-    filtroEstado === "Todos" ? reservations : reservations.filter((reserva) => reserva.estado === filtroEstado);
+  // Solo mostrar reservas activas (estado = false en Strapi = "Activa" aquí)
+  const activas   = reservations.filter(r => r.estado === 'Activa');
+  const canceladas = reservations.filter(r => r.estado === 'Cancelada');
 
-  if (loading) {
-    return (
-      <div className="page-wrapper">
-        <div className="bienvenida-card">
-          <p className="text-muted" style={{ textAlign: "center" }}>Cargando informacion...</p>
-        </div>
+  if (loading) return (
+    <div className="page-wrapper">
+      <div className="bienvenida-card">
+        <p className="text-muted" style={{ textAlign: "center" }}>Cargando reservas…</p>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (error) {
-    return (
-      <div className="page-wrapper">
-        <div className="bienvenida-card">
-          <p className="text-muted" style={{ color: "#c0392b", textAlign: "center" }}>{error}</p>
-        </div>
+  if (error) return (
+    <div className="page-wrapper">
+      <div className="bienvenida-card">
+        <p style={{ color: "#c0392b", textAlign: "center" }}>{error}</p>
+        <button className="btn-continuar" onClick={cargarReservas} style={{ marginTop: 12 }}>
+          Reintentar
+        </button>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
-    <div className="page-wrapper" style={{ alignItems: "flex-start", padding: isMobile ? "16px" : "24px" }}>
-      <div style={{ width: "100%", maxWidth: "980px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "16px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
-          <h1 className="bienvenida-saludo" style={{ margin: 0, fontSize: "1.35rem" }}>
-            Mi <span className="text-accent">Panel</span>
-          </h1>
-          <button
-            className="btn-outline reservas-btn-atras"
+    <div className="page-wrapper" style={{
+      alignItems: "flex-start",
+      overflowY: "auto",
+      padding: isMobile ? "16px" : "28px 24px",
+    }}>
+      <div style={{
+        width: "100%", maxWidth: "1040px",
+        margin: "0 auto", display: "flex",
+        flexDirection: "column", gap: "16px",
+      }}>
+
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div />
+          <button className="btn-outline reservas-btn-atras"
             onClick={() => navigate(-1)}
-            style={{ display: "flex", alignItems: "center", gap: "6px" }}
-          >
-            <IconArrowLeft /> Atras
+            style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <IconArrowLeft /> Atrás
           </button>
         </div>
 
-        <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: "16px", alignItems: "flex-start" }}>
-          <div className="bienvenida-card" style={{ width: isMobile ? "100%" : "280px", flexShrink: 0 }}>
+        {/* Layout */}
+        <div style={{
+          display: "flex",
+          flexDirection: isMobile ? "column" : "row",
+          gap: "16px", alignItems: "flex-start",
+        }}>
+
+          {/* Perfil */}
+          <div className="bienvenida-card" style={{
+            width: isMobile ? "100%" : "240px",
+            flexShrink: 0, boxSizing: "border-box",
+          }}>
             <div className="bienvenida-avatar">
               {profileData?.foto && profileData.foto !== "null" ? (
                 <img src={profileData.foto} alt="Foto" className="bienvenida-foto" />
               ) : (
-                <div className="bienvenida-foto-placeholder">
-                  <IconUser />
-                </div>
+                <div className="bienvenida-foto-placeholder"><IconUser /></div>
               )}
             </div>
-
-            <h2 className="bienvenida-saludo" style={{ marginTop: "10px" }}>
-              Hola, <span className="text-accent">{profileData?.nombre?.split(" ")?.[0] || "Empleado"}</span>
-            </h2>
-
+            <h1 className="bienvenida-saludo">
+              ¡Hola, <span className="text-accent">{profileData?.nombre?.split(" ")[0]}</span>!
+            </h1>
             <div className="bienvenida-info">
               <div>
-                <div className="text-label">Cargo y Area</div>
-                <div className="bienvenida-cargo">{profileData?.cargo || "N/A"}</div>
-                <div className="text-muted">{profileData?.area_nombre || "N/A"}</div>
-              </div>
-              <div className="bienvenida-divider" />
-              <div>
-                <div className="text-label">Cedula</div>
-                <div className="text-body">{profileData?.documento || profileData?.document_number || "N/A"}</div>
+                <div className="text-label">Cargo y Área</div>
+                <div className="bienvenida-cargo">{profileData?.cargo}</div>
+                <div className="text-muted">{profileData?.area_nombre}</div>
               </div>
             </div>
-
-            <button
-              className="btn-continuar"
-              style={{ width: "100%", marginTop: "12px" }}
-              onClick={() => navigate("/reservas", { state: { datosEmpleado: profileData } })}
-            >
-              Nueva Reserva
-            </button>
+            {/* Resumen rápido */}
+            <div style={{
+              marginTop: 16, padding: "10px 14px",
+              background: "rgba(80,54,41,0.05)", borderRadius: 10,
+              display: "flex", flexDirection: "column", gap: 6,
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
+                <span className="text-muted">Activas</span>
+                <span style={{ fontWeight: 700, color: "#155724" }}>{activas.length}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
+                <span className="text-muted">Canceladas</span>
+                <span style={{ fontWeight: 700, color: "#721C24" }}>{canceladas.length}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
+                <span className="text-muted">Total</span>
+                <span style={{ fontWeight: 700, color: "#503629" }}>{reservations.length}</span>
+              </div>
+            </div>
           </div>
 
-          <div className="bienvenida-card" style={{ flex: 1, width: "100%", minWidth: 0, padding: isMobile ? "16px" : "20px 24px" }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: isMobile ? "flex-start" : "center",
-                justifyContent: "space-between",
-                flexDirection: isMobile ? "column" : "row",
-                marginBottom: "16px",
-                gap: "10px",
-              }}
-            >
-              <h2 className="bienvenida-saludo" style={{ margin: 0, fontSize: "1.1rem" }}>
+          {/* Tabla de reservas */}
+          <div className="bienvenida-card" style={{
+            flex: 1, padding: isMobile ? "16px" : "20px 24px",
+            minWidth: 0, boxSizing: "border-box",
+            width: isMobile ? "100%" : "auto",
+          }}>
+            <div style={{
+              display: "flex", alignItems: "center",
+              justifyContent: "space-between", marginBottom: "16px",
+            }}>
+              <h2 className="bienvenida-saludo" style={{ margin: 0, fontSize: "1.05rem" }}>
                 Reservas <span className="text-accent">activas</span>
               </h2>
-              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                {filtros.map((filtro) => (
-                  <button
-                    key={filtro}
-                    onClick={() => setFiltroEstado(filtro)}
-                    className={filtroEstado === filtro ? "btn-continuar" : "btn-outline reservas-btn-atras"}
-                    style={{ padding: "4px 12px", fontSize: "0.78rem" }}
-                  >
-                    {filtro}
-                  </button>
-                ))}
-              </div>
+              <span style={{
+                padding: "3px 12px", borderRadius: 20,
+                background: "#D4EDDA", color: "#155724",
+                fontSize: "0.75rem", fontWeight: 700,
+              }}>
+                {activas.length}
+              </span>
             </div>
 
-            {reservasFiltradas.length === 0 && (
-              <p className="text-muted" style={{ textAlign: "center", padding: "20px 0" }}>
-                No hay reservas para este filtro.
+            {activas.length === 0 && (
+              <p className="text-muted" style={{ fontSize: "0.85rem", textAlign: "center", padding: "24px 0" }}>
+                No hay reservas activas.
               </p>
             )}
 
-            {isMobile && reservasFiltradas.length > 0 && (
+            {/* MOBILE */}
+            {isMobile && activas.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                {reservasFiltradas.map((reserva) => (
-                  <ReservaCard
-                    key={reserva.key ?? reserva.id}
-                    reserva={reserva}
-                    cancelando={cancelando}
-                    onCancelar={handleCancelar}
-                    onVerified={() => reloadReservations(profileData)}
-                  />
+                {activas.map(r => (
+                  <ReservaCard key={r.id} r={r} cancelando={cancelando} onCancelar={handleCancelar} />
                 ))}
               </div>
             )}
 
-            {!isMobile && reservasFiltradas.length > 0 && (
+            {/* DESKTOP */}
+            {!isMobile && activas.length > 0 && (
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ borderBottom: "2px solid rgba(80,54,41,0.12)" }}>
-                      {["Fecha", "Escritorio", "Turno", "Estado", "Acciones"].map((col) => (
-                        <th
-                          key={col}
-                          style={{
-                            padding: "8px 12px",
-                            textAlign: "left",
-                            fontSize: "0.7rem",
-                            fontWeight: 700,
-                            color: "#92614F",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.06em",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {col}
-                        </th>
+                      {["Nombre", "Fecha", "Escritorio", "Turno", ""].map(h => (
+                        <th key={h} style={{
+                          padding: "8px 12px", textAlign: "left",
+                          fontSize: "0.7rem", fontWeight: 700,
+                          color: "#92614F", textTransform: "uppercase",
+                          letterSpacing: "0.06em", whiteSpace: "nowrap",
+                        }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {reservasFiltradas.map((reserva, index) => {
-                      const reservaKey = reserva.key ?? reserva.id;
+                    {activas.map((r, i) => {
+                      const hMeta = HORARIO_META[r.horarioId];
                       return (
-                        <tr
-                          key={reservaKey}
-                          style={{
-                            borderBottom: index < reservasFiltradas.length - 1 ? "1px solid rgba(80,54,41,0.08)" : "none",
-                          }}
+                        <tr key={r.id}
+                          style={{ borderBottom: i < activas.length - 1 ? "1px solid rgba(80,54,41,0.08)" : "none", transition: "background 0.15s" }}
+                          onMouseEnter={e => e.currentTarget.style.background = "rgba(146,97,79,0.04)"}
+                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                         >
-                          <td style={{ padding: "12px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                              <IconCalendar />
-                              <span className="text-body" style={{ whiteSpace: "nowrap" }}>
-                                {new Date(`${reserva.fecha}T12:00:00`).toLocaleDateString("es-CO", {
-                                  year: "numeric",
-                                  month: "short",
-                                  day: "numeric",
-                                })}
-                              </span>
-                            </div>
-                          </td>
-                          <td style={{ padding: "12px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                              <IconMonitor />
-                              <span className="text-body">{reserva.escritorio || `Escritorio ${reserva.escritorioId || ""}`.trim()}</span>
-                            </div>
-                          </td>
-                          <td style={{ padding: "12px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                              <IconClock />
-                              <span className="text-body" style={{ whiteSpace: "nowrap" }}>
-                                {TURNO_LABELS[reserva.turno] || reserva.turno || reserva.horario || "N/A"}
-                              </span>
-                            </div>
-                          </td>
-                          <td style={{ padding: "12px" }}>
-                            <span
-                              style={{
-                                padding: "3px 10px",
-                                borderRadius: "20px",
-                                fontSize: "0.75rem",
-                                fontWeight: 600,
-                                whiteSpace: "nowrap",
-                                ...(ESTADO_STYLES[reserva.estado] || { background: "#EEE", color: "#555" }),
-                              }}
-                            >
-                              {reserva.estado}
-                            </span>
-                          </td>
-                          <td style={{ padding: "12px", display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-                            <VerificacionAsistencia reserva={reserva} onVerified={() => reloadReservations(profileData)}>
-                              {({ verify, loading: verifying, metadataLoading }) => (
-                                reserva.estado === "Pendiente" ? (
-                                  <button
-                                    onClick={() => void verify()}
-                                    disabled={verifying || metadataLoading}
-                                    style={{
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      gap: "5px",
-                                      padding: "4px 10px",
-                                      borderRadius: "8px",
-                                      border: "1px solid rgba(21,87,36,0.24)",
-                                      background: "rgba(46,125,50,0.08)",
-                                      color: "#1f6f3a",
-                                      fontSize: "0.75rem",
-                                      fontWeight: 600,
-                                      cursor: verifying || metadataLoading ? "not-allowed" : "pointer",
-                                      opacity: verifying || metadataLoading ? 0.6 : 1,
-                                      fontFamily: "inherit",
-                                    }}
-                                  >
-                                    {verifying ? "Verificando..." : metadataLoading ? "Cargando..." : "Confirmar asistencia"}
-                                  </button>
-                                ) : null
+                          {/* Nombre */}
+                          <td style={{ padding: "12px 12px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              {r.foto && r.foto !== 'null' ? (
+                                <img src={r.foto} alt={r.nombre}
+                                  style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                              ) : (
+                                <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(80,54,41,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                  <span style={{ fontSize: 12 }}>👤</span>
+                                </div>
                               )}
-                            </VerificacionAsistencia>
-                            {reserva.estado === "Pendiente" && (
-                              <button
-                                onClick={() => handleCancelar(reservaKey)}
-                                disabled={cancelando === reservaKey}
-                                style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: "5px",
-                                  padding: "4px 10px",
-                                  borderRadius: "8px",
-                                  border: "1px solid rgba(220,53,69,0.35)",
-                                  background: "rgba(220,53,69,0.06)",
-                                  color: "#c0392b",
-                                  fontSize: "0.75rem",
-                                  fontWeight: 600,
-                                  cursor: cancelando === reservaKey ? "not-allowed" : "pointer",
-                                  opacity: cancelando === reservaKey ? 0.6 : 1,
-                                  fontFamily: "inherit",
-                                }}
-                              >
-                                <IconTrash />
-                                {cancelando === reservaKey ? "Cancelando..." : "Cancelar"}
-                              </button>
-                            )}
+                              <div>
+                                <div style={{ fontWeight: 600, fontSize: "0.83rem", color: "#503629" }}>{r.nombre}</div>
+                                <div style={{ fontSize: "0.72rem", color: "#92614F", opacity: 0.8 }}>{r.area}</div>
+                              </div>
+                            </div>
+                          </td>
+                          {/* Fecha */}
+                          <td style={{ padding: "12px 12px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <IconCalendar />
+                              <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
+                                {r.fecha !== '—'
+                                  ? new Date(r.fecha + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short" })
+                                  : '—'}
+                              </span>
+                            </div>
+                          </td>
+                          {/* Escritorio */}
+                          <td style={{ padding: "12px 12px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <IconMonitor />
+                              <span className="text-body" style={{ fontSize: "0.82rem" }}>
+                                {r.puestoId ? `Escritorio ${r.puestoId}` : '—'}
+                              </span>
+                            </div>
+                          </td>
+                          {/* Turno */}
+                          <td style={{ padding: "12px 12px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <IconClock />
+                              <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
+                                {hMeta ? hMeta.label : '—'}
+                              </span>
+                            </div>
+                          </td>
+                          {/* Cancelar */}
+                          <td style={{ padding: "12px 12px", textAlign: "right" }}>
+                            <button
+                              onClick={() => handleCancelar(r.id)}
+                              disabled={cancelando === r.id}
+                              style={{
+                                display: "inline-flex", alignItems: "center", gap: 5,
+                                padding: "4px 10px", borderRadius: 8,
+                                border: "1px solid rgba(220,53,69,0.35)",
+                                background: "rgba(220,53,69,0.06)",
+                                color: "#c0392b", fontSize: "0.75rem", fontWeight: 600,
+                                cursor: cancelando === r.id ? "not-allowed" : "pointer",
+                                opacity: cancelando === r.id ? 0.6 : 1,
+                                transition: "all 0.15s", fontFamily: "inherit",
+                              }}
+                              onMouseEnter={e => { if (cancelando !== r.id) e.currentTarget.style.background = "rgba(220,53,69,0.12)"; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = "rgba(220,53,69,0.06)"; }}
+                            >
+                              <IconTrash />
+                              {cancelando === r.id ? "Cancelando…" : "Cancelar"}
+                            </button>
                           </td>
                         </tr>
                       );
@@ -575,6 +469,7 @@ const Panel = () => {
                 </table>
               </div>
             )}
+
           </div>
         </div>
       </div>
