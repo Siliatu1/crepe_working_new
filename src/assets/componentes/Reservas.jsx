@@ -649,15 +649,15 @@ export default function Reservas() {
               <IconRefresh />
             </button>
 
-            {esAdmin && (
-              <button
-                className="btn-continuar"
-                style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
-                onClick={() => navigate('/panel', { state: { datosEmpleado: usuario } })}
-              >
-                <IconShield />
-              </button>
-            )}
+            <button
+              className="btn-outline"
+              style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
+              onClick={() => navigate('/panel', { state: { datosEmpleado: usuario } })}
+              title={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
+            >
+              {esAdmin ? <IconShield /> : <IconMonitorCard />}
+            </button>
+            
 
             <button
               className="btn-outline reservas-btn-atras"

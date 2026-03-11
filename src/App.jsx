@@ -5,8 +5,11 @@ import Politicas from './assets/componentes/Politicas.jsx'
 import Salas from './assets/componentes/Salas.jsx'
 import Reservas from './assets/componentes/Reservas.jsx'
 import Panel from './assets/componentes/Panel.jsx'
+import useAutoCancelarReservas from './hooks/useAutoCancelarReservas.js'
 
 function App() {
+  useAutoCancelarReservas(true)
+
   return (
     <div className="App">
       <Routes>
