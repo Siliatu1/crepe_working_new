@@ -13,7 +13,13 @@ const normalizeCollection = (payload) => {
   return [];
 };
 
-const toEstado = (value) => {
+const toEstado = (value, attrs = {}) => {
+  const motivo = String(attrs?.motivoCancelacion ?? '').trim();
+  const tipo = String(attrs?.verificacionAsistencia?.tipo ?? '').toLowerCase();
+  const fueCancelada = motivo.length > 0 || tipo.includes('cancelacion');
+
+  if (fueCancelada) return 'Cancelada';
+
   if (value === true) return 'Confirmada';
   if (value === false || value == null) return 'Pendiente';
 
@@ -38,7 +44,7 @@ const normalizeReserva = (item) => {
     cedula: attrs.documento || attrs.cedula || '',
     area: attrs.area || attrs.area_nombre || '',
     fecha: attrs.fecha_reserva || attrs.fecha || null,
-    estado: toEstado(attrs.estado),
+    estado: toEstado(attrs.estado, attrs),
     confirmada: attrs.estado === true,
     escritorio: attrs.escritorio || null,
     escritorioId: attrs.escritorioId || puestoRel?.id || null,
@@ -208,7 +214,6 @@ export const cancelReserva = async (id, currentReserva = null, motivo = 'Reserva
   return updateReservaWithVerification(id, {
     estado: 'Cancelada',
     confirmada: false,
-    motivoCancelacion: motivo,
     verificacionAsistencia: {
       fecha: new Date().toISOString(),
       mensaje: motivo,

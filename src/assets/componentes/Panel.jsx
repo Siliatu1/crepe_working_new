@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { verifyAttendance, fetchWorkingHorarios } from "../../utils/geolocationService";
-import { cancelReserva, updateReservaWithVerification } from "../../utils/reservasService";
+import { cancelReserva } from "../../utils/reservasService";
 
 const BASE         = 'https://macfer.crepesywaffles.com';
 const API_RESERVAS = `${BASE}/api/working-reservas`;
@@ -141,59 +140,12 @@ const getEstadoReserva = (attrs = {}) => {
   return 'Pendiente';
 };
 
-const buildVerificationPayload = (reserva, result) => {
-  const nextConfirmed = result.confirmed ?? (
-    result.newStatus === 'Confirmada'
-      ? true
-      : result.newStatus === 'Cancelada'
-      ? false
-      : reserva?.confirmada ?? null
-  );
-
-  const payload = {
-    estado: result.newStatus,
-    confirmada: nextConfirmed,
-    verificacionAsistencia: {
-      fecha: new Date().toISOString(),
-      distancia: result.distance ?? null,
-      mensaje: result.message,
-      horario: result.timeInfo?.horario
-        ? {
-            id: result.timeInfo.horario.id,
-            nombre: result.timeInfo.horario.nombre,
-            inicio: result.timeInfo.shiftStartTime,
-            fin: result.timeInfo.shiftEndTime,
-          }
-        : null,
-      ubicacion: result.position
-        ? {
-            latitude: result.position.latitude,
-            longitude: result.position.longitude,
-            accuracy: result.position.accuracy,
-          }
-        : null,
-      tipo: result.newStatus === 'Cancelada' ? 'auto-cancelacion' : 'confirmacion-geolocalizacion',
-    },
-  };
-
-  if (result.newStatus === 'Cancelada') {
-    payload.motivoCancelacion = result.message;
-  }
-
-  if (result.newStatus === 'Confirmada') {
-    payload.motivoCancelacion = null;
-  }
-
-  return payload;
-};
-
 // ── Tarjeta mobile colapsable ─────────────────────────────────
-const ReservaCard = ({ r, cancelando, verificando, onCancelar, onVerificar }) => {
+const ReservaCard = ({ r, cancelando, onCancelar }) => {
   const [open, setOpen] = useState(false);
   const hMeta = HORARIO_META[r.horarioId];
   const turnoTexto = r.turnoLabel || hMeta?.label || '—';
   const esCancelada = r.estado === 'Cancelada';
-  const esPendiente = r.estado === 'Pendiente';
   return (
     <div style={{
       borderRadius: "12px",
@@ -249,28 +201,10 @@ const ReservaCard = ({ r, cancelando, verificando, onCancelar, onVerificar }) =>
           </div>
           <div style={{ marginTop: "12px", display: "flex", gap: "8px" }}>
             <button
-              onClick={() => onVerificar(r.id)}
-              disabled={!esPendiente || verificando === r.id}
-              style={{
-                flex: 1,
-                display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
-                padding: "8px", borderRadius: "8px",
-                border: "1px solid rgba(21,87,36,0.3)",
-                background: "rgba(21,87,36,0.08)",
-                color: "#155724", fontSize: "0.8rem", fontWeight: 600,
-                cursor: !esPendiente || verificando === r.id ? "not-allowed" : "pointer",
-                opacity: !esPendiente || verificando === r.id ? 0.6 : 1,
-                fontFamily: "inherit",
-              }}
-            >
-              {verificando === r.id ? "Verificando…" : "Confirmar"}
-            </button>
-
-            <button
               onClick={() => onCancelar(r.id)}
               disabled={cancelando === r.id || esCancelada}
               style={{
-                flex: 1,
+                width: "100%",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
                 padding: "8px", borderRadius: "8px",
                 border: "1px solid rgba(220,53,69,0.3)",
@@ -303,8 +237,6 @@ const Panel = () => {
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState("");
   const [cancelando,   setCancelando]   = useState(null);
-  const [verificando,  setVerificando]  = useState(null);
-  const [horariosGeo,  setHorariosGeo]  = useState([]);
 
   // Carga las reservas del usuario actual y las normaliza en un formato simple
   const cargarReservas = async () => {
@@ -377,24 +309,6 @@ const Panel = () => {
     }
   }, [datosEmpleado?.documento, datosEmpleado?.document_number]);
 
-  useEffect(() => {
-    let active = true;
-
-    const cargarHorariosGeo = async () => {
-      try {
-        const hs = await fetchWorkingHorarios();
-        if (active) setHorariosGeo(hs);
-      } catch (e) {
-        console.warn('No se pudieron cargar horarios para geolocalizacion:', e);
-      }
-    };
-
-    void cargarHorariosGeo();
-    return () => {
-      active = false;
-    };
-  }, []);
-
   // Cancelar = usar la función del servicio que construye correctamente el payload
   const handleCancelar = async (id) => {
     setCancelando(id);
@@ -410,45 +324,6 @@ const Panel = () => {
       alert('Error al cancelar la reserva. Intenta de nuevo.');
     } finally {
       setCancelando(null);
-    }
-  };
-
-  const handleVerificar = async (id) => {
-    setVerificando(id);
-    try {
-      const reserva = reservations.find((item) => item.id === id);
-      if (!reserva) throw new Error('No se encontro la reserva para verificar');
-
-      const result = await verifyAttendance(reserva, { horarios: horariosGeo });
-
-      if (!result?.shouldUpdate) {
-        alert(result?.message || 'No hubo cambios en el estado de la reserva.');
-        return;
-      }
-
-      const payload = buildVerificationPayload(reserva, result);
-      await updateReservaWithVerification(id, payload, reserva);
-
-      setReservations((prev) =>
-        prev.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                estado: result.newStatus,
-                confirmada: result.confirmed ?? item.confirmada,
-                motivoCancelacion: payload.motivoCancelacion ?? null,
-                verificacionAsistencia: payload.verificacionAsistencia ?? null,
-              }
-            : item
-        )
-      );
-
-      alert(result.message || 'Verificacion completada.');
-    } catch (err) {
-      console.error(err);
-      alert(err?.message || 'No se pudo completar la verificacion por geolocalizacion.');
-    } finally {
-      setVerificando(null);
     }
   };
 
@@ -608,9 +483,7 @@ const Panel = () => {
                     key={r.id}
                     r={r}
                     cancelando={cancelando}
-                    verificando={verificando}
                     onCancelar={handleCancelar}
-                    onVerificar={handleVerificar}
                   />
                 ))}
               </div>
@@ -705,23 +578,6 @@ const Panel = () => {
                           {/* Cancelar */}
                           <td style={{ padding: "12px 12px", textAlign: "right" }}>
                             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-                              <button
-                                onClick={() => handleVerificar(r.id)}
-                                disabled={!esPendiente || verificando === r.id}
-                                style={{
-                                  display: "inline-flex", alignItems: "center", gap: 5,
-                                  padding: "4px 10px", borderRadius: 8,
-                                  border: "1px solid rgba(21,87,36,0.35)",
-                                  background: "rgba(21,87,36,0.08)",
-                                  color: "#155724", fontSize: "0.75rem", fontWeight: 600,
-                                  cursor: !esPendiente || verificando === r.id ? "not-allowed" : "pointer",
-                                  opacity: !esPendiente || verificando === r.id ? 0.6 : 1,
-                                  transition: "all 0.15s", fontFamily: "inherit",
-                                }}
-                              >
-                                {verificando === r.id ? "Verificando…" : "Confirmar"}
-                              </button>
-
                               <button
                                 onClick={() => handleCancelar(r.id)}
                                 disabled={cancelando === r.id || esCancelada}
