@@ -2,7 +2,7 @@ import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import mesaImg from "../mesa.png";
 
-// ── Iconos ────────────────────────────────────────────────────
+// ── Iconos
 const IconMonitor = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
     <rect x="2" y="3" width="20" height="14" rx="2"/>
