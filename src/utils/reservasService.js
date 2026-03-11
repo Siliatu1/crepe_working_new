@@ -208,7 +208,6 @@ export const cancelReserva = async (id, currentReserva = null, motivo = 'Reserva
   return updateReservaWithVerification(id, {
     estado: 'Cancelada',
     confirmada: false,
-    motivoCancelacion: motivo,
     verificacionAsistencia: {
       fecha: new Date().toISOString(),
       mensaje: motivo,

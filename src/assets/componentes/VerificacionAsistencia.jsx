@@ -1,61 +1,70 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { message } from 'antd';
 import {
   checkGeolocationSupport,
   checkLocationPermission,
-  evaluateReservationStatus,
-  fetchWorkingHorarios,
-  fetchWorkingPuestos,
-  getDeviceInfo,
+  getCurrentPosition,
   getPermissionInstructions,
-  getVerificationTimeInfo,
   getWorkplaceInfo,
   requestLocationPermission,
-  verifyAttendance,
 } from '../../utils/geolocationService';
-import { updateReservaWithVerification } from '../../utils/reservasService';
 
-const buildVerificationPayload = (reserva, result, deviceInfo) => {
-  const nextConfirmed = result.confirmed ?? (
-    result.newStatus === 'Confirmada'
-      ? true
-      : result.newStatus === 'Cancelada'
-      ? false
-      : reserva?.confirmada ?? null
-  );
+const BASE = 'https://macfer.crepesywaffles.com';
+const API_VERIFICAR_ASISTENCIA = `${BASE}/api/working-verificacions`;
 
-  const payload = {
-    estado: result.newStatus,
-    confirmada: nextConfirmed,
-    verificacionAsistencia: {
-      fecha: new Date().toISOString(),
-      distancia: result.distance ?? null,
-      mensaje: result.message,
-      dispositivo: deviceInfo,
-      horario: result.timeInfo?.horario
-        ? {
-            id: result.timeInfo.horario.id,
-            nombre: result.timeInfo.horario.nombre,
-            inicio: result.timeInfo.shiftStartTime,
-            fin: result.timeInfo.shiftEndTime,
-          }
-        : null,
-      ubicacion: result.position
-        ? {
-            latitude: result.position.latitude,
-            longitude: result.position.longitude,
-            accuracy: result.position.accuracy,
-          }
-        : null,
+const findVerificacionByReserva = async (reservaId) => {
+  const params = new URLSearchParams({
+    'filters[working_reserva][id][$eq]': String(reservaId),
+    'pagination[pageSize]': '1',
+  });
+
+  const response = await fetch(`${API_VERIFICAR_ASISTENCIA}?${params.toString()}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload?.error?.message || payload?.message || `Error ${response.status}`);
+  }
+
+  const list = Array.isArray(payload?.data) ? payload.data : [];
+  return list[0] ?? null;
+};
+
+const postVerificarAsistencia = async ({ reservaId, lat, lng }) => {
+  const verificacionExistente = await findVerificacionByReserva(reservaId);
+  const requestPayload = {
+    data: {
+      lat,
+      lng,
+      reservaId,
+      working_reserva: reservaId,
     },
   };
 
-  if (result.newStatus === 'Cancelada') {
-    payload.motivoCancelacion = result.message;
-  }
+  const targetUrl = verificacionExistente
+    ? `${API_VERIFICAR_ASISTENCIA}/${verificacionExistente.id}`
+    : API_VERIFICAR_ASISTENCIA;
 
-  if (result.newStatus === 'Confirmada') {
-    payload.motivoCancelacion = null;
+  const response = await fetch(targetUrl, {
+    method: verificacionExistente ? 'PUT' : 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestPayload),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    if (response.status === 403) {
+      throw new Error('El endpoint de verificacion requiere permisos (403). Revisa Roles > Public en Strapi.');
+    }
+
+    throw new Error(payload?.error?.message || payload?.message || `Error ${response.status}`);
   }
 
   return payload;
@@ -72,53 +81,10 @@ const VerificacionAsistencia = ({
   const [messageApi, contextHolder] = message.useMessage();
   const [loading, setLoading] = useState(false);
   const [permissionStatus, setPermissionStatus] = useState(null);
-  const [metadata, setMetadata] = useState({
-    puestos: [],
-    horarios: [],
-    loading: true,
-    error: null,
-  });
   const [lastResult, setLastResult] = useState(null);
 
   const workplaceInfo = useMemo(() => getWorkplaceInfo(), []);
-  const deviceInfo = useMemo(() => getDeviceInfo(), []);
   const geoSupport = useMemo(() => checkGeolocationSupport(), []);
-  const autoSyncRef = useRef(new Set());
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadMetadata = async () => {
-      try {
-        const [puestos, horarios] = await Promise.all([
-          fetchWorkingPuestos(),
-          fetchWorkingHorarios(),
-        ]);
-
-        if (cancelled) {
-          return;
-        }
-
-        setMetadata({ puestos, horarios, loading: false, error: null });
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
-
-        setMetadata((current) => ({
-          ...current,
-          loading: false,
-          error: error.message || 'No se pudieron cargar los puestos y horarios',
-        }));
-      }
-    };
-
-    void loadMetadata();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const emitAlert = useCallback((type, content) => {
     if (!content) {
@@ -133,91 +99,11 @@ const VerificacionAsistencia = ({
     messageApi.open({ type, content });
   }, [messageApi, onAlert, reserva]);
 
-  const applyResult = useCallback(async (result) => {
-    if (!reserva || !result?.shouldUpdate) {
-      return result;
-    }
-
-    const reservaId = reserva.id ?? reserva.key;
-    const updated = await updateReservaWithVerification(
-      reservaId,
-      buildVerificationPayload(reserva, result, deviceInfo),
-      reserva
-    );
-
-    if (!updated) {
-      return {
-        ...result,
-        success: false,
-        shouldUpdate: false,
-        alertType: 'error',
-        message: 'No se pudo actualizar la reserva localmente.',
-      };
-    }
-
-    const finalResult = {
-      ...result,
-      reservaActualizada: updated,
-    };
-
-    onStatusChange?.(updated, finalResult);
-    onVerified?.(updated);
-    return finalResult;
-  }, [deviceInfo, onStatusChange, onVerified, reserva]);
-
-  useEffect(() => {
-    if (!autoSync || metadata.loading || !reserva || reserva.estado !== 'Pendiente') {
-      return;
-    }
-
-    const reservationKey = `${reserva.id ?? reserva.key}:${reserva.estado}`;
-    if (autoSyncRef.current.has(reservationKey)) {
-      return;
-    }
-
-    const evaluation = evaluateReservationStatus(reserva, metadata.horarios);
-    if (!evaluation.shouldUpdate || evaluation.newStatus !== 'Cancelada') {
-      return;
-    }
-
-    let active = true;
-
-    const runAutoSync = async () => {
-      autoSyncRef.current.add(reservationKey);
-      const finalResult = await applyResult(evaluation);
-
-      if (!active) {
-        return;
-      }
-
-      setLastResult(finalResult);
-      emitAlert(finalResult.alertType || 'warning', finalResult.message);
-    };
-
-    void runAutoSync();
-
-    return () => {
-      active = false;
-    };
-  }, [applyResult, autoSync, emitAlert, metadata.horarios, metadata.loading, reserva]);
-
-  const timeInfo = useMemo(
-    () => getVerificationTimeInfo(reserva, metadata.horarios),
-    [metadata.horarios, reserva]
-  );
+  void autoSync;
 
   const verify = useCallback(async () => {
     if (!reserva) {
       return null;
-    }
-
-    if (metadata.loading) {
-      emitAlert('info', 'Estamos cargando puestos y horarios. Intenta nuevamente en un momento.');
-      return null;
-    }
-
-    if (metadata.error) {
-      emitAlert('warning', metadata.error);
     }
 
     if (!geoSupport.supported) {
@@ -264,14 +150,44 @@ const VerificacionAsistencia = ({
         return deniedResult;
       }
 
-      const result = await verifyAttendance(reserva, {
-        horarios: metadata.horarios,
-        workplaceInfo,
+      const position = await getCurrentPosition();
+      const reservaId = reserva.id ?? reserva.key;
+
+      const apiResult = await postVerificarAsistencia({
+        reservaId,
+        lat: position.latitude,
+        lng: position.longitude,
       });
 
-      const finalResult = await applyResult(result);
+      const updatedReserva = apiResult?.data || apiResult?.reserva || {};
+      const relatedEstado = updatedReserva?.attributes?.working_reserva?.data?.attributes?.estado;
+      const estadoBool = typeof relatedEstado === 'boolean'
+        ? relatedEstado
+        : updatedReserva?.estado;
+      const estadoTexto = estadoBool === true ? 'Confirmada' : 'Pendiente';
+
+      const finalResult = {
+        success: estadoBool === true,
+        shouldUpdate: true,
+        newStatus: estadoTexto,
+        confirmed: estadoBool === true,
+        distance: apiResult?.distance ?? null,
+        message: apiResult?.message || (estadoBool ? 'Reserva confirmada por geolocalizacion.' : 'Reserva sigue pendiente.'),
+        alertType: estadoBool ? 'success' : 'warning',
+        position,
+      };
+
+      const reservaActualizada = {
+        ...reserva,
+        ...updatedReserva,
+        estado: estadoTexto,
+        confirmada: estadoBool === true,
+      };
+
+      onStatusChange?.(reservaActualizada, finalResult);
+      onVerified?.(reservaActualizada);
       setLastResult(finalResult);
-      emitAlert(finalResult.alertType || (finalResult.success ? 'success' : 'warning'), finalResult.message);
+      emitAlert(finalResult.alertType, finalResult.message);
       return finalResult;
     } catch (error) {
       const failedResult = {
@@ -289,30 +205,22 @@ const VerificacionAsistencia = ({
     } finally {
       setLoading(false);
     }
-  }, [applyResult, emitAlert, geoSupport, metadata.error, metadata.horarios, metadata.loading, reserva, workplaceInfo]);
+  }, [emitAlert, geoSupport, onStatusChange, onVerified, reserva]);
 
   const controller = useMemo(() => ({
     verify,
     loading,
-    metadataLoading: metadata.loading,
-    metadataError: metadata.error,
-    puestos: metadata.puestos,
-    horarios: metadata.horarios,
-    timeInfo,
+    metadataLoading: false,
+    metadataError: null,
+    puestos: [],
+    horarios: [],
+    timeInfo: null,
     workplaceInfo,
     permissionStatus,
     lastResult,
     geoSupport,
-    canVerify: Boolean(
-      reserva &&
-      reserva.estado === 'Pendiente' &&
-      timeInfo.scheduleResolved &&
-      timeInfo.isToday &&
-      !timeInfo.isPast &&
-      !loading &&
-      !metadata.loading
-    ),
-  }), [geoSupport, lastResult, loading, metadata.error, metadata.horarios, metadata.loading, metadata.puestos, permissionStatus, reserva, timeInfo, verify, workplaceInfo]);
+    canVerify: Boolean(reserva && reserva.estado === 'Pendiente' && !loading),
+  }), [geoSupport, lastResult, loading, permissionStatus, reserva, verify, workplaceInfo]);
 
   return (
     <>
