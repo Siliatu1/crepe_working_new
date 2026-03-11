@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { cancelReserva } from "../../utils/reservasService";
 
 const BASE         = 'https://macfer.crepesywaffles.com';
 const API_RESERVAS = `${BASE}/api/working-reservas`;
@@ -52,6 +53,13 @@ const IconChevron = ({ open }) => (
     <polyline points="6 9 12 15 18 9"/>
   </svg>
 );
+const IconLogout = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+    <polyline points="16 17 21 12 16 7"/>
+    <line x1="21" y1="12" x2="9" y2="12"/>
+  </svg>
+);
 
 // ── Hook breakpoint ───────────────────────────────────────────
 const useMobile = () => {
@@ -65,26 +73,79 @@ const useMobile = () => {
 };
 
 // ── Helpers ───────────────────────────────────────────────────
-const getPuestoId = (r) => {
-  const rel = r.attributes?.working_puestos;
-  if (!rel) return null;
-  if (rel.data) return rel.data.id;
-  if (rel.id)   return rel.id;
+const extractId = (rel) => {
+  if (rel == null) return null;
+  if (typeof rel === 'number') return rel;
+  if (typeof rel === 'object' && rel.id != null) return rel.id;
+
+  if (typeof rel === 'object' && rel.data != null) {
+    const d = rel.data;
+    if (typeof d === 'number') return d;
+    if (Array.isArray(d) && d.length > 0) return d[0]?.id ?? null;
+    if (typeof d === 'object' && d.id != null) return d.id;
+  }
+
   return null;
 };
 
+const getPuestoId = (r) => {
+  return (
+    extractId(r.attributes?.working_puestos) ??
+    extractId(r.working_puestos) ??
+    r.attributes?.escritorioId ??
+    r.escritorioId ??
+    null
+  );
+};
+
 const getHorarioId = (r) => {
-  const rel = r.attributes?.working_horarios;
-  if (!rel) return null;
-  if (rel.data) return rel.data.id;
-  if (rel.id)   return rel.id;
-  return null;
+  return (
+    extractId(r.attributes?.working_horarios) ??
+    extractId(r.working_horarios) ??
+    r.attributes?.horarioId ??
+    r.horarioId ??
+    null
+  );
+};
+
+const getHorarioLabel = (r, horarioId) => {
+  const fromRelation =
+    r.attributes?.working_horarios?.data?.attributes?.nombre ??
+    r.attributes?.working_horarios?.attributes?.nombre ??
+    r.working_horarios?.data?.attributes?.nombre ??
+    r.working_horarios?.attributes?.nombre;
+
+  if (fromRelation) return fromRelation;
+  if (r.attributes?.turno) return r.attributes.turno;
+  if (r.attributes?.horario) return r.attributes.horario;
+
+  const meta = HORARIO_META[horarioId];
+  return meta?.label ?? null;
+};
+
+const getEstadoReserva = (attrs = {}) => {
+  const estadoRaw = attrs?.estado;
+  const motivo = String(attrs?.motivoCancelacion ?? '').trim();
+  const tipoVerificacion = String(attrs?.verificacionAsistencia?.tipo ?? '').toLowerCase();
+  const fueCanceladaManualmente = motivo.length > 0 || tipoVerificacion.includes('cancelacion');
+
+  if (fueCanceladaManualmente) return 'Cancelada';
+
+  if (estadoRaw === true) return 'Confirmada';
+  if (estadoRaw === false || estadoRaw == null) return 'Pendiente';
+
+  const estadoTexto = String(estadoRaw).trim().toLowerCase();
+  if (estadoTexto === 'confirmada') return 'Confirmada';
+  if (estadoTexto === 'cancelada') return 'Cancelada';
+  return 'Pendiente';
 };
 
 // ── Tarjeta mobile colapsable ─────────────────────────────────
 const ReservaCard = ({ r, cancelando, onCancelar }) => {
   const [open, setOpen] = useState(false);
   const hMeta = HORARIO_META[r.horarioId];
+  const turnoTexto = r.turnoLabel || hMeta?.label || '—';
+  const esCancelada = r.estado === 'Cancelada';
   return (
     <div style={{
       borderRadius: "12px",
@@ -109,9 +170,10 @@ const ReservaCard = ({ r, cancelando, onCancelar }) => {
           <span style={{
             padding: "2px 9px", borderRadius: "20px",
             fontSize: "0.7rem", fontWeight: 600,
-            background: "#D4EDDA", color: "#155724",
+            background: esCancelada ? "#F8D7DA" : "#D4EDDA",
+            color: esCancelada ? "#721C24" : "#155724",
           }}>
-            Activa
+            {r.estado}
           </span>
         </div>
         <IconChevron open={open} />
@@ -129,7 +191,7 @@ const ReservaCard = ({ r, cancelando, onCancelar }) => {
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <IconClock />
               <span className="text-body" style={{ fontSize: "0.82rem" }}>
-                {hMeta ? `${hMeta.label} · ${hMeta.hora}` : '—'}
+                {hMeta?.hora ? `${turnoTexto} · ${hMeta.hora}` : turnoTexto}
               </span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -137,24 +199,26 @@ const ReservaCard = ({ r, cancelando, onCancelar }) => {
               <span className="text-body" style={{ fontSize: "0.82rem" }}>{r.nombre}</span>
             </div>
           </div>
-          <button
-            onClick={() => onCancelar(r.id)}
-            disabled={cancelando === r.id}
-            style={{
-              marginTop: "12px", width: "100%",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
-              padding: "8px", borderRadius: "8px",
-              border: "1px solid rgba(220,53,69,0.3)",
-              background: "rgba(220,53,69,0.06)",
-              color: "#c0392b", fontSize: "0.8rem", fontWeight: 600,
-              cursor: cancelando === r.id ? "not-allowed" : "pointer",
-              opacity: cancelando === r.id ? 0.6 : 1,
-              fontFamily: "inherit",
-            }}
-          >
-            <IconTrash />
-            {cancelando === r.id ? "Cancelando…" : "Cancelar reserva"}
-          </button>
+          <div style={{ marginTop: "12px", display: "flex", gap: "8px" }}>
+            <button
+              onClick={() => onCancelar(r.id)}
+              disabled={cancelando === r.id || esCancelada}
+              style={{
+                width: "100%",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+                padding: "8px", borderRadius: "8px",
+                border: "1px solid rgba(220,53,69,0.3)",
+                background: "rgba(220,53,69,0.06)",
+                color: "#c0392b", fontSize: "0.8rem", fontWeight: 600,
+                cursor: cancelando === r.id || esCancelada ? "not-allowed" : "pointer",
+                opacity: cancelando === r.id || esCancelada ? 0.6 : 1,
+                fontFamily: "inherit",
+              }}
+            >
+              <IconTrash />
+              {esCancelada ? "Ya cancelada" : cancelando === r.id ? "Cancelando…" : "Cancelar"}
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -174,15 +238,24 @@ const Panel = () => {
   const [error,        setError]        = useState("");
   const [cancelando,   setCancelando]   = useState(null);
 
-  // Carga todas las reservas y las normaliza en un formato simple
+  // Carga las reservas del usuario actual y las normaliza en un formato simple
   const cargarReservas = async () => {
     setLoading(true);
     setError("");
     try {
-      // Traemos todas las reservas con relaciones populadas
+      // Obtener documento del usuario actual
+      const documentoUsuario = datosEmpleado?.documento || datosEmpleado?.document_number || null;
+
+      if (!documentoUsuario) {
+        setError("No se pudo identificar al usuario.");
+        return;
+      }
+
+      // Traemos solo las reservas del usuario actual filtrando por documento
       const url =
         `${API_RESERVAS}` +
-        `?populate[working_puestos][fields][0]=id&populate[working_puestos][fields][1]=nombre` +
+        `?filters[documento][$eq]=${encodeURIComponent(documentoUsuario)}` +
+        `&populate[working_puestos][fields][0]=id&populate[working_puestos][fields][1]=nombre` +
         `&populate[working_horarios][fields][0]=id&populate[working_horarios][fields][1]=nombre` +
         `&sort=fecha_reserva:desc` +
         `&pagination[pageSize]=200`;
@@ -192,17 +265,34 @@ const Panel = () => {
       const data = Array.isArray(json.data) ? json.data : [];
 
       // Normalizar cada reserva a un objeto plano fácil de mostrar
-      const normalizadas = data.map(r => ({
-        id:       r.id,
-        nombre:   r.attributes?.Nombre    ?? r.attributes?.documento ?? '—',
-        foto:     r.attributes?.foto      ?? null,
-        documento:r.attributes?.documento ?? '—',
-        area:     r.attributes?.area      ?? '—',
-        fecha:    r.attributes?.fecha_reserva ?? '—',
-        estado:   r.attributes?.estado ? 'Cancelada' : 'Activa',
-        puestoId: getPuestoId(r),
-        horarioId:getHorarioId(r),
-      }));
+      const normalizadas = data.map(r => {
+        const puestoId = getPuestoId(r);
+        const horarioId = getHorarioId(r);
+        const escritorioFallback = r.attributes?.escritorio;
+        const escritorioMatch = typeof escritorioFallback === 'string'
+          ? escritorioFallback.match(/\d+/)?.[0]
+          : null;
+
+        return {
+          id:       r.id,
+          nombre:   r.attributes?.Nombre    ?? r.attributes?.documento ?? '—',
+          foto:     r.attributes?.foto      ?? null,
+          documento:r.attributes?.documento ?? '—',
+          area:     r.attributes?.area      ?? '—',
+          fecha:    r.attributes?.fecha_reserva ?? '—',
+          estado:   getEstadoReserva(r.attributes),
+          confirmada: r.attributes?.estado === true,
+          motivoCancelacion: r.attributes?.motivoCancelacion ?? null,
+          verificacionAsistencia: r.attributes?.verificacionAsistencia ?? null,
+          puestoId: puestoId ?? (escritorioMatch ? Number(escritorioMatch) : null),
+          horarioId,
+          horario: r.attributes?.horario ?? null,
+          turno: r.attributes?.turno ?? null,
+          horaInicio: r.attributes?.horaInicio ?? null,
+          horaFin: r.attributes?.horaFin ?? null,
+          turnoLabel: getHorarioLabel(r, horarioId),
+        };
+      });
 
       setReservations(normalizadas);
     } catch (err) {
@@ -213,18 +303,18 @@ const Panel = () => {
     }
   };
 
-  useEffect(() => { cargarReservas(); }, []);
+  useEffect(() => { 
+    if (datosEmpleado?.documento || datosEmpleado?.document_number) {
+      cargarReservas();
+    }
+  }, [datosEmpleado?.documento, datosEmpleado?.document_number]);
 
-  // Cancelar = marcar estado:true en Strapi (DELETE o PUT según lo que tengas habilitado)
+  // Cancelar = usar la función del servicio que construye correctamente el payload
   const handleCancelar = async (id) => {
     setCancelando(id);
     try {
-      const res = await fetch(`${API_RESERVAS}/${id}`, {
-        method:  'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ data: { estado: true } }),
-      });
-      if (!res.ok) throw new Error('No se pudo cancelar');
+      const reservaAux = reservations.find(r => r.id === id);
+      await cancelReserva(id, reservaAux, 'Cancelada por el usuario');
       // Actualizar localmente sin recargar todo
       setReservations(prev =>
         prev.map(r => r.id === id ? { ...r, estado: 'Cancelada' } : r)
@@ -237,8 +327,9 @@ const Panel = () => {
     }
   };
 
-  // Solo mostrar reservas activas (estado = false en Strapi = "Activa" aquí)
-  const activas   = reservations.filter(r => r.estado === 'Activa');
+  // Estado mostrado en panel: Pendiente / Confirmada / Cancelada
+  const pendientes = reservations.filter(r => r.estado === 'Pendiente');
+  const confirmadas = reservations.filter(r => r.estado === 'Confirmada');
   const canceladas = reservations.filter(r => r.estado === 'Cancelada');
 
   if (loading) return (
@@ -318,8 +409,12 @@ const Panel = () => {
               display: "flex", flexDirection: "column", gap: 6,
             }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
-                <span className="text-muted">Activas</span>
-                <span style={{ fontWeight: 700, color: "#155724" }}>{activas.length}</span>
+                <span className="text-muted">Pendientes</span>
+                <span style={{ fontWeight: 700, color: "#8A6D3B" }}>{pendientes.length}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
+                <span className="text-muted">Confirmadas</span>
+                <span style={{ fontWeight: 700, color: "#155724" }}>{confirmadas.length}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
                 <span className="text-muted">Canceladas</span>
@@ -330,6 +425,26 @@ const Panel = () => {
                 <span style={{ fontWeight: 700, color: "#503629" }}>{reservations.length}</span>
               </div>
             </div>
+
+            {/* Botón cerrar sesión */}
+            <button
+              onClick={() => navigate('/')}
+              style={{
+                marginTop: 16, width: "100%",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+                padding: "10px 14px", borderRadius: "8px",
+                border: "1px solid rgba(192,57,43,0.3)",
+                background: "rgba(192,57,43,0.08)",
+                color: "#c0392b", fontSize: "0.8rem", fontWeight: 600,
+                cursor: "pointer", fontFamily: "inherit",
+                transition: "all 0.15s",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(192,57,43,0.15)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "rgba(192,57,43,0.08)"; }}
+            >
+              <IconLogout />
+              Cerrar sesión
+            </button>
           </div>
 
           {/* Tabla de reservas */}
@@ -343,39 +458,44 @@ const Panel = () => {
               justifyContent: "space-between", marginBottom: "16px",
             }}>
               <h2 className="bienvenida-saludo" style={{ margin: 0, fontSize: "1.05rem" }}>
-                Reservas <span className="text-accent">activas</span>
+                Mis <span className="text-accent">reservas</span>
               </h2>
               <span style={{
                 padding: "3px 12px", borderRadius: 20,
-                background: "#D4EDDA", color: "#155724",
+                background: "rgba(80,54,41,0.08)", color: "#503629",
                 fontSize: "0.75rem", fontWeight: 700,
               }}>
-                {activas.length}
+                {reservations.length}
               </span>
             </div>
 
-            {activas.length === 0 && (
+            {reservations.length === 0 && (
               <p className="text-muted" style={{ fontSize: "0.85rem", textAlign: "center", padding: "24px 0" }}>
-                No hay reservas activas.
+                No hay reservas registradas.
               </p>
             )}
 
             {/* MOBILE */}
-            {isMobile && activas.length > 0 && (
+            {isMobile && reservations.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                {activas.map(r => (
-                  <ReservaCard key={r.id} r={r} cancelando={cancelando} onCancelar={handleCancelar} />
+                {reservations.map(r => (
+                  <ReservaCard
+                    key={r.id}
+                    r={r}
+                    cancelando={cancelando}
+                    onCancelar={handleCancelar}
+                  />
                 ))}
               </div>
             )}
 
             {/* DESKTOP */}
-            {!isMobile && activas.length > 0 && (
+            {!isMobile && reservations.length > 0 && (
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ borderBottom: "2px solid rgba(80,54,41,0.12)" }}>
-                      {["Nombre", "Fecha", "Escritorio", "Turno", ""].map(h => (
+                      {["Nombre", "Fecha", "Escritorio", "Turno", "Estado", "Acción"].map(h => (
                         <th key={h} style={{
                           padding: "8px 12px", textAlign: "left",
                           fontSize: "0.7rem", fontWeight: 700,
@@ -386,11 +506,14 @@ const Panel = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {activas.map((r, i) => {
+                    {reservations.map((r, i) => {
                       const hMeta = HORARIO_META[r.horarioId];
+                      const turnoTexto = r.turnoLabel || hMeta?.label || '—';
+                      const esCancelada = r.estado === 'Cancelada';
+                      const esPendiente = r.estado === 'Pendiente';
                       return (
                         <tr key={r.id}
-                          style={{ borderBottom: i < activas.length - 1 ? "1px solid rgba(80,54,41,0.08)" : "none", transition: "background 0.15s" }}
+                          style={{ borderBottom: i < reservations.length - 1 ? "1px solid rgba(80,54,41,0.08)" : "none", transition: "background 0.15s" }}
                           onMouseEnter={e => e.currentTarget.style.background = "rgba(146,97,79,0.04)"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                         >
@@ -436,31 +559,45 @@ const Panel = () => {
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                               <IconClock />
                               <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
-                                {hMeta ? hMeta.label : '—'}
+                                {turnoTexto}
                               </span>
                             </div>
                           </td>
+                          {/* Estado */}
+                          <td style={{ padding: "12px 12px" }}>
+                            <span style={{
+                              display: "inline-flex", alignItems: "center",
+                              padding: "3px 10px", borderRadius: "999px",
+                              fontSize: "0.72rem", fontWeight: 700,
+                              background: esCancelada ? "#F8D7DA" : esPendiente ? "#FFF3CD" : "#D4EDDA",
+                              color: esCancelada ? "#721C24" : esPendiente ? "#8A6D3B" : "#155724",
+                            }}>
+                              {r.estado}
+                            </span>
+                          </td>
                           {/* Cancelar */}
                           <td style={{ padding: "12px 12px", textAlign: "right" }}>
-                            <button
-                              onClick={() => handleCancelar(r.id)}
-                              disabled={cancelando === r.id}
-                              style={{
-                                display: "inline-flex", alignItems: "center", gap: 5,
-                                padding: "4px 10px", borderRadius: 8,
-                                border: "1px solid rgba(220,53,69,0.35)",
-                                background: "rgba(220,53,69,0.06)",
-                                color: "#c0392b", fontSize: "0.75rem", fontWeight: 600,
-                                cursor: cancelando === r.id ? "not-allowed" : "pointer",
-                                opacity: cancelando === r.id ? 0.6 : 1,
-                                transition: "all 0.15s", fontFamily: "inherit",
-                              }}
-                              onMouseEnter={e => { if (cancelando !== r.id) e.currentTarget.style.background = "rgba(220,53,69,0.12)"; }}
-                              onMouseLeave={e => { e.currentTarget.style.background = "rgba(220,53,69,0.06)"; }}
-                            >
-                              <IconTrash />
-                              {cancelando === r.id ? "Cancelando…" : "Cancelar"}
-                            </button>
+                            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                              <button
+                                onClick={() => handleCancelar(r.id)}
+                                disabled={cancelando === r.id || esCancelada}
+                                style={{
+                                  display: "inline-flex", alignItems: "center", gap: 5,
+                                  padding: "4px 10px", borderRadius: 8,
+                                  border: "1px solid rgba(220,53,69,0.35)",
+                                  background: "rgba(220,53,69,0.06)",
+                                  color: "#c0392b", fontSize: "0.75rem", fontWeight: 600,
+                                  cursor: cancelando === r.id || esCancelada ? "not-allowed" : "pointer",
+                                  opacity: cancelando === r.id || esCancelada ? 0.6 : 1,
+                                  transition: "all 0.15s", fontFamily: "inherit",
+                                }}
+                                onMouseEnter={e => { if (cancelando !== r.id && !esCancelada) e.currentTarget.style.background = "rgba(220,53,69,0.12)"; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = "rgba(220,53,69,0.06)"; }}
+                              >
+                                <IconTrash />
+                                {esCancelada ? "Cancelada" : cancelando === r.id ? "Cancelando…" : "Cancelar"}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );

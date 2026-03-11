@@ -122,7 +122,6 @@
   }
 }
 
-// Primario: fondo acento oscuro, texto claro
 .btn-primary {
   @extend %btn-base;
   background-color: $color-btn-primary;
@@ -138,7 +137,6 @@
   }
 }
 
-// Secundario / Outline
 .btn-outline {
   @extend %btn-base;
   background-color: transparent;
@@ -150,7 +148,6 @@
   }
 }
 
-// Alias de compatibilidad con clases usadas en componentes existentes
 .submit-button  { @extend .btn-primary; width: 100%; max-width: 320px; align-self: center; }
 .btn-continuar  { @extend .btn-primary; }
 .btn-cancelar   { @extend .btn-outline; }
@@ -313,25 +310,13 @@
   text-align: center;
 }
 
-.politicas-header {
-  margin-bottom: $spacing-xl;
-}
-
-.politicas-titulo  { @extend .title-section; }
+.politicas-header    { margin-bottom: $spacing-xl; }
+.politicas-titulo    { @extend .title-section; }
 .politicas-subtitulo { @extend .subtitle; margin-top: $spacing-xs; }
+.politicas-content   { margin-bottom: $spacing-xl; }
+.politicas-footer    { border-top: 1px solid rgba(80, 54, 41, 0.12); padding-top: $spacing-xl; }
 
-.politicas-content {
-  margin-bottom: $spacing-xl;
-}
-
-.politicas-footer {
-  border-top: 1px solid rgba(80, 54, 41, 0.12);
-  padding-top: $spacing-xl;
-}
-
-.seccion {
-  margin-bottom: $spacing-xl;
-}
+.seccion { margin-bottom: $spacing-xl; }
 
 .seccion-header {
   display: flex;
@@ -346,9 +331,7 @@
     margin: 0;
   }
 
-  .icono {
-    font-size: $font-size-base;
-  }
+  .icono { font-size: $font-size-base; }
 }
 
 .seccion-contenido {
@@ -371,16 +354,12 @@
   font-size: 1.1rem;
   line-height: 1.4;
   flex-shrink: 0;
-  &.verde   { color: $color-success; }
+  &.verde    { color: $color-success; }
   &.amarillo { color: $color-warning; }
-  &.rojo    { color: $color-error; }
+  &.rojo     { color: $color-error; }
 }
 
-.punto {
-  color: $color-accent-muted;
-  font-size: $font-size-base;
-  flex-shrink: 0;
-}
+.punto { color: $color-accent-muted; font-size: $font-size-base; flex-shrink: 0; }
 
 .texto-disponibilidad,
 .texto-turno,
@@ -403,11 +382,7 @@
   text-align: center;
 }
 
-.bienvenida-avatar {
-  display: flex;
-  justify-content: center;
-  margin-bottom: $spacing-xl;
-}
+.bienvenida-avatar    { display: flex; justify-content: center; margin-bottom: $spacing-xl; }
 
 .bienvenida-foto {
   width: 96px;
@@ -437,9 +412,7 @@
   margin: 0 0 $spacing-xs 0;
 }
 
-.bienvenida-sub {
-  margin: 0 0 $spacing-2xl 0;
-}
+.bienvenida-sub { margin: 0 0 $spacing-2xl 0; }
 
 .bienvenida-info {
   background-color: $color-accent-soft;
@@ -459,10 +432,7 @@
   margin-top: 2px;
 }
 
-.bienvenida-divider {
-  height: 1px;
-  background-color: rgba(80, 54, 41, 0.12);
-}
+.bienvenida-divider { height: 1px; background-color: rgba(80, 54, 41, 0.12); }
 
 .bienvenida-fecha-row {
   display: flex;
@@ -501,23 +471,9 @@
   }
 }
 
-.panel-card--profile {}
-
-.panel-profile-row {
-  display: flex;
-  align-items: center;
-  gap: $spacing-xl;
-}
-
-.panel-profile-info {
-  flex: 1;
-
-  h2 { margin-bottom: $spacing-sm; }
-}
-
-.panel-profile-details {
-  p { margin: 4px 0; }
-}
+.panel-profile-row    { display: flex; align-items: center; gap: $spacing-xl; }
+.panel-profile-info   { flex: 1; h2 { margin-bottom: $spacing-sm; } }
+.panel-profile-details p { margin: 4px 0; }
 
 .panel-loading {
   display: flex;
@@ -559,9 +515,9 @@
   overflow: hidden;
 }
 
-// Header
+// ── Header ────────────────────────────────────────────────
 .reservas-header {
-  padding: $spacing-lg $spacing-3xl;
+  padding: $spacing-md $spacing-3xl;
   border-bottom: 1px solid rgba(80, 54, 41, 0.1);
   display: flex;
   align-items: center;
@@ -570,23 +526,16 @@
   gap: $spacing-md;
   background-color: #fff;
   flex-shrink: 0;
+
+  @include respond-to('sm') {
+    padding: $spacing-sm $spacing-lg;
+  }
 }
 
 .reservas-header-left {
   display: flex;
   align-items: center;
   gap: $spacing-md;
-}
-
-.reservas-logo-box {
-  width: 42px;
-  height: 42px;
-  border-radius: $radius-md;
-  background-color: $color-accent-soft;
-  border: 1px solid rgba(127, 58, 20, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .reservas-titulo {
@@ -601,7 +550,10 @@
   display: flex;
   align-items: center;
   gap: $spacing-md;
-  flex-wrap: wrap;
+
+  @include respond-to('sm') {
+    gap: $spacing-sm;
+  }
 }
 
 .reservas-dia-nav {
@@ -643,7 +595,34 @@
   border-radius: $radius-full;
 }
 
-// Mapa
+// ── Botón "Mis reservas" en header ────────────────────────
+.reservas-btn-mis-reservas {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 $spacing-lg;
+  border-radius: $radius-full;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  &__label {
+    @include respond-to('sm') {
+      // En móvil ocultamos el texto y solo mostramos el icono
+      display: none;
+    }
+  }
+
+  // En móvil: igualar a botón icono
+  @include respond-to('sm') {
+    width: 34px;
+    padding: 0;
+    justify-content: center;
+  }
+}
+
+// ── Mapa ──────────────────────────────────────────────────
 .reservas-mapa {
   flex: 1;
   background-color: $color-light-secondary;
@@ -673,16 +652,16 @@
   display: block;
 }
 
-// Leyenda
+// ── Leyenda ───────────────────────────────────────────────
 .reservas-leyenda {
-  padding: 10px $spacing-3xl;
+  padding: 8px $spacing-3xl;
   border-top: 1px solid rgba(80, 54, 41, 0.1);
   background-color: #fff;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 8px 28px;
+  gap: 6px 24px;
   flex-shrink: 0;
 }
 
@@ -699,12 +678,6 @@
   color: $color-dark-primary;
 }
 
-.reservas-leyenda-sep {
-  width: 1px;
-  height: 20px;
-  background-color: rgba(80, 54, 41, 0.12);
-}
-
 .reservas-leyenda-item {
   display: flex;
   align-items: center;
@@ -712,21 +685,30 @@
 }
 
 .reservas-leyenda-img {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   object-fit: contain;
 }
 
 // ══════════════════════════════════════════════════════════
-// 12. BOOKING CARD
+// 12. BOOKING CARD — derecha (más compacta)
 // ══════════════════════════════════════════════════════════
 
 .booking-card-wrapper {
   position: fixed;
-  bottom: 20px;
-  right: 24px;
-  width: 272px;
+  bottom: 16px;
+  right: 20px;
+  width: 256px;
   z-index: 50;
+
+  @include respond-to('sm') {
+    // En móvil: ocupa casi todo el ancho y se posiciona abajo centrado
+    bottom: 0;
+    right: 0;
+    left: 0;
+    width: 100%;
+    border-radius: 0;
+  }
 }
 
 .booking-card {
@@ -734,21 +716,62 @@
   border: 1px solid rgba(80, 54, 41, 0.15);
   border-radius: $radius-xl;
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(80, 54, 41, 0.18);
+  box-shadow: 0 6px 24px rgba(80, 54, 41, 0.18);
+
+  @include respond-to('sm') {
+    border-radius: $radius-md $radius-md 0 0;
+    max-height: 85dvh;
+    overflow-y: auto;
+  }
 }
 
+// Sección con padding reducido
 .booking-section {
-  padding: 18px 18px 14px;
+  padding: 14px 16px 10px;
+}
+
+.booking-section--compact {
+  padding: 10px 16px 8px;
 }
 
 .booking-section-label {
-  font-size: 0.6rem;
+  font-size: 0.58rem;
   color: $color-accent-muted;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   font-weight: $font-weight-bold;
-  margin-bottom: $spacing-md;
+  margin-bottom: 6px;
   font-family: $font-family-display;
+}
+
+// ── Usuario: versión fila (más compacta) ─────────────────
+.booking-user--row {
+  flex-direction: row !important;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.booking-user-foto--sm {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: $radius-sm !important;
+  flex-shrink: 0;
+}
+
+.booking-user-placeholder--sm {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: $radius-sm !important;
+  flex-shrink: 0;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.booking-user-info--row {
+  text-align: left !important;
 }
 
 .booking-user {
@@ -778,14 +801,11 @@
   justify-content: center;
 }
 
-.booking-user-info {
-  text-align: center;
-  width: 100%;
-}
+.booking-user-info    { text-align: center; width: 100%; }
 
 .booking-user-nombre {
   font-weight: $font-weight-bold;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   color: $color-dark-primary;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -794,22 +814,22 @@
 }
 
 .booking-user-cargo {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: $font-weight-semibold;
-  color: $color-accent-muted;
-  margin-top: 3px;
-}
-
-.booking-user-area {
-  font-size: 0.67rem;
   color: $color-accent-muted;
   margin-top: 2px;
 }
 
+.booking-user-area {
+  font-size: 0.63rem;
+  color: $color-accent-muted;
+  margin-top: 1px;
+}
+
 .booking-divider {
   height: 1px;
-  background-color: rgba(80, 54, 41, 0.1);
-  margin: 0 18px;
+  background-color: rgba(80, 54, 41, 0.09);
+  margin: 0 16px;
 }
 
 .booking-ubicacion-row {
@@ -821,26 +841,26 @@
 
 .booking-escritorio-nombre {
   font-weight: $font-weight-bold;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   color: $color-dark-primary;
 }
 
 .booking-badge-monitor {
-  font-size: 0.6rem;
+  font-size: 0.58rem;
   font-weight: $font-weight-bold;
   background-color: $color-light-primary;
   border: 1px solid rgba(80, 54, 41, 0.2);
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: $radius-full;
   color: $color-dark-primary;
 }
 
 .booking-ocupantes {
-  margin-top: $spacing-sm;
+  margin-top: $spacing-xs;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  max-height: 56px;
+  gap: 3px;
+  max-height: 44px;
   overflow-y: auto;
 }
 
@@ -848,31 +868,25 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 0.67rem;
+  font-size: 0.65rem;
   color: $color-accent-muted;
 }
 
-.booking-ocupante-nombre {
-  font-weight: $font-weight-semibold;
-  color: $color-dark-primary;
-}
+.booking-ocupante-nombre { font-weight: $font-weight-semibold; color: $color-dark-primary; }
+.booking-ocupante-hora   { color: $color-accent-muted; }
 
-.booking-ocupante-hora {
-  color: $color-accent-muted;
-}
-
-// Horarios
+// ── Horarios ─────────────────────────────────────────────
 .booking-horarios {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .booking-horario-btn {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 9px 12px;
+  padding: 7px 10px;
   border-radius: $radius-md;
   cursor: pointer;
   border: 1.5px solid rgba(80, 54, 41, 0.15);
@@ -880,9 +894,7 @@
   transition: all $transition-fast;
   font-family: $font-family-base;
 
-  &:hover {
-    border-color: $color-accent-warm;
-  }
+  &:hover { border-color: $color-accent-warm; }
 
   &--selected {
     border-color: $color-accent-warm;
@@ -892,29 +904,25 @@
 
 .booking-horario-label {
   font-weight: $font-weight-bold;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   color: $color-dark-primary;
 
-  .booking-horario-btn--selected & {
-    color: $color-dark-secondary;
-  }
+  .booking-horario-btn--selected & { color: $color-dark-secondary; }
 }
 
 .booking-horario-hora {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   color: $color-accent-muted;
   font-weight: $font-weight-semibold;
 
-  .booking-horario-btn--selected & {
-    color: $color-accent-warm;
-  }
+  .booking-horario-btn--selected & { color: $color-accent-warm; }
 }
 
-// Feedback
+// ── Feedback ─────────────────────────────────────────────
 .booking-feedback {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   border-radius: $radius-sm;
-  padding: 7px 10px;
+  padding: 6px 10px;
 }
 
 .booking-feedback--error {
@@ -928,75 +936,60 @@
   font-weight: $font-weight-bold;
 }
 
-// Botones card
+// ── Botones ───────────────────────────────────────────────
 .booking-botones {
-  padding: 14px 18px;
+  padding: 10px 16px;
   display: flex;
   gap: $spacing-sm;
 }
 
+.booking-botones--compact {
+  padding: 8px 16px 12px;
+}
+
 .booking-btn-cancelar {
   flex: 1;
-  padding: 10px 0;
+  padding: 8px 0;
   border-radius: $radius-md;
   background-color: $color-light-primary;
   border: 1px solid rgba(80, 54, 41, 0.2);
   color: $color-accent-muted;
   font-weight: $font-weight-bold;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   cursor: pointer;
   font-family: $font-family-base;
   transition: background-color $transition-fast;
 
-  &:hover {
-    background-color: $color-accent-soft;
-  }
+  &:hover { background-color: $color-accent-soft; }
 }
 
 .booking-btn-confirmar {
   flex: 1;
-  padding: 10px 0;
+  padding: 8px 0;
   border-radius: $radius-md;
   background-color: $color-btn-primary;
   border: none;
   color: $color-light-secondary;
   font-weight: $font-weight-black;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   cursor: pointer;
   font-family: $font-family-base;
   transition: background-color $transition-fast, opacity $transition-fast;
 
-  &:hover:not(:disabled) {
-    background-color: $color-btn-primary-hover;
-  }
+  &:hover:not(:disabled) { background-color: $color-btn-primary-hover; }
 
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.55;
-  }
+  &:disabled { cursor: not-allowed; opacity: 0.55; }
 
-  &--ocupado {
-    background-color: $color-accent-muted;
-    color: $color-light-primary;
-  }
-
-  &--ok {
-    background-color: #4caf50;
-  }
+  &--ocupado { background-color: $color-accent-muted; color: $color-light-primary; }
+  &--ok      { background-color: #4caf50; }
 }
 
 // ══════════════════════════════════════════════════════════
-// 13. SALAS — selección de sala
-// Sigue el mismo patrón que .bienvenida-card / .politicas-card
+// 13. SALAS
 // ══════════════════════════════════════════════════════════
 
-// Amplía bienvenida-card cuando hay varias sala-cards
-.salas-card-container {
-  width: 340px;
-  max-width: 340px;
-}
+.salas-card-container { width: 340px; max-width: 340px; }
 
-// Grid interno de tarjetas de sala
 .salas-grid {
   display: flex;
   flex-wrap: wrap;
@@ -1006,8 +999,6 @@
   width: 100%;
   margin-top: $spacing-xs;
 }
-
-// ── Sala Card — card interna dentro de bienvenida-card ────────
 
 .salas-card {
   width: 220px;
@@ -1037,8 +1028,8 @@
   filter: drop-shadow(0 4px 10px rgba(80, 54, 41, 0.15));
   transition: transform $transition-base;
 
-  &--hover  { transform: scale(1.05); }
-  &--disabled { filter: grayscale(0.5) opacity(0.6); }
+  &--hover     { transform: scale(1.05); }
+  &--disabled  { filter: grayscale(0.5) opacity(0.6); }
 }
 
 .salas-card-overlay {
@@ -1056,9 +1047,7 @@
   border-radius: $radius-full;
 }
 
-.salas-card-body {
-  padding: $spacing-md $spacing-lg $spacing-lg;
-}
+.salas-card-body   { padding: $spacing-md $spacing-lg $spacing-lg; }
 
 .salas-card-nombre {
   font-family: $font-family-display;
@@ -1068,25 +1057,9 @@
   margin-bottom: 0;
 }
 
-.salas-card-features {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  margin-bottom: $spacing-md;
-}
-
-.salas-card-feature {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: $color-accent-muted;
-}
-
-.salas-card-footer {
-  @include flex-between;
-  padding-top: $spacing-sm;
-  border-top: 1px solid rgba(80, 54, 41, 0.1);
-}
+.salas-card-features    { display: flex; flex-direction: column; gap: 5px; margin-bottom: $spacing-md; }
+.salas-card-feature     { display: flex; align-items: center; gap: 6px; color: $color-accent-muted; }
+.salas-card-footer      { @include flex-between; padding-top: $spacing-sm; border-top: 1px solid rgba(80, 54, 41, 0.1); }
 
 .salas-card-disponible {
   font-size: $font-size-xs;
@@ -1107,130 +1080,140 @@
   @include flex-center;
   transition: background-color $transition-fast, color $transition-fast;
 
-  &--hover {
-    background-color: $color-accent-deep;
-    color: $color-light-secondary;
-  }
+  &--hover { background-color: $color-accent-deep; color: $color-light-secondary; }
 }
+
 // ══════════════════════════════════════════════════════════
-// 13. OCUPANTES PANEL — card izquierda del mapa
+// 14. OCUPANTES PANEL — fijo izquierda + drawer móvil
 // ══════════════════════════════════════════════════════════
 
+$panel-w:  220px;
+$header-h: 61px;
+$footer-h: 52px;
+
+// ── Panel fijo desktop/tablet ─────────────────────────────
 .ocupantes-panel {
+  position: fixed;
+  top: $header-h;
+  left: 0;
+  bottom: $footer-h;
+  width: $panel-w;
+  z-index: 40;
   display: flex;
   flex-direction: column;
   gap: $spacing-sm;
-  flex-shrink: 0;
-  // Ancho fijo en escritorio, compacto en tablet
-  width: clamp(160px, 18vw, 210px);
+  padding: $spacing-lg $spacing-md $spacing-lg $spacing-xl;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(80,54,41,0.12) transparent;
+  background: rgba(255,255,255,0.94);
+  backdrop-filter: blur(8px);
+  border-right: 1px solid rgba(80, 54, 41, 0.09);
 
-  @include respond-to('md') {
-    // En tablet: fila horizontal compacta encima de la mesa
-    width: 100%;
-    flex-direction: column;
-  }
+  @include respond-to('sm') { display: none; }
 }
 
 .ocupantes-panel__titulo {
-  padding: 0 $spacing-xs;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
+  padding-left: 2px;
 }
 
-.ocupantes-panel__lista {
+// ── Tabla ─────────────────────────────────────────────────
+.op-tabla {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-
-  @include respond-to('md') {
-    // En tablet/móvil: grid 2 columnas para no hacer scroll
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 5px;
-  }
-
-  @include respond-to('sm') {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 4px;
-  }
-}
-
-// ── Item individual ───────────────────────────────────────
-.ocupantes-item {
   background: $color-light-secondary;
-  border: 1px solid $color-border;
+  border: 1px solid rgba(80, 54, 41, 0.12);
   border-radius: $radius-md;
-  padding: $spacing-sm $spacing-md;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  transition: box-shadow $transition-fast;
-
-  &:hover {
-    box-shadow: $shadow-card;
-  }
-
-  // Borde izquierdo de color según estado
-  &--ocupado  { border-left: 3px solid #e74c3c; }
-  &--limitado { border-left: 3px solid #f0a500; }
-  &--disponible { border-left: 3px solid #27ae60; }
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(80, 54, 41, 0.07);
 }
 
-.ocupantes-item__header {
-  display: flex;
+.op-tabla__head {
+  display: grid;
+  grid-template-columns: 32px 1fr 18px;
+  padding: 6px 8px 6px 10px;
+  background: rgba(80, 54, 41, 0.04);
+  border-bottom: 1px solid rgba(80, 54, 41, 0.09);
+}
+
+.op-tabla__head-esc  { font-size: 0.56rem; color: $color-accent-muted; text-align: center; }
+.op-tabla__head-info { font-size: 0.56rem; color: $color-accent-muted; padding-left: 4px; }
+
+// ── Fila ──────────────────────────────────────────────────
+.op-fila {
+  display: grid;
+  grid-template-columns: 32px 1fr 18px;
   align-items: center;
-  gap: 5px;
+  padding: 8px 8px 8px 10px;
+  border-bottom: 1px solid rgba(80, 54, 41, 0.055);
+  border-left: 3px solid transparent;
+  min-height: 40px;
+  transition: background $transition-fast;
+
+  &:last-child { border-bottom: none; }
+  &:hover      { background: rgba(80, 54, 41, 0.018); }
+
+  &--disponible { border-left-color: #27ae60; }
+  &--limitado   { border-left-color: #f0a500; }
+  &--ocupado    { border-left-color: #e74c3c; }
+
+  &:has(.op-fila__persona) {
+    align-items: flex-start;
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
 }
 
-.ocupantes-item__dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-
-  &--ocupado    { background: #e74c3c; box-shadow: 0 0 0 2px rgba(231,76,60,0.2); }
-  &--limitado   { background: #f0a500; box-shadow: 0 0 0 2px rgba(240,165,0,0.2); }
-  &--disponible { background: #27ae60; box-shadow: 0 0 0 2px rgba(39,174,96,0.2); }
-}
-
-.ocupantes-item__nombre {
+.op-fila__num {
   font-family: $font-family-display;
-  font-size: $font-size-xs;
+  font-size: 0.9rem;
   font-weight: $font-weight-bold;
   color: $color-dark-primary;
-  flex: 1;
+  text-align: center;
+  line-height: 1;
 }
 
-.ocupantes-item__badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 0.6rem;
-  font-weight: $font-weight-semibold;
-  color: $color-accent-muted;
-  background: rgba(80,54,41,0.07);
-  border-radius: $radius-sm;
-  padding: 1px 5px;
-  flex-shrink: 0;
-}
-
-.ocupantes-item__libre {
-  margin: 0;
-  padding-left: 12px;
-  font-size: 0.68rem;
-}
-
-.ocupantes-item__persona {
+.op-fila__personas {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 4px;
-  padding-left: 12px;
-  color: $color-accent-muted;
+  padding: 0 4px;
   min-width: 0;
 }
 
-.ocupantes-item__persona-nombre {
-  font-size: 0.7rem;
-  font-weight: $font-weight-medium;
+.op-fila__persona {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.op-fila__foto {
+  width: 24px;
+  height: 24px;
+  border-radius: $radius-sm;
+  object-fit: cover;
+  border: 1.5px solid rgba(80, 54, 41, 0.14);
+  flex-shrink: 0;
+}
+
+.op-fila__avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: $radius-sm;
+  background: $color-light-primary;
+  border: 1.5px solid rgba(80, 54, 41, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: $color-accent-muted;
+}
+
+.op-fila__nombre {
+  font-size: 0.74rem;
+  font-weight: $font-weight-semibold;
   color: $color-dark-primary;
   flex: 1;
   overflow: hidden;
@@ -1238,41 +1221,318 @@
   white-space: nowrap;
 }
 
-.ocupantes-item__turno {
-  font-size: 0.6rem;
+.op-fila__turno {
+  font-size: 0.57rem;
   font-weight: $font-weight-bold;
-  color: $color-accent-muted;
-  background: rgba(80,54,41,0.07);
   border-radius: $radius-sm;
-  padding: 1px 4px;
+  padding: 2px 5px;
+  white-space: nowrap;
   flex-shrink: 0;
+  letter-spacing: 0.02em;
+
+  &--am   { color: #b45309; background: rgba(180, 83,  9, 0.10); }
+  &--pm   { color: #1d4ed8; background: rgba(29,  78, 216, 0.09); }
+  &--full { color: #7c3aed; background: rgba(124, 58, 237, 0.09); }
 }
 
-// ── Layout del mapa con panel ─────────────────────────────
-// Override del .reservas-mapa cuando tiene el panel
+.op-fila__monitor {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: $color-accent-muted;
+  opacity: 0.65;
+  flex-shrink: 0;
+
+  .op-fila:has(.op-fila__persona) & { align-self: flex-start; margin-top: 5px; }
+}
+
+// ── FAB móvil ─────────────────────────────────────────────
+.ocupantes-fab {
+  display: none;
+
+  @include respond-to('sm') {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
+    background: $color-light-secondary;
+    border: 1.5px solid rgba(80, 54, 41, 0.2);
+    border-radius: $radius-full;
+    box-shadow: 0 4px 16px rgba(80, 54, 41, 0.18);
+    padding: 8px 18px;
+    font-family: $font-family-base;
+    font-size: 0.82rem;
+    font-weight: $font-weight-bold;
+    color: $color-dark-primary;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: box-shadow $transition-fast;
+
+    &:hover  { box-shadow: 0 6px 20px rgba(80, 54, 41, 0.24); }
+    &:active { transform: translateX(-50%) scale(0.97); }
+  }
+}
+
+// ── Drawer móvil ──────────────────────────────────────────
+.ocupantes-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(40, 25, 15, 0.4);
+  backdrop-filter: blur(2px);
+  z-index: 300;
+  display: flex;
+  align-items: flex-end;
+  animation: fadeIn 0.15s ease;
+}
+
+.ocupantes-drawer {
+  width: 100%;
+  background: $color-light-secondary;
+  border-radius: $radius-xl $radius-xl 0 0;
+  box-shadow: 0 -8px 32px rgba(40, 25, 15, 0.2);
+  max-height: 80dvh;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.22s ease;
+  overflow: hidden;
+}
+
+.ocupantes-drawer__header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-lg $spacing-xl $spacing-md;
+  border-bottom: 1px solid rgba(80, 54, 41, 0.1);
+  background: #fff;
+  flex-shrink: 0;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 36px;
+    height: 4px;
+    background: rgba(80, 54, 41, 0.15);
+    border-radius: 2px;
+  }
+}
+
+.ocupantes-drawer__close {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: $radius-full;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ocupantes-drawer__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: $spacing-md $spacing-xl $spacing-xl;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(80,54,41,0.2) transparent;
+
+  .op-tabla { box-shadow: none; border-color: rgba(80, 54, 41, 0.1); }
+}
+
+// ── Mapa: compensar panel fijo 220px a la izquierda ───────
 .reservas-mapa--con-panel {
-  gap: clamp($spacing-lg, 3vw, $spacing-3xl);
-  padding: 0 $spacing-2xl;
+  padding-left: calc(#{$panel-w} + #{$spacing-2xl});
+  padding-right: $spacing-2xl;
+  justify-content: center;
 
   @include respond-to('md') {
-    flex-direction: column;
-    gap: $spacing-md;
-    padding: $spacing-md $spacing-lg;
-    align-items: center;
-    justify-content: flex-start;
-    overflow-y: auto;
+    padding-left: calc(#{$panel-w} + #{$spacing-lg});
+    padding-right: $spacing-lg;
+  }
+
+  @include respond-to('sm') {
+    padding: $spacing-md;
+    justify-content: center;
   }
 
   .reservas-mesa-container {
-    width: clamp(280px, 48vh, 600px);
+    width: clamp(280px, 52vh, 620px);
     flex-shrink: 0;
 
-    @include respond-to('md') {
-      width: clamp(260px, 75vw, 500px);
-    }
-
-    @include respond-to('sm') {
-      width: clamp(220px, 90vw, 380px);
-    }
+    @include respond-to('md') { width: clamp(260px, 50vw, 480px); }
+    @include respond-to('sm') { width: clamp(260px, 88vw, 420px); }
   }
 }
+
+// ══════════════════════════════════════════════════════════
+// 15. MODAL MIS RESERVAS
+// ══════════════════════════════════════════════════════════
+
+.mis-reservas-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(40, 25, 15, 0.45);
+  backdrop-filter: blur(3px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-lg;
+  animation: fadeIn 0.18s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.mis-reservas-modal {
+  background: $color-light-secondary;
+  border: 1px solid rgba(80, 54, 41, 0.15);
+  border-radius: $radius-xl;
+  box-shadow: 0 20px 60px rgba(40, 25, 15, 0.3);
+  width: 100%;
+  max-width: 420px;
+  max-height: 88dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideUp 0.2s ease;
+
+  @include respond-to('sm') {
+    max-height: 92dvh;
+    border-radius: $radius-md;
+  }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(16px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.mis-reservas-header {
+  padding: $spacing-xl $spacing-xl $spacing-lg;
+  border-bottom: 1px solid rgba(80, 54, 41, 0.1);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: $spacing-md;
+  flex-shrink: 0;
+  background: #fff;
+
+  &__titulo {
+    margin: 0 0 4px;
+    display: block;
+  }
+}
+
+.mis-reservas-close {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: $radius-full;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mis-reservas-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: $spacing-md $spacing-xl;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  // Scrollbar discreta
+  scrollbar-width: thin;
+  scrollbar-color: rgba(80,54,41,0.2) transparent;
+}
+
+// ── Item de reserva ───────────────────────────────────────
+.mis-reservas-item {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-md $spacing-lg;
+  border-radius: $radius-md;
+  border: 1px solid rgba(80, 54, 41, 0.12);
+  background: $color-light-secondary;
+  transition: box-shadow $transition-fast;
+
+  &:hover { box-shadow: $shadow-card; }
+
+  &--pasada { opacity: 0.6; }
+  &--activa { border-left: 3px solid $color-accent-warm; }
+}
+
+.mis-reservas-item__fecha-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 64px;
+}
+
+.mis-reservas-item__fecha {
+  font-family: $font-family-display;
+  font-size: 0.72rem;
+  font-weight: $font-weight-bold;
+  color: $color-dark-primary;
+  letter-spacing: -0.2px;
+}
+
+.mis-reservas-item__chip {
+  font-size: 0.58rem;
+  font-weight: $font-weight-bold;
+  border-radius: $radius-full;
+  padding: 1px 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.chip--activa {
+  background: rgba(204, 138, 34, 0.12);
+  color: darken(#cc8a22, 10%);
+}
+
+.chip--pasada {
+  background: rgba(80, 54, 41, 0.08);
+  color: $color-accent-muted;
+}
+
+.mis-reservas-item__info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.mis-reservas-item__escritorio { display: block; }
+
+.mis-reservas-item__horario {
+  font-size: 0.68rem;
+  display: block;
+}
+
+// Badge turno en lista
+.mis-reservas-item__badge {
+  font-size: 0.62rem;
+  font-weight: $font-weight-bold;
+  border-radius: $radius-sm;
+  padding: 3px 7px;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.badge--am   { color: #b45309; background: rgba(180, 83,  9, 0.1); }
+.badge--pm   { color: #1d4ed8; background: rgba(29, 78,  216, 0.09); }
+.badge--full { color: #7c3aed; background: rgba(124, 58, 237, 0.09); }
