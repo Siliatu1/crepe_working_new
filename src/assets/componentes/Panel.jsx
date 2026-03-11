@@ -132,7 +132,8 @@ const getEstadoReserva = (attrs = {}) => {
   if (fueCanceladaManualmente) return 'Cancelada';
 
   if (estadoRaw === true) return 'Confirmada';
-  if (estadoRaw === false || estadoRaw == null) return 'Pendiente';
+  if (estadoRaw === false) return 'Cancelada';
+  if (estadoRaw == null) return 'Pendiente';
 
   const estadoTexto = String(estadoRaw).trim().toLowerCase();
   if (estadoTexto === 'confirmada') return 'Confirmada';
@@ -282,6 +283,8 @@ const Panel = () => {
           fecha:    r.attributes?.fecha_reserva ?? '—',
           estado:   getEstadoReserva(r.attributes),
           confirmada: r.attributes?.estado === true,
+          pendiente: r.attributes?.estado === null,
+          cancelada: r.attributes?.estado === false,
           motivoCancelacion: r.attributes?.motivoCancelacion ?? null,
           verificacionAsistencia: r.attributes?.verificacionAsistencia ?? null,
           puestoId: puestoId ?? (escritorioMatch ? Number(escritorioMatch) : null),
@@ -317,7 +320,18 @@ const Panel = () => {
       await cancelReserva(id, reservaAux, 'Cancelada por el usuario');
       // Actualizar localmente sin recargar todo
       setReservations(prev =>
-        prev.map(r => r.id === id ? { ...r, estado: 'Cancelada' } : r)
+        prev.map(r => r.id === id ? {
+          ...r,
+          // En API el estado queda false para cancelada.
+          estado: 'Cancelada',
+          confirmada: false,
+          verificacionAsistencia: {
+            ...(r.verificacionAsistencia || {}),
+            fecha: new Date().toISOString(),
+            mensaje: 'Cancelada por el usuario',
+            tipo: 'cancelacion-manual',
+          },
+        } : r)
       );
     } catch (err) {
       console.error(err);

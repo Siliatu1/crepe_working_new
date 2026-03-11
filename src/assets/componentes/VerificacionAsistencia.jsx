@@ -12,6 +12,11 @@ import {
 const BASE = 'https://macfer.crepesywaffles.com';
 const API_VERIFICAR_ASISTENCIA = `${BASE}/api/working-verificacions`;
 
+const mapEstadoFromApi = (value) => {
+  if (value === true) return 'Confirmada';
+  return 'Pendiente';
+};
+
 const findVerificacionByReserva = async (reservaId) => {
   const params = new URLSearchParams({
     'filters[working_reserva][id][$eq]': String(reservaId),
@@ -161,19 +166,20 @@ const VerificacionAsistencia = ({
 
       const updatedReserva = apiResult?.data || apiResult?.reserva || {};
       const relatedEstado = updatedReserva?.attributes?.working_reserva?.data?.attributes?.estado;
-      const estadoBool = typeof relatedEstado === 'boolean'
+      const estadoApi = typeof relatedEstado === 'boolean'
         ? relatedEstado
-        : updatedReserva?.estado;
-      const estadoTexto = estadoBool === true ? 'Confirmada' : 'Pendiente';
+        : (updatedReserva?.estado ?? null);
+      const estadoTexto = mapEstadoFromApi(estadoApi);
+      const confirmada = estadoApi === true ? true : null;
 
       const finalResult = {
-        success: estadoBool === true,
+        success: estadoApi === true,
         shouldUpdate: true,
         newStatus: estadoTexto,
-        confirmed: estadoBool === true,
+        confirmed: confirmada,
         distance: apiResult?.distance ?? null,
-        message: apiResult?.message || (estadoBool ? 'Reserva confirmada por geolocalizacion.' : 'Reserva sigue pendiente.'),
-        alertType: estadoBool ? 'success' : 'warning',
+        message: apiResult?.message || (estadoApi === true ? 'Reserva confirmada por geolocalizacion.' : 'Reserva sigue pendiente.'),
+        alertType: estadoApi === true ? 'success' : 'warning',
         position,
       };
 
@@ -181,7 +187,7 @@ const VerificacionAsistencia = ({
         ...reserva,
         ...updatedReserva,
         estado: estadoTexto,
-        confirmada: estadoBool === true,
+        confirmada,
       };
 
       onStatusChange?.(reservaActualizada, finalResult);

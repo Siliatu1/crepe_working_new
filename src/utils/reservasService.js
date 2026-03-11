@@ -15,12 +15,19 @@ const normalizeCollection = (payload) => {
 
 const toEstado = (value) => {
   if (value === true) return 'Confirmada';
-  if (value === false || value == null) return 'Pendiente';
+  if (value === false) return 'Cancelada';
+  if (value == null) return 'Pendiente';
 
   const normalized = String(value).trim().toLowerCase();
   if (normalized === 'confirmada') return 'Confirmada';
   if (normalized === 'cancelada') return 'Cancelada';
   return 'Pendiente';
+};
+
+const toApiEstado = (merged = {}) => {
+  if (merged.confirmada === true || merged.estado === 'Confirmada') return true;
+  if (merged.confirmada === false || merged.estado === 'Cancelada') return false;
+  return null;
 };
 
 const normalizeReserva = (item) => {
@@ -39,7 +46,7 @@ const normalizeReserva = (item) => {
     area: attrs.area || attrs.area_nombre || '',
     fecha: attrs.fecha_reserva || attrs.fecha || null,
     estado: toEstado(attrs.estado),
-    confirmada: attrs.estado === true,
+    confirmada: attrs.estado === true ? true : attrs.estado === false ? false : null,
     escritorio: attrs.escritorio || null,
     escritorioId: attrs.escritorioId || puestoRel?.id || null,
     horario: attrs.horario || null,
@@ -98,7 +105,7 @@ const buildRemoteData = (baseReserva = {}, override = {}) => {
     documento: String(merged.cedula || merged.documento || ''),
     area: merged.area || merged.area_nombre || '',
     fecha_reserva: merged.fecha || merged.fecha_reserva || null,
-    estado: merged.confirmada === true || merged.estado === 'Confirmada',
+    estado: toApiEstado(merged),
     escritorio: merged.escritorio || undefined,
     escritorioId: merged.escritorioId || undefined,
     horario: merged.horario || undefined,
@@ -208,6 +215,7 @@ export const cancelReserva = async (id, currentReserva = null, motivo = 'Reserva
   return updateReservaWithVerification(id, {
     estado: 'Cancelada',
     confirmada: false,
+    motivoCancelacion: motivo,
     verificacionAsistencia: {
       fecha: new Date().toISOString(),
       mensaje: motivo,

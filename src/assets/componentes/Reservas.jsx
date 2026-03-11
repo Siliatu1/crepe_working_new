@@ -663,7 +663,7 @@ export default function Reservas() {
           documento:        String(usuario.document_number),
           area:             usuario.area_nombre ?? '',
           fecha_reserva:    fechaISO,
-          estado:           false,
+          estado:           null,
           working_puestos:  { id: selectedId },
           working_horarios: { id: horarioObj.id },
         },
