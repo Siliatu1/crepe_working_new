@@ -399,7 +399,7 @@ const BookingCard = ({
                   <span className="booking-horario-hora">{meta?.hora}</span>
                   {esBloq && (
                     <span style={{ fontSize: '0.63rem', color: '#c0392b', marginTop: 2 }}>
-                      No disponible
+                      No disponible.
                     </span>
                   )}
                 </button>
