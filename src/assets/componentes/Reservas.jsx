@@ -524,11 +524,7 @@ const BookingCard = ({
                   <span className="booking-horario-label">{meta?.label}</span>
                   <span className="booking-horario-hora">{meta?.hora}</span>
                   {esBloq && (
-<<<<<<< HEAD
                     <span style={{ fontSize: '0.63rem', color: '#c0392b', marginTop: 2 }}>
-=======
-                    <span style={{ fontSize: '0.6rem', color: '#c0392b', marginTop: 1 }}>
->>>>>>> fac4dec232b5fa9e614f927d6584ac92d7e17ab8
                       No disponible
                     </span>
                   )}
