@@ -19,9 +19,9 @@ const H_PM        = 2;
 const H_COMPLETO  = 3;
 
 const HORARIO_META = {
-  [H_AM]:       { label: 'Mañana',      hora: '8:00 am – 12:00 m' },
-  [H_PM]:       { label: 'Tarde',        hora: '1:00 pm – 5:00 pm' },
-  [H_COMPLETO]: { label: 'Día completo', hora: '8:00 am – 5:00 pm' },
+  [H_AM]:       { label: 'Mañana',      hora: '8:00 am – 12:00 m',  badge: 'AM',        badgeKey: 'am'   },
+  [H_PM]:       { label: 'Tarde',        hora: '1:00 pm – 5:00 pm',  badge: 'PM',        badgeKey: 'pm'   },
+  [H_COMPLETO]: { label: 'Día completo', hora: '8:00 am – 5:00 pm',  badge: 'Todo el día', badgeKey: 'full' },
 };
 
 const SILLAS = [
@@ -40,101 +40,67 @@ const toISO   = d => d.toISOString().split('T')[0];
 const toLabel = d =>
   `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
 
-// ─── URL con populate completo ────────────────────────────────────────────────
-// populate=* trae TODAS las relaciones con todos sus campos
 const buildGetUrl = (fecha) =>
   `${API_RESERVAS}?filters[fecha_reserva][$eq]=${fecha}&populate=*`;
 
-// ─── Diagnóstico de estructura de la API ─────────────────────────────────────
-// Llama esto una vez para ver en consola exactamente qué devuelve Strapi
+// ─── Diagnóstico ─────────────────────────────────────────────────────────────
 const logEstructura = (reservas) => {
   if (!reservas.length) return;
   const r = reservas[0];
   console.group('🔍 [DEBUG] Estructura de reserva de la API');
   console.log('Reserva completa:', JSON.stringify(r, null, 2));
-  console.log('r.id:', r.id);
-  console.log('r.attributes:', r.attributes);
-  console.log('r.attributes.working_puestos:', r.attributes?.working_puestos);
-  console.log('r.attributes.working_horarios:', r.attributes?.working_horarios);
-  // También verificar si viene en raíz (algunos Strapi v4 sin attributes)
-  console.log('r.working_puestos (raíz):', r.working_puestos);
-  console.log('r.working_horarios (raíz):', r.working_horarios);
   console.groupEnd();
 };
 
-// ─── Extracción de IDs — cubre TODOS los formatos de Strapi v4 ───────────────
-/**
- * Strapi v4 puede devolver relaciones en estos formatos:
- *
- * FORMATO A (populate estándar):
- *   { data: { id: 1, attributes: {...} } }
- *
- * FORMATO B (populate con fields):
- *   { data: { id: 1 } }
- *
- * FORMATO C (sin populate / relación plana):
- *   { id: 1 }
- *
- * FORMATO D (número directo, raro pero posible):
- *   1
- *
- * FORMATO E (array — si la relación es hasMany):
- *   { data: [ { id: 1 } ] }
- *
- * FORMATO F (sin attributes wrapper — algunos configs de Strapi):
- *   campo en raíz del objeto reserva
- */
+// ─── Extracción de IDs ───────────────────────────────────────────────────────
 const extractId = (rel) => {
   if (rel === null || rel === undefined) return null;
-
-  // Formato D: número directo
   if (typeof rel === 'number') return rel;
-
-  // Formato C: { id: X }
   if (typeof rel === 'object' && rel.id !== undefined) return rel.id;
-
-  // Formato A/B: { data: { id: X } }
   if (rel.data !== null && rel.data !== undefined) {
     const d = rel.data;
     if (typeof d === 'number') return d;
     if (Array.isArray(d) && d.length > 0) return d[0].id ?? null;
     if (typeof d === 'object' && d.id !== undefined) return d.id;
   }
-
   return null;
 };
 
 const getPuestoId = (r) => {
-  // Intentar con attributes primero
   const conAttr = extractId(r.attributes?.working_puestos);
   if (conAttr !== null) return conAttr;
-
-  // Fallback: campo en raíz del objeto
   const enRaiz = extractId(r.working_puestos);
   if (enRaiz !== null) return enRaiz;
-
-  console.warn('[getPuestoId] No se pudo extraer puesto de:', r);
   return null;
 };
 
 const getHorarioId = (r) => {
   const conAttr = extractId(r.attributes?.working_horarios);
   if (conAttr !== null) return conAttr;
-
   const enRaiz = extractId(r.working_horarios);
   if (enRaiz !== null) return enRaiz;
-
-  console.warn('[getHorarioId] No se pudo extraer horario de:', r);
   return null;
 };
 
+const getNombre = (r) =>
+  r.attributes?.Nombre ?? r.attributes?.documento ?? r.Nombre ?? r.documento ?? '—';
+
+// Solo primer nombre para el panel de ocupantes
+const getPrimerNombre = (r) => {
+  const full = getNombre(r);
+  return full.split(' ')[0];
+};
+
+// Primer nombre + primer apellido para la booking card
+const getNombreCorto = (nombre = '') => {
+  const partes = nombre.trim().split(/\s+/);
+  return partes.length >= 2 ? `${partes[0]} ${partes[1]}` : partes[0] ?? '';
+};
+
+const getFoto = (r) =>
+  r.attributes?.foto ?? r.foto ?? null;
+
 // ─── Lógica de disponibilidad ─────────────────────────────────────────────────
-/**
- * Turno bloqueado según reglas de negocio:
- *   Reserva AM       → bloquea AM  + COMPLETO
- *   Reserva PM       → bloquea PM  + COMPLETO
- *   Reserva COMPLETO → bloquea AM  + PM + COMPLETO
- */
 const turnosBloqueados = (reservas, puestoId) => {
   const bloq = new Set();
   reservas
@@ -148,12 +114,6 @@ const turnosBloqueados = (reservas, puestoId) => {
   return bloq;
 };
 
-/**
- * Estado visual:
- *   'disponible' → 🟢 verde    (ningún turno tomado)
- *   'limitado'   → 🟡 amarillo (solo AM o solo PM)
- *   'ocupado'    → 🔴 rojo     (AM+PM o DÍA COMPLETO)
- */
 const calcEstado = (reservas, puestoId) => {
   const rp = reservas.filter(r => getPuestoId(r) === puestoId);
   const tieneAM       = rp.some(r => getHorarioId(r) === H_AM);
@@ -162,6 +122,102 @@ const calcEstado = (reservas, puestoId) => {
   if (tieneCompleto || (tieneAM && tienePM)) return 'ocupado';
   if (tieneAM || tienePM)                    return 'limitado';
   return 'disponible';
+};
+
+// ─── Modal: Mis Reservas ──────────────────────────────────────────────────────
+const MisReservasModal = ({ usuario, onClose }) => {
+  const [reservas,  setReservas]  = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState(null);
+
+  useEffect(() => {
+    if (!usuario?.document_number) return;
+    setLoading(true);
+    fetch(
+      `${API_RESERVAS}?filters[documento][$eq]=${usuario.document_number}&populate=*&sort=fecha_reserva:desc`
+    )
+      .then(r => r.json())
+      .then(json => setReservas(Array.isArray(json.data) ? json.data : []))
+      .catch(() => setError('No se pudieron cargar tus reservas.'))
+      .finally(() => setLoading(false));
+  }, [usuario]);
+
+  const hoy = new Date().toISOString().split('T')[0];
+
+  return (
+    <div className="mis-reservas-backdrop" onClick={onClose}>
+      <div
+        className="mis-reservas-modal"
+        onClick={e => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Mis reservas"
+      >
+        {/* Header */}
+        <div className="mis-reservas-header">
+          <div>
+            <p className="mis-reservas-header__titulo text-label">Mis reservas</p>
+            <p className="text-muted" style={{ margin: 0 }}>
+              {usuario?.nombre ?? 'Usuario'}
+            </p>
+          </div>
+          <button className="mis-reservas-close btn-outline" onClick={onClose} aria-label="Cerrar">
+            <IconX />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="mis-reservas-body">
+          {loading && (
+            <p className="text-muted" style={{ textAlign: 'center', padding: '24px 0' }}>
+              Cargando…
+            </p>
+          )}
+          {error && (
+            <p className="error-message">{error}</p>
+          )}
+          {!loading && !error && reservas.length === 0 && (
+            <p className="text-muted" style={{ textAlign: 'center', padding: '24px 0' }}>
+              Aún no tienes reservas registradas.
+            </p>
+          )}
+          {!loading && !error && reservas.map((r, i) => {
+            const fecha    = r.attributes?.fecha_reserva ?? r.fecha_reserva ?? '—';
+            const hId      = getHorarioId(r);
+            const hMeta    = HORARIO_META[hId];
+            const pId      = getPuestoId(r);
+            const esPasada = fecha < hoy;
+            return (
+              <div
+                key={r.id ?? i}
+                className={`mis-reservas-item ${esPasada ? 'mis-reservas-item--pasada' : 'mis-reservas-item--activa'}`}
+              >
+                <div className="mis-reservas-item__fecha-col">
+                  <span className="mis-reservas-item__fecha">{fecha}</span>
+                  <span className={`mis-reservas-item__chip ${esPasada ? 'chip--pasada' : 'chip--activa'}`}>
+                    {esPasada ? 'Pasada' : 'Próxima'}
+                  </span>
+                </div>
+                <div className="mis-reservas-item__info">
+                  <span className="mis-reservas-item__escritorio text-label">
+                    Escritorio {pId ?? '—'}
+                  </span>
+                  {hMeta && (
+                    <span className="mis-reservas-item__horario text-muted">
+                      {hMeta.label} · {hMeta.hora}
+                    </span>
+                  )}
+                </div>
+                <span className={`mis-reservas-item__badge badge--${hMeta?.badgeKey ?? 'am'}`}>
+                  {hMeta?.badge ?? '—'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 // ─── Iconos ───────────────────────────────────────────────────────────────────
@@ -219,8 +275,6 @@ const IconUserCardLarge = () => (
     <circle cx="12" cy="7" r="4"/>
   </svg>
 );
-
-// ─── Iconos extra ────────────────────────────────────────────────────────────
 const IconUser = () => (
   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
@@ -234,60 +288,145 @@ const IconMonitorSmall = () => (
     <line x1="12" y1="17" x2="12" y2="21"/>
   </svg>
 );
+const IconHistory = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="1 4 1 10 7 10"/>
+    <path d="M3.51 15a9 9 0 1 0 .49-4.95"/>
+  </svg>
+);
+const IconX = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+    <line x1="18" y1="6" x2="6" y2="18"/>
+    <line x1="6" y1="6" x2="18" y2="18"/>
+  </svg>
+);
 
-// ─── OcupantesPanel — panel izquierdo con estado de cada escritorio ───────────
-const OcupantesPanel = ({ reservas }) => {
-  const TURNO_CORTO = { [H_AM]: 'AM', [H_PM]: 'PM', [H_COMPLETO]: 'Full' };
-
+// ─── OcupantesPanel ───────────────────────────────────────────────────────────
+// Fila de una persona dentro de una celda
+const PersonaRow = ({ r }) => {
+  const hId   = getHorarioId(r);
+  const hMeta = HORARIO_META[hId];
+  const foto  = getFoto(r);
+  const primerNombre = getPrimerNombre(r);
   return (
-    <div className="ocupantes-panel">
-      <div className="ocupantes-panel__titulo text-label">
-        Escritorios
-      </div>
-      <div className="ocupantes-panel__lista">
-        {[1, 2, 3, 4, 5, 6].map(id => {
-          const estado       = calcEstado(reservas, id);
-          const rp           = reservas.filter(r => getPuestoId(r) === id);
-          const tieneMonitor = CON_MONITOR.includes(id);
-
-          return (
-            <div key={id} className={`ocupantes-item ocupantes-item--${estado}`}>
-              {/* Cabecera */}
-              <div className="ocupantes-item__header">
-                <div className={`ocupantes-item__dot ocupantes-item__dot--${estado}`} />
-                <span className="ocupantes-item__nombre">Esc. {id}</span>
-                {tieneMonitor && (
-                  <span className="ocupantes-item__badge">
-                    <IconMonitorSmall /> Monitor
-                  </span>
-                )}
-              </div>
-
-              {/* Ocupantes o libre */}
-              {rp.length === 0 ? (
-                <p className="ocupantes-item__libre text-muted">Disponible</p>
-              ) : (
-                rp.map((r, i) => {
-                  const hId        = getHorarioId(r);
-                  const turnoLabel = TURNO_CORTO[hId] ?? '';
-                  const nombre     = r.attributes?.Nombre ?? r.attributes?.documento ?? r.Nombre ?? r.documento ?? '—';
-                  const nombreCorto = nombre.split(' ').slice(0, 2).join(' ');
-                  return (
-                    <div key={i} className="ocupantes-item__persona">
-                      <IconUser />
-                      <span className="ocupantes-item__persona-nombre">{nombreCorto}</span>
-                      {turnoLabel && (
-                        <span className="ocupantes-item__turno">{turnoLabel}</span>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          );
-        })}
+    <div className="op-persona">
+      {foto && foto !== 'null' ? (
+        <img src={foto} alt={primerNombre} className="op-persona__foto" />
+      ) : (
+        <div className="op-persona__avatar"><IconUser /></div>
+      )}
+      <div className="op-persona__info">
+        <span className="op-persona__nombre">{primerNombre}</span>
+        {hMeta && (
+          <span className={`op-persona__turno op-persona__turno--${hMeta.badgeKey}`}>
+            {hMeta.badge}
+          </span>
+        )}
       </div>
     </div>
+  );
+};
+
+// Panel como tabla
+const OcupantesPanelContent = ({ reservas }) => (
+  <div className="op-tabla">
+    {/* Cabecera */}
+    <div className="op-tabla__head">
+      <span className="op-tabla__head-esc text-label">#</span>
+      <span className="op-tabla__head-info text-label">Ocupante</span>
+    </div>
+
+    {/* Filas */}
+    {[1, 2, 3, 4, 5, 6].map(id => {
+      const estado       = calcEstado(reservas, id);
+      const rp           = reservas.filter(r => getPuestoId(r) === id);
+      const tieneMonitor = CON_MONITOR.includes(id);
+      const vacio        = rp.length === 0;
+
+      return (
+        <div key={id} className={`op-fila op-fila--${estado} ${vacio ? 'op-fila--vacio' : ''}`}>
+
+          {/* Número */}
+          <span className="op-fila__num">{id}</span>
+
+          {/* Contenido: personas apiladas */}
+          <div className="op-fila__personas">
+            {rp.map((r, i) => {
+              const hId        = getHorarioId(r);
+              const hMeta      = HORARIO_META[hId];
+              const foto       = getFoto(r);
+              const nombre     = getPrimerNombre(r);
+              return (
+                <div key={i} className="op-fila__persona">
+                  {/* Foto / avatar */}
+                  {foto && foto !== 'null' ? (
+                    <img src={foto} alt={nombre} className="op-fila__foto" />
+                  ) : (
+                    <div className="op-fila__avatar"><IconUser /></div>
+                  )}
+                  {/* Nombre */}
+                  <span className="op-fila__nombre">{nombre}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Badge monitor — alineado a la derecha */}
+          {tieneMonitor && (
+            <span className="op-fila__monitor">
+              <IconMonitorSmall />
+            </span>
+          )}
+
+        </div>
+      );
+    })}
+  </div>
+);
+
+// Wrapper: en desktop/tablet = panel fijo a la izquierda; en móvil = FAB + drawer
+const OcupantesPanel = ({ reservas }) => {
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
+
+  return (
+    <>
+      {/* ── Desktop/tablet: panel FIJO izquierda ── */}
+      <div className="ocupantes-panel">
+        <div className="ocupantes-panel__titulo text-label">Escritorios</div>
+        <OcupantesPanelContent reservas={reservas} />
+      </div>
+
+      {/* ── Móvil: botón flotante ── */}
+      <button
+        className="ocupantes-fab"
+        onClick={() => setDrawerOpen(true)}
+        aria-label="Ver estado de escritorios"
+      >
+        <IconMonitorSmall />
+        <span>Escritorios</span>
+      </button>
+
+      {/* ── Móvil: drawer ── */}
+      {drawerOpen && (
+        <div className="ocupantes-drawer-backdrop" onClick={() => setDrawerOpen(false)}>
+          <div className="ocupantes-drawer" onClick={e => e.stopPropagation()}>
+            <div className="ocupantes-drawer__header">
+              <span className="text-label">Estado de escritorios</span>
+              <button
+                className="ocupantes-drawer__close btn-outline"
+                onClick={() => setDrawerOpen(false)}
+                aria-label="Cerrar"
+              >
+                <IconX />
+              </button>
+            </div>
+            <div className="ocupantes-drawer__body">
+              <OcupantesPanelContent reservas={reservas} />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
@@ -309,12 +448,11 @@ const BookingCard = ({
 
   if (!escritorioId) return null;
 
-  const bloq          = turnosBloqueados(reservas, escritorioId);
-  const todoBloqueado = bloq.size >= 3;
-  const tieneMonitor  = CON_MONITOR.includes(escritorioId);
-  const horarioSelObj = horarios.find(h => h.id === horarioSelId);
-  const puedeReservar = !yaReservoHoy && !todoBloqueado && !!horarioSelId && !reservaOk;
-  const reservasDelPuesto = reservas.filter(r => getPuestoId(r) === escritorioId);
+  const bloq            = turnosBloqueados(reservas, escritorioId);
+  const todoBloqueado   = bloq.size >= 3;
+  const tieneMonitor    = CON_MONITOR.includes(escritorioId);
+  const horarioSelObj   = horarios.find(h => h.id === horarioSelId);
+  const puedeReservar   = !yaReservoHoy && !todoBloqueado && !!horarioSelId && !reservaOk;
 
   const aviso = yaReservoHoy
     ? '⚠ Ya tienes una reserva para este día'
@@ -326,17 +464,20 @@ const BookingCard = ({
     <div className="booking-card-wrapper">
       <div className="booking-card">
 
-        <div className="booking-section">
+        {/* Usuario */}
+        <div className="booking-section booking-section--compact">
           <div className="booking-section-label">Reserva para</div>
           {usuario && (
-            <div className="booking-user">
+            <div className="booking-user booking-user--row">
               {usuario.foto && usuario.foto !== 'null' ? (
-                <img src={usuario.foto} alt={usuario.nombre} className="booking-user-foto" />
+                <img src={usuario.foto} alt={usuario.nombre} className="booking-user-foto booking-user-foto--sm" />
               ) : (
-                <div className="booking-user-placeholder"><IconUserCardLarge /></div>
+                <div className="booking-user-placeholder booking-user-placeholder--sm">
+                  <IconUserCardLarge />
+                </div>
               )}
-              <div className="booking-user-info">
-                <div className="booking-user-nombre">{usuario.nombre}</div>
+              <div className="booking-user-info booking-user-info--row">
+                <div className="booking-user-nombre">{getNombreCorto(usuario.nombre)}</div>
                 <div className="booking-user-cargo">{usuario.cargo}</div>
                 <div className="booking-user-area">{usuario.area_nombre}</div>
               </div>
@@ -345,40 +486,25 @@ const BookingCard = ({
         </div>
         <div className="booking-divider" />
 
-        <div className="booking-section">
+        {/* Ubicación — sin lista de ocupantes */}
+        <div className="booking-section booking-section--compact">
           <div className="booking-section-label">Ubicación</div>
           <div className="booking-ubicacion-row">
             <IconMonitorCard />
             <span className="booking-escritorio-nombre">Escritorio {escritorioId}</span>
             {tieneMonitor && <span className="booking-badge-monitor">Con monitor</span>}
           </div>
-          {reservasDelPuesto.length > 0 && (
-            <div className="booking-ocupantes">
-              {reservasDelPuesto.map((r, i) => {
-                const hId   = getHorarioId(r);
-                const hMeta = HORARIO_META[hId];
-                return (
-                  <div key={i} className="booking-ocupante-item">
-                    <span>🖱️</span>
-                    <span className="booking-ocupante-nombre">
-                      {r.attributes?.Nombre ?? r.attributes?.documento ?? r.Nombre ?? r.documento ?? '—'}
-                    </span>
-                    {hMeta && <span className="booking-ocupante-hora">· {hMeta.label}</span>}
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
         <div className="booking-divider" />
 
-        <div className="booking-section">
+        {/* Horarios */}
+        <div className="booking-section booking-section--compact">
           <div className="booking-section-label">Horario</div>
           <div className="booking-horarios">
             {horarios.map(h => {
-              const esBloq      = bloq.has(h.id);
-              const esSel       = horarioSelId === h.id;
-              const meta        = HORARIO_META[h.id];
+              const esBloq        = bloq.has(h.id);
+              const esSel         = horarioSelId === h.id;
+              const meta          = HORARIO_META[h.id];
               const deshabilitado = esBloq || yaReservoHoy;
               return (
                 <button
@@ -398,7 +524,7 @@ const BookingCard = ({
                   <span className="booking-horario-label">{meta?.label}</span>
                   <span className="booking-horario-hora">{meta?.hora}</span>
                   {esBloq && (
-                    <span style={{ fontSize: '0.63rem', color: '#c0392b', marginTop: 2 }}>
+                    <span style={{ fontSize: '0.6rem', color: '#c0392b', marginTop: 1 }}>
                       No disponible
                     </span>
                   )}
@@ -407,21 +533,25 @@ const BookingCard = ({
             })}
           </div>
         </div>
-        <div className="booking-divider" />
 
+        {/* Feedback */}
         {(aviso || reservaErr || reservaOk) && (
-          <div className="booking-section">
-            {reservaOk  && <div className="booking-feedback booking-feedback--ok">✓ ¡Reservado con éxito!</div>}
-            {reservaErr && <div className="booking-feedback booking-feedback--error">{reservaErr}</div>}
-            {!reservaOk && !reservaErr && aviso && (
-              <div className="booking-feedback booking-feedback--error" style={{ background: 'rgba(192,57,43,0.08)' }}>
-                {aviso}
-              </div>
-            )}
-          </div>
+          <>
+            <div className="booking-divider" />
+            <div className="booking-section booking-section--compact">
+              {reservaOk  && <div className="booking-feedback booking-feedback--ok">✓ ¡Reservado con éxito!</div>}
+              {reservaErr && <div className="booking-feedback booking-feedback--error">{reservaErr}</div>}
+              {!reservaOk && !reservaErr && aviso && (
+                <div className="booking-feedback booking-feedback--error" style={{ background: 'rgba(192,57,43,0.08)' }}>
+                  {aviso}
+                </div>
+              )}
+            </div>
+          </>
         )}
 
-        <div className="booking-botones">
+        {/* Botones */}
+        <div className="booking-botones booking-botones--compact">
           <button className="booking-btn-cancelar" onClick={onCancel}>Cancelar</button>
           <button
             className={[
@@ -458,19 +588,20 @@ export default function Reservas() {
     { date: manana, label: 'Mañana', diaLabel: DIAS[manana.getDay()], fechaLabel: toLabel(manana) },
   ];
 
-  const [fechaIndex, setFechaIndex] = useState(0);
+  const [fechaIndex,       setFechaIndex]       = useState(0);
+  const [horarios,         setHorarios]          = useState([]);
+  const [reservas,         setReservas]          = useState([]);
+  const [loadingR,         setLoadingR]          = useState(false);
+  const [hoverId,          setHoverId]           = useState(null);
+  const [selectedId,       setSelectedId]        = useState(null);
+  const [reservando,       setReservando]        = useState(false);
+  const [reservaOk,        setReservaOk]         = useState(false);
+  const [reservaErr,       setReservaErr]        = useState(null);
+  const [ultimaSync,       setUltimaSync]        = useState(null);
+  const [mostrarMisRes,    setMostrarMisRes]     = useState(false);   // ← nuevo
+
   const fechaActual = FECHAS[fechaIndex];
   const fechaISO    = toISO(fechaActual.date);
-
-  const [horarios,   setHorarios]   = useState([]);
-  const [reservas,   setReservas]   = useState([]);
-  const [loadingR,   setLoadingR]   = useState(false);
-  const [hoverId,    setHoverId]    = useState(null);
-  const [selectedId, setSelectedId] = useState(null);
-  const [reservando, setReservando] = useState(false);
-  const [reservaOk,  setReservaOk]  = useState(false);
-  const [reservaErr, setReservaErr] = useState(null);
-  const [ultimaSync, setUltimaSync] = useState(null);
 
   useEffect(() => {
     fetch(API_HORARIOS)
@@ -485,23 +616,13 @@ export default function Reservas() {
       .then(r => r.json())
       .then(json => {
         const data = Array.isArray(json.data) ? json.data : [];
-
-        // ── DIAGNÓSTICO: ver estructura exacta que devuelve Strapi ──
-        // Esto aparece en la consola del navegador (F12 → Console)
         console.group(`📦 [API] Reservas para ${fechaISO} — total: ${data.length}`);
         logEstructura(data);
-        data.forEach((r, i) => {
-          console.log(`  Reserva[${i}] id=${r.id} | puestoId=${getPuestoId(r)} | horarioId=${getHorarioId(r)} | documento=${r.attributes?.documento ?? r.documento}`);
-        });
         console.groupEnd();
-
         setReservas(data);
         setUltimaSync(new Date());
       })
-      .catch(err => {
-        console.error('[Reservas] error cargando:', err);
-        setReservas([]);
-      })
+      .catch(err => { console.error('[Reservas] error:', err); setReservas([]); })
       .finally(() => setLoadingR(false));
   }, [fechaISO]);
 
@@ -514,7 +635,6 @@ export default function Reservas() {
 
   useRealtimeSync(cargarReservas);
 
-  // Si la silla seleccionada se ocupa, deseleccionar
   useEffect(() => {
     if (selectedId && calcEstado(reservas, selectedId) === 'ocupado') {
       setSelectedId(null);
@@ -528,20 +648,13 @@ export default function Reservas() {
 
   const handleReservar = async (horarioObj) => {
     if (!usuario || !selectedId || !horarioObj) return;
-
-    if (yaReservoHoy) {
-      setReservaErr('Ya tienes una reserva para este día.');
-      return;
-    }
-
+    if (yaReservoHoy) { setReservaErr('Ya tienes una reserva para este día.'); return; }
     if (turnosBloqueados(reservas, selectedId).has(horarioObj.id)) {
       setReservaErr('Este turno ya no está disponible. Elige otro.');
       return;
     }
-
     setReservando(true);
     setReservaErr(null);
-
     try {
       const body = {
         data: {
@@ -555,20 +668,13 @@ export default function Reservas() {
           working_horarios: { id: horarioObj.id },
         },
       };
-
-      console.log('[Reservas] POST body:', JSON.stringify(body, null, 2));
-
       const res = await fetch(API_RESERVAS, {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(body),
+        body: JSON.stringify(body),
       });
-
       const resJson = await res.json().catch(() => ({}));
-      console.log('[Reservas] POST response:', resJson);
-
       if (!res.ok) throw new Error(resJson?.error?.message ?? `Error ${res.status}`);
-
       setReservaOk(true);
       cargarReservas();
       setTimeout(() => { setSelectedId(null); setReservaOk(false); }, 2500);
@@ -597,6 +703,7 @@ export default function Reservas() {
     <div className="reservas-wrapper">
       <div className="reservas-inner">
 
+        {/* ── Header ── */}
         <header className="reservas-header">
           <div className="reservas-header-left">
             <div className="reservas-titulo">
@@ -611,6 +718,7 @@ export default function Reservas() {
           </div>
 
           <div className="reservas-header-right" style={{ flexWrap: 'nowrap' }}>
+            {/* Navegación de fecha */}
             <div className="reservas-dia-nav">
               <button
                 className="reservas-dia-btn"
@@ -639,6 +747,7 @@ export default function Reservas() {
 
             <div style={{ width: 1, height: 26, background: 'rgba(80,54,41,0.15)', flexShrink: 0 }} />
 
+            {/* Actualizar */}
             <button
               className="reservas-dia-btn"
               onClick={cargarReservas}
@@ -649,6 +758,17 @@ export default function Reservas() {
               <IconRefresh />
             </button>
 
+            {/* ── NUEVO: Mis Reservas ── */}
+            <button
+              className="btn-outline reservas-btn-mis-reservas"
+              onClick={() => setMostrarMisRes(true)}
+              title="Ver mis reservas"
+            >
+              <IconHistory />
+              <span className="reservas-btn-mis-reservas__label">Mis reservas</span>
+            </button>
+
+            {/* Panel / Admin */}
             <button
               className="btn-outline"
               style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
@@ -657,8 +777,8 @@ export default function Reservas() {
             >
               {esAdmin ? <IconShield /> : <IconMonitorCard />}
             </button>
-            
 
+            {/* Atrás */}
             <button
               className="btn-outline reservas-btn-atras"
               style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
@@ -669,12 +789,9 @@ export default function Reservas() {
           </div>
         </header>
 
+        {/* ── Mapa ── */}
         <div className="reservas-mapa reservas-mapa--con-panel">
-
-          {/* Panel de ocupantes — izquierda */}
-          {!loadingR && (
-            <OcupantesPanel reservas={reservas} />
-          )}
+          <OcupantesPanel reservas={reservas} />
 
           {loadingR ? (
             <div className="reservas-loading">Cargando escritorios…</div>
@@ -721,6 +838,7 @@ export default function Reservas() {
           )}
         </div>
 
+        {/* ── Leyenda ── */}
         <footer className="reservas-leyenda">
           <div className="reservas-leyenda-badge">
             <IconMonitorLeyenda />
@@ -728,9 +846,9 @@ export default function Reservas() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
             {[
-              { img: sillaDis, label: 'Disponible'             },
-              { img: sillaLim, label: 'Disponibilidad limitada' },
-              { img: sillaOcu, label: 'Ocupado'                 },
+              { img: sillaDis, label: 'Disponible'              },
+              { img: sillaLim, label: 'Disponibilidad limitada'  },
+              { img: sillaOcu, label: 'Ocupado'                  },
             ].map(({ img, label }) => (
               <div key={label} className="reservas-leyenda-item">
                 <img src={img} alt={label} className="reservas-leyenda-img" />
@@ -741,6 +859,7 @@ export default function Reservas() {
         </footer>
       </div>
 
+      {/* ── Booking card ── */}
       <BookingCard
         escritorioId={selectedId}
         usuario={usuario}
@@ -753,6 +872,14 @@ export default function Reservas() {
         reservaErr={reservaErr}
         yaReservoHoy={yaReservoHoy}
       />
+
+      {/* ── Modal Mis Reservas ── */}
+      {mostrarMisRes && (
+        <MisReservasModal
+          usuario={usuario}
+          onClose={() => setMostrarMisRes(false)}
+        />
+      )}
     </div>
   );
 }
