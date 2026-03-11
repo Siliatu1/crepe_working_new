@@ -145,78 +145,7 @@ const MisReservasModal = ({ usuario, onClose }) => {
   const hoy = new Date().toISOString().split('T')[0];
 
   return (
-    <div className="mis-reservas-backdrop" onClick={onClose}>
-      <div
-        className="mis-reservas-modal"
-        onClick={e => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Mis reservas"
-      >
-        {/* Header */}
-        <div className="mis-reservas-header">
-          <div>
-            <p className="mis-reservas-header__titulo text-label">Mis reservas</p>
-            <p className="text-muted" style={{ margin: 0 }}>
-              {usuario?.nombre ?? 'Usuario'}
-            </p>
-          </div>
-          <button className="mis-reservas-close btn-outline" onClick={onClose} aria-label="Cerrar">
-            <IconX />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="mis-reservas-body">
-          {loading && (
-            <p className="text-muted" style={{ textAlign: 'center', padding: '24px 0' }}>
-              Cargando…
-            </p>
-          )}
-          {error && (
-            <p className="error-message">{error}</p>
-          )}
-          {!loading && !error && reservas.length === 0 && (
-            <p className="text-muted" style={{ textAlign: 'center', padding: '24px 0' }}>
-              Aún no tienes reservas registradas.
-            </p>
-          )}
-          {!loading && !error && reservas.map((r, i) => {
-            const fecha    = r.attributes?.fecha_reserva ?? r.fecha_reserva ?? '—';
-            const hId      = getHorarioId(r);
-            const hMeta    = HORARIO_META[hId];
-            const pId      = getPuestoId(r);
-            const esPasada = fecha < hoy;
-            return (
-              <div
-                key={r.id ?? i}
-                className={`mis-reservas-item ${esPasada ? 'mis-reservas-item--pasada' : 'mis-reservas-item--activa'}`}
-              >
-                <div className="mis-reservas-item__fecha-col">
-                  <span className="mis-reservas-item__fecha">{fecha}</span>
-                  <span className={`mis-reservas-item__chip ${esPasada ? 'chip--pasada' : 'chip--activa'}`}>
-                    {esPasada ? 'Pasada' : 'Próxima'}
-                  </span>
-                </div>
-                <div className="mis-reservas-item__info">
-                  <span className="mis-reservas-item__escritorio text-label">
-                    Escritorio {pId ?? '—'}
-                  </span>
-                  {hMeta && (
-                    <span className="mis-reservas-item__horario text-muted">
-                      {hMeta.label} · {hMeta.hora}
-                    </span>
-                  )}
-                </div>
-                <span className={`mis-reservas-item__badge badge--${hMeta?.badgeKey ?? 'am'}`}>
-                  {hMeta?.badge ?? '—'}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
+    <div></div>
   );
 };
 
@@ -746,28 +675,7 @@ export default function Reservas() {
             </div>
 
             <div style={{ width: 1, height: 26, background: 'rgba(80,54,41,0.15)', flexShrink: 0 }} />
-
-            {/* Actualizar */}
-            <button
-              className="reservas-dia-btn"
-              onClick={cargarReservas}
-              disabled={loadingR}
-              title="Actualizar disponibilidad"
-              style={{ opacity: loadingR ? 0.45 : 1 }}
-            >
-              <IconRefresh />
-            </button>
-
-            {/* ── NUEVO: Mis Reservas ── */}
-            <button
-              className="btn-outline reservas-btn-mis-reservas"
-              onClick={() => setMostrarMisRes(true)}
-              title="Ver mis reservas"
-            >
-              <IconHistory />
-              <span className="reservas-btn-mis-reservas__label">Mis reservas</span>
-            </button>
-
+            
             {/* Panel / Admin */}
             <button
               className="btn-outline"
