@@ -1,15 +1,11 @@
 # Crepes & Waffles Coworking
 
 ## Descripción
-Espacio de coworking diseñado para profesionales y emprendedores que buscan un ambiente productivo con acceso a servicios de café, crepes y waffles.
+Espacio de coworking diseñado para profesionales y emprendedores que buscan un ambiente productivo.
 
 ## Características
-- 🏢 Espacios de trabajo flexibles
-- ☕ Café y snacks artesanales
-- 🍽️ Menú de crepes y waffles
-- 📡 WiFi de alta velocidad
-- 📞 Salas de reuniones
-- 🔌 Estaciones de carga
+-  Espacio de trabajo flexibles
+
 
 ## Instalación
 ```bash
