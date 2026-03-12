@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { User, Calendar, Monitor, Clock, Shield, Ticket, ArrowLeft, Trash2, LogOut, ChevronDown } from 'lucide-react';
 import { cancelReserva, updateReservaWithVerification } from "../../utils/reservasService";
-import useRealtimeSync from "../../hooks/useRealtimeSync";
 import {
   calculateDistance,
   checkGeolocationSupport,
@@ -13,6 +13,7 @@ import {
 
 const BASE         = 'https://macfer.crepesywaffles.com';
 const API_RESERVAS = `${BASE}/api/working-reservas`;
+const ADMINS = ['1028783377', '1019096266'];
 
 // Metadatos de horarios por ID (igual que en Reservas.jsx)
 const HORARIO_META = {
@@ -21,53 +22,11 @@ const HORARIO_META = {
   3: { label: 'Día completo', hora: '8:00 am – 5:00 pm' },
 };
 
-// ── Iconos ────────────────────────────────────────────────────
-const IconUser = () => (
-  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#92614F" strokeWidth="2" strokeLinecap="round">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-  </svg>
-);
-const IconCalendar = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CC8A22" strokeWidth="2" strokeLinecap="round">
-    <rect x="3" y="4" width="18" height="18" rx="2"/>
-    <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-  </svg>
-);
-const IconMonitor = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CC8A22" strokeWidth="2" strokeLinecap="round">
-    <rect x="2" y="3" width="20" height="14" rx="2"/>
-    <line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
-  </svg>
-);
-const IconClock = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CC8A22" strokeWidth="2" strokeLinecap="round">
-    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-  </svg>
-);
-const IconArrowLeft = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-    <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
-  </svg>
-);
-const IconTrash = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="3 6 5 6 21 6"/>
-    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-    <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
-  </svg>
-);
+// Chevron con rotación
 const IconChevron = ({ open }) => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-    style={{ transition: 'transform 0.25s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-    <polyline points="6 9 12 15 18 9"/>
-  </svg>
-);
-const IconLogout = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-    <polyline points="16 17 21 12 16 7"/>
-    <line x1="21" y1="12" x2="9" y2="12"/>
-  </svg>
+  <div style={{ transition: 'transform 0.25s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+    <ChevronDown size={14} strokeWidth={2.5} />
+  </div>
 );
 
 // ── Hook breakpoint ───────────────────────────────────────────
@@ -87,6 +46,8 @@ const getNombreCorto = (nombre = '') => {
   const partes = nombre.trim().split(/\s+/);
   return partes.length >= 2 ? `${partes[0]} ${partes[1]}` : partes[0] ?? '';
 };
+
+const getNombreCompleto = (nombre = '') => String(nombre ?? '').trim();
 
 const extractId = (rel) => {
   if (rel == null) return null;
@@ -175,7 +136,10 @@ const ReservaCard = ({
   confirmando,
   onCancelar,
   onConfirmar,
-  canConfirmByLocation,
+  canConfirm,
+  confirmLabel,
+  helperMessage,
+  showOwner,
   confirmBlockedMessage,
   remainingMinutes,
 }) => {
@@ -188,8 +152,7 @@ const ReservaCard = ({
     confirmando === r.id ||
     cancelando === r.id ||
     !esPendiente ||
-    !canConfirmByLocation ||
-    Boolean(confirmBlockedMessage);
+    !canConfirm;
 
   return (
     <div style={{
@@ -208,7 +171,7 @@ const ReservaCard = ({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
-          <IconMonitor />
+          <Monitor size={13} color="#CC8A22" strokeWidth={2} />
           <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "#503629", whiteSpace: "nowrap" }}>
             Escritorio {r.puestoId ?? '—'}
           </span>
@@ -227,14 +190,22 @@ const ReservaCard = ({
       {open && (
         <div style={{ padding: "0 14px 14px", borderTop: "1px solid rgba(80,54,41,0.08)", paddingTop: "12px" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {showOwner && (
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <span style={{ fontSize: "0.82rem", color: "#92614F" }}>👤</span>
+                <span className="text-body" style={{ fontSize: "0.82rem" }}>
+                  {r.nombreCompleto || r.nombre}
+                </span>
+              </div>
+            )}
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <IconCalendar />
+              <Calendar size={13} color="#CC8A22" strokeWidth={2} />
               <span className="text-body" style={{ fontSize: "0.82rem" }}>
                 {new Date(r.fecha + "T12:00:00").toLocaleDateString("es-CO", { year: "numeric", month: "short", day: "numeric" })}
               </span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <IconClock />
+              <Clock size={13} color="#CC8A22" strokeWidth={2} />
               <span className="text-body" style={{ fontSize: "0.82rem" }}>
                 {hMeta?.hora ? `${turnoTexto} · ${hMeta.hora}` : turnoTexto}
               </span>
@@ -246,9 +217,9 @@ const ReservaCard = ({
           </div>
           {esPendiente && (
             <div style={{ marginTop: "8px", fontSize: "0.72rem", color: "#8A6D3B" }}>
-              {remainingMinutes != null && remainingMinutes > 0
+              {helperMessage || (remainingMinutes != null && remainingMinutes > 0
                 ? `Ventana activa: quedan ${remainingMinutes} min`
-                : (confirmBlockedMessage || 'Pendiente de confirmación')}
+                : (confirmBlockedMessage || 'Pendiente de confirmación'))}
             </div>
           )}
           <div style={{ marginTop: "12px", display: "flex", gap: "8px" }}>
@@ -267,7 +238,7 @@ const ReservaCard = ({
                 fontFamily: "inherit",
               }}
             >
-              {confirmando === r.id ? "Confirmando…" : "Confirmar"}
+              {confirmando === r.id ? "Confirmando…" : confirmLabel}
             </button>
             <button
               onClick={() => onCancelar(r.id)}
@@ -284,7 +255,7 @@ const ReservaCard = ({
                 fontFamily: "inherit",
               }}
             >
-              <IconTrash />
+              <Trash2 size={13} strokeWidth={2} />
               {esCancelada ? "Ya cancelada" : cancelando === r.id ? "Cancelando…" : "Cancelar"}
             </button>
           </div>
@@ -304,6 +275,8 @@ const Panel = () => {
   const geoSupport = checkGeolocationSupport();
 
   const profileData = datosEmpleado;
+  const documentoUsuario = String(datosEmpleado?.documento || datosEmpleado?.document_number || '');
+  const esAdmin = ADMINS.includes(documentoUsuario);
   const [reservations, setReservations] = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState("");
@@ -400,22 +373,22 @@ const Panel = () => {
     setLoading(true);
     setError("");
     try {
-      // Obtener documento del usuario actual
-      const documentoUsuario = datosEmpleado?.documento || datosEmpleado?.document_number || null;
-
       if (!documentoUsuario) {
         setError("No se pudo identificar al usuario.");
         return;
       }
 
-      // Traemos solo las reservas del usuario actual filtrando por documento
+      const filtroDocumento = esAdmin
+        ? ''
+        : `&filters[documento][$eq]=${encodeURIComponent(documentoUsuario)}`;
+
       const url =
         `${API_RESERVAS}` +
-        `?filters[documento][$eq]=${encodeURIComponent(documentoUsuario)}` +
+        `?sort[0]=fecha_reserva:desc&sort[1]=id:desc` +
+        filtroDocumento +
         `&populate[working_puestos][fields][0]=id&populate[working_puestos][fields][1]=nombre` +
         `&populate[working_horarios][fields][0]=id&populate[working_horarios][fields][1]=nombre` +
-        `&sort=fecha_reserva:desc` +
-        `&pagination[pageSize]=200`;
+        `&pagination[pageSize]=40000`;
 
       const res  = await fetch(url);
       const json = await res.json();
@@ -433,6 +406,7 @@ const Panel = () => {
         return {
           id:       r.id,
           nombre:   getNombreCorto(r.attributes?.Nombre ?? r.attributes?.documento ?? '—'),
+          nombreCompleto: getNombreCompleto(r.attributes?.Nombre ?? r.attributes?.documento ?? '—'),
           foto:     r.attributes?.foto      ?? null,
           documento:r.attributes?.documento ?? '—',
           area:     r.attributes?.area      ?? '—',
@@ -466,7 +440,7 @@ const Panel = () => {
     if (datosEmpleado?.documento || datosEmpleado?.document_number) {
       cargarReservas();
     }
-  }, [datosEmpleado?.documento, datosEmpleado?.document_number]);
+  }, [datosEmpleado?.documento, datosEmpleado?.document_number, esAdmin]);
 
   useEffect(() => {
     void refreshLocationStatus(true);
@@ -475,6 +449,55 @@ const Panel = () => {
   const handleConfirmar = async (id) => {
     const reservaAux = reservations.find(r => r.id === id);
     if (!reservaAux || reservaAux.estado !== 'Pendiente') {
+      return;
+    }
+
+    if (esAdmin) {
+      setConfirmando(id);
+      try {
+        const mensaje = reservaAux.documento === documentoUsuario
+          ? 'Reserva confirmada manualmente por el administrador.'
+          : 'Reserva confirmada por un administrador fuera de la validación estándar.';
+
+        await updateReservaWithVerification(id, {
+          estado: 'Confirmada',
+          confirmada: true,
+          verificacionAsistencia: {
+            fecha: new Date().toISOString(),
+            mensaje,
+            tipo: 'confirmacion-admin-manual',
+            autorizadaPor: documentoUsuario,
+            nombreAutorizador: datosEmpleado?.nombre ?? 'Administrador',
+          },
+        }, reservaAux);
+
+        setReservations((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? {
+                  ...r,
+                  estado: 'Confirmada',
+                  confirmada: true,
+                  verificacionAsistencia: {
+                    ...(r.verificacionAsistencia || {}),
+                    fecha: new Date().toISOString(),
+                    mensaje,
+                    tipo: 'confirmacion-admin-manual',
+                    autorizadaPor: documentoUsuario,
+                    nombreAutorizador: datosEmpleado?.nombre ?? 'Administrador',
+                  },
+                }
+              : r
+          )
+        );
+
+        alert('Reserva confirmada por administrador.');
+      } catch (err) {
+        console.error(err);
+        alert(err?.message || 'Error al confirmar la reserva.');
+      } finally {
+        setConfirmando(null);
+      }
       return;
     }
 
@@ -549,7 +572,10 @@ const Panel = () => {
     setCancelando(id);
     try {
       const reservaAux = reservations.find(r => r.id === id);
-      await cancelReserva(id, reservaAux, 'Cancelada por el usuario');
+      const motivoCancelacion = esAdmin
+        ? 'Cancelada por un administrador'
+        : 'Cancelada por el usuario';
+      await cancelReserva(id, reservaAux, motivoCancelacion);
       // Actualización local inmediata (sin recargar página)
       setReservations(prev =>
         prev.map(r => r.id === id ? {
@@ -560,7 +586,7 @@ const Panel = () => {
           verificacionAsistencia: {
             ...(r.verificacionAsistencia || {}),
             fecha: new Date().toISOString(),
-            mensaje: 'Cancelada por el usuario',
+            mensaje: motivoCancelacion,
             tipo: 'cancelacion-manual',
           },
         } : r)
@@ -631,6 +657,15 @@ const Panel = () => {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div />
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              className="btn-outline"
+              onClick={() => navigate('/panel', { state: { datosEmpleado } })}
+              title={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
+              aria-label={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
+              style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
+            >
+              {esAdmin ? <Shield size={14} strokeWidth={2.5} /> : <Ticket size={16} color="#503629" strokeWidth={2.5} />}
+            </button>
             {/* Cerrar sesión — solo icono */}
             <button
               className="btn-outline"
@@ -644,7 +679,7 @@ const Panel = () => {
                 color: "#c0392b",
               }}
             >
-              <IconLogout />
+              <LogOut size={14} strokeWidth={2} />
             </button>
             {/* Atrás — solo icono */}
             <button
@@ -657,7 +692,7 @@ const Panel = () => {
                 borderRadius: "999px",
               }}
             >
-              <IconArrowLeft />
+              <ArrowLeft size={14} strokeWidth={2.5} />
             </button>
           </div>
         </div>
@@ -678,7 +713,7 @@ const Panel = () => {
               {profileData?.foto && profileData.foto !== "null" ? (
                 <img src={profileData.foto} alt="Foto" className="bienvenida-foto" />
               ) : (
-                <div className="bienvenida-foto-placeholder"><IconUser /></div>
+                <div className="bienvenida-foto-placeholder"><User size={32} color="#92614F" strokeWidth={2} /></div>
               )}
             </div>
             <h1 className="bienvenida-saludo">
@@ -690,6 +725,9 @@ const Panel = () => {
                 <div className="bienvenida-cargo">{profileData?.cargo}</div>
                 <div className="text-muted">{profileData?.area_nombre}</div>
               </div>
+            </div>
+            <div style={{ marginTop: 10, fontSize: "0.78rem", color: esAdmin ? "#CC8A22" : "#92614F", fontWeight: 700 }}>
+              {esAdmin ? 'Modo administrador' : 'Modo usuario'}
             </div>
             {/* Resumen rápido */}
             <div style={{
@@ -715,37 +753,52 @@ const Panel = () => {
               </div>
             </div>
 
-            <div style={{
-              marginTop: 12, padding: "10px 12px",
-              background: "rgba(80,54,41,0.05)", borderRadius: 10,
-              display: "flex", flexDirection: "column", gap: 8,
-            }}>
-              <div style={{ fontSize: "0.75rem", color: "#503629", fontWeight: 700 }}>
-                Confirmación por ubicación
+            {esAdmin ? (
+              <div style={{
+                marginTop: 12, padding: "10px 12px",
+                background: "rgba(204,138,34,0.08)", borderRadius: 10,
+                display: "flex", flexDirection: "column", gap: 8,
+              }}>
+                <div style={{ fontSize: "0.75rem", color: "#8A6D3B", fontWeight: 700 }}>
+                  Permisos de administrador
+                </div>
+                <div style={{ fontSize: "0.74rem", color: "#8A6D3B" }}>
+                  Puedes ver todas las reservas y confirmar manualmente cualquier reserva pendiente, incluso fuera de la ventana de 25 minutos.
+                </div>
               </div>
-              <div style={{ fontSize: "0.74rem", color: isNearPoint ? "#155724" : "#8A6D3B" }}>
-                {isNearPoint
-                  ? `Estás dentro del perímetro (${Math.round(distanceMeters || 0)} m).`
-                  : `Para confirmar, debes estar dentro del perímetro de  ${workplaceInfo.radius} m.`}
+            ) : (
+              <div style={{
+                marginTop: 12, padding: "10px 12px",
+                background: "rgba(80,54,41,0.05)", borderRadius: 10,
+                display: "flex", flexDirection: "column", gap: 8,
+              }}>
+                <div style={{ fontSize: "0.75rem", color: "#503629", fontWeight: 700 }}>
+                  Confirmación por ubicación
+                </div>
+                <div style={{ fontSize: "0.74rem", color: isNearPoint ? "#155724" : "#8A6D3B" }}>
+                  {isNearPoint
+                    ? `Estás dentro del perímetro (${Math.round(distanceMeters || 0)} m).`
+                    : `Para confirmar, debes estar dentro del perímetro de  ${workplaceInfo.radius} m.`}
+                </div>
+                {!!locationError && (
+                  <div style={{ fontSize: "0.72rem", color: "#c0392b" }}>{locationError}</div>
+                )}
+                <button
+                  onClick={() => void refreshLocationStatus()}
+                  disabled={locationChecking}
+                  style={{
+                    padding: "8px 10px", borderRadius: 8,
+                    border: "1px solid rgba(80,54,41,0.25)",
+                    background: "rgba(80,54,41,0.08)",
+                    color: "#503629", fontSize: "0.75rem", fontWeight: 600,
+                    cursor: locationChecking ? "not-allowed" : "pointer",
+                    opacity: locationChecking ? 0.7 : 1,
+                  }}
+                >
+                  {locationChecking ? "Verificando ubicación…" : "Actualizar ubicación"}
+                </button>
               </div>
-              {!!locationError && (
-                <div style={{ fontSize: "0.72rem", color: "#c0392b" }}>{locationError}</div>
-              )}
-              <button
-                onClick={() => void refreshLocationStatus()}
-                disabled={locationChecking}
-                style={{
-                  padding: "8px 10px", borderRadius: 8,
-                  border: "1px solid rgba(80,54,41,0.25)",
-                  background: "rgba(80,54,41,0.08)",
-                  color: "#503629", fontSize: "0.75rem", fontWeight: 600,
-                  cursor: locationChecking ? "not-allowed" : "pointer",
-                  opacity: locationChecking ? 0.7 : 1,
-                }}
-              >
-                {locationChecking ? "Verificando ubicación…" : "Actualizar ubicación"}
-              </button>
-            </div>
+            )}
 
             {/* Botón cerrar sesión */}
             <button
@@ -763,7 +816,7 @@ const Panel = () => {
               onMouseEnter={e => { e.currentTarget.style.background = "rgba(192,57,43,0.15)"; }}
               onMouseLeave={e => { e.currentTarget.style.background = "rgba(192,57,43,0.08)"; }}
             >
-              <IconLogout />
+              <LogOut size={14} strokeWidth={2} />
               Cerrar sesión
             </button>
           </div>
@@ -779,7 +832,7 @@ const Panel = () => {
               justifyContent: "space-between", marginBottom: "16px",
             }}>
               <h2 className="bienvenida-saludo" style={{ margin: 0, fontSize: "1.05rem" }}>
-                Mis <span className="text-accent">reservas</span>
+                {esAdmin ? 'Todas las ' : 'Mis '}<span className="text-accent">reservas</span>
               </h2>
               <span style={{
                 padding: "3px 12px", borderRadius: 20,
@@ -801,6 +854,7 @@ const Panel = () => {
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 {reservations.map(r => {
                   const confirmMeta = getConfirmMeta(r);
+                  const canAdminConfirm = esAdmin && r.estado === 'Pendiente';
                   return (
                     <ReservaCard
                       key={r.id}
@@ -809,7 +863,14 @@ const Panel = () => {
                       confirmando={confirmando}
                       onCancelar={solicitarCancelacion}
                       onConfirmar={handleConfirmar}
-                      canConfirmByLocation={isNearPoint}
+                      canConfirm={canAdminConfirm || (isNearPoint && confirmMeta.canByTime)}
+                      confirmLabel={esAdmin ? 'Confirmar' : 'Confirmar'}
+                      helperMessage={esAdmin && r.estado === 'Pendiente'
+                        ? (r.documento === documentoUsuario
+                            ? 'Puedes confirmar esta reserva como administrador.'
+                            : 'Puedes confirmar manualmente esta reserva como administrador.')
+                        : ''}
+                      showOwner={esAdmin}
                       confirmBlockedMessage={confirmMeta.blockedMessage}
                       remainingMinutes={confirmMeta.remainingMinutes}
                     />
@@ -824,7 +885,10 @@ const Panel = () => {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ borderBottom: "2px solid rgba(80,54,41,0.12)" }}>
-                      {["Fecha", "Escritorio", "Turno", "Estado", "Acción"].map(h => (
+                      {[
+                        ...(esAdmin ? ['Reservado por'] : []),
+                        "Fecha", "Escritorio", "Turno", "Estado", "Acción"
+                      ].map(h => (
                         <th key={h} style={{
                           padding: "8px 12px", textAlign: "left",
                           fontSize: "0.7rem", fontWeight: 700,
@@ -847,10 +911,22 @@ const Panel = () => {
                           onMouseEnter={e => e.currentTarget.style.background = "rgba(146,97,79,0.04)"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                         >
+                          {esAdmin && (
+                            <td style={{ padding: "12px 12px" }}>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                <span className="text-body" style={{ fontSize: "0.82rem", fontWeight: 700 }}>
+                                  {r.nombreCompleto || r.nombre}
+                                </span>
+                                <span style={{ fontSize: "0.72rem", color: "#92614F" }}>
+                                  {r.documento || 'Sin documento'}
+                                </span>
+                              </div>
+                            </td>
+                          )}
                           {/* Fecha */}
                           <td style={{ padding: "12px 12px" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <IconCalendar />
+                              <Calendar size={13} color="#CC8A22" strokeWidth={2} />
                               <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
                                 {r.fecha !== '—'
                                   ? new Date(r.fecha + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short" })
@@ -861,7 +937,7 @@ const Panel = () => {
                           {/* Escritorio */}
                           <td style={{ padding: "12px 12px" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <IconMonitor />
+                              <Monitor size={13} color="#CC8A22" strokeWidth={2} />
                               <span className="text-body" style={{ fontSize: "0.82rem" }}>
                                 {r.puestoId ? `Escritorio ${r.puestoId}` : '—'}
                               </span>
@@ -870,7 +946,7 @@ const Panel = () => {
                           {/* Turno */}
                           <td style={{ padding: "12px 12px" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <IconClock />
+                              <Clock size={13} color="#CC8A22" strokeWidth={2} />
                               <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
                                 {turnoTexto}
                               </span>
@@ -893,15 +969,15 @@ const Panel = () => {
                             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
                               <button
                                 onClick={() => handleConfirmar(r.id)}
-                                disabled={confirmando === r.id || cancelando === r.id || !esPendiente || !isNearPoint || !confirmMeta.canByTime}
+                                disabled={confirmando === r.id || cancelando === r.id || !esPendiente || (!esAdmin && (!isNearPoint || !confirmMeta.canByTime))}
                                 style={{
                                   display: "inline-flex", alignItems: "center", gap: 5,
                                   padding: "4px 10px", borderRadius: 8,
                                   border: "1px solid rgba(21,87,36,0.35)",
                                   background: "rgba(21,87,36,0.08)",
                                   color: "#155724", fontSize: "0.75rem", fontWeight: 600,
-                                  cursor: confirmando === r.id || cancelando === r.id || !esPendiente || !isNearPoint || !confirmMeta.canByTime ? "not-allowed" : "pointer",
-                                  opacity: confirmando === r.id || cancelando === r.id || !esPendiente || !isNearPoint || !confirmMeta.canByTime ? 0.6 : 1,
+                                  cursor: confirmando === r.id || cancelando === r.id || !esPendiente || (!esAdmin && (!isNearPoint || !confirmMeta.canByTime)) ? "not-allowed" : "pointer",
+                                  opacity: confirmando === r.id || cancelando === r.id || !esPendiente || (!esAdmin && (!isNearPoint || !confirmMeta.canByTime)) ? 0.6 : 1,
                                   transition: "all 0.15s", fontFamily: "inherit",
                                 }}
                               >
@@ -923,15 +999,17 @@ const Panel = () => {
                                 onMouseEnter={e => { if (cancelando !== r.id && !esCancelada && cancelConfirmId !== r.id) e.currentTarget.style.background = "rgba(220,53,69,0.12)"; }}
                                 onMouseLeave={e => { e.currentTarget.style.background = "rgba(220,53,69,0.06)"; }}
                               >
-                                <IconTrash />
+                                <Trash2 size={13} strokeWidth={2} />
                                 {esCancelada ? "Cancelada" : cancelando === r.id ? "Cancelando…" : "Cancelar"}
                               </button>
                             </div>
                             {esPendiente && (
                               <div style={{ marginTop: 6, fontSize: "0.7rem", color: "#8A6D3B", textAlign: "right" }}>
-                                {confirmMeta.remainingMinutes != null && confirmMeta.remainingMinutes > 0
-                                  ? `Quedan ${confirmMeta.remainingMinutes} min para confirmar`
-                                  : (confirmMeta.blockedMessage || 'Pendiente de confirmación')}
+                                {esAdmin
+                                  ? 'Confirmación manual disponible para administrador.'
+                                  : (confirmMeta.remainingMinutes != null && confirmMeta.remainingMinutes > 0
+                                      ? `Quedan ${confirmMeta.remainingMinutes} min para confirmar`
+                                      : (confirmMeta.blockedMessage || 'Pendiente de confirmación'))}
                               </div>
                             )}
                           </td>
@@ -1025,3 +1103,6 @@ const Panel = () => {
 };
 
 export default Panel;
+
+
+

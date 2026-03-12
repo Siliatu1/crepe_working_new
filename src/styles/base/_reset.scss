@@ -9,10 +9,8 @@
   font-family: $font-family-base;
   line-height: 1.5;
   font-weight: $font-weight-regular;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #8a6d5a;
+  color: $color-text;
+  background-color: $accent-white;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -84,18 +82,4 @@ button {
   @include focus-ring;
 }
 
-// Tema claro
-@media (prefers-color-scheme: light) {
-  :root {
-    color: $color-text;
-    background-color: $accent-white;
-  }
 
-  a:hover {
-    color: $primary-dark;
-  }
-
-  button {
-    background-color: $primary-cream;
-  }
-}

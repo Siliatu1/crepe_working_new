@@ -10,11 +10,5 @@
 // 2. Base (reset, body, global)
 @use 'base/reset';
 
-// 3. Layout
-@use 'layout/containers';
-
-// 4. Components
+// 3. Components
 @use 'components/components';
-
-// 5. Utilities
-@use 'utilities/helpers';

@@ -1,26 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-
-// ── Iconos inline ──────────────────────────────────────────────
-const IconUser = () => (
-  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#92614F" strokeWidth="2" strokeLinecap="round">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
-  </svg>
-);
-
-const IconCalendar = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CC8A22" strokeWidth="2" strokeLinecap="round">
-    <rect x="3" y="4" width="18" height="18" rx="2" />
-    <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-  </svg>
-);
-
-const IconClock = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CC8A22" strokeWidth="2" strokeLinecap="round">
-    <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-  </svg>
-);
+import { User, Calendar, Clock } from "lucide-react";
 
 const Bienvenida = () => {
   const navigate = useNavigate();
@@ -58,7 +38,7 @@ const Bienvenida = () => {
             <img src={datosEmpleado.foto} alt="Foto" className="bienvenida-foto" />
           ) : (
             <div className="bienvenida-foto-placeholder">
-              <IconUser />
+              <User size={32} color="#92614F" strokeWidth={2} />
             </div>
           )}
         </div>
@@ -81,11 +61,11 @@ const Bienvenida = () => {
 
           <div className="bienvenida-fecha-row">
             <span className="bienvenida-fecha-item">
-              <IconCalendar />
+              <Calendar size={16} color="#CC8A22" strokeWidth={2} />
               <span className="text-body">{fechaFormateada}</span>
             </span>
             <span className="bienvenida-fecha-item">
-              <IconClock />
+              <Clock size={16} color="#CC8A22" strokeWidth={2} />
               <span className="text-body">{horaIngreso}</span>
             </span>
           </div>

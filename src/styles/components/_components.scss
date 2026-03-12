@@ -5,7 +5,6 @@
 @use '../abstracts/variables' as *;
 @use '../abstracts/mixins' as *;
 @use 'adminpanel';
-@use 'verificacion';
 
 // ══════════════════════════════════════════════════════════
 // 1. LAYOUT BASE
@@ -1010,6 +1009,25 @@
   }
 }
 
+.salas-layout {
+  width: 100%;
+  max-width: 340px;
+  margin: auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+
+  @include respond-to('md') {
+    max-width: 100%;
+  }
+}
+
+.salas-top-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .salas-container {
   background-color: $color-light-secondary;
   border-radius: $radius-lg;
@@ -1017,8 +1035,6 @@
   box-shadow: $shadow-card;
   padding: $spacing-2xl;
   width: 100%;
-  max-width: 900px;
-  margin: auto 0;
   box-sizing: border-box;
 
   @include respond-to('md') {
@@ -1034,12 +1050,11 @@
 
 .salas-header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: flex-start;
   gap: $spacing-md;
 
   @include respond-to('sm') {
-    flex-direction: column;
     gap: $spacing-sm;
   }
 }
@@ -1057,44 +1072,6 @@
 
   @include respond-to('sm') {
     align-self: flex-end;
-  }
-}
-
-.salas-icon-btn {
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: $radius-full;
-  background-color: transparent;
-  border: 1.5px solid rgba(80, 54, 41, 0.25);
-  color: $color-dark-primary;
-  cursor: pointer;
-  transition: background-color $transition-fast, border-color $transition-fast, color $transition-fast;
-
-  &:hover {
-    background-color: rgba(80, 54, 41, 0.06);
-    border-color: rgba(80, 54, 41, 0.45);
-  }
-
-  &--primary {
-    border-color: rgba(127, 58, 20, 0.4);
-    color: $color-accent-deep;
-    &:hover {
-      background-color: rgba(127, 58, 20, 0.08);
-      border-color: $color-accent-deep;
-    }
-  }
-
-  &--danger {
-    border-color: rgba(192, 57, 43, 0.35);
-    color: #c0392b;
-    &:hover {
-      background-color: rgba(192, 57, 43, 0.06);
-      border-color: #c0392b;
-    }
   }
 }
 
