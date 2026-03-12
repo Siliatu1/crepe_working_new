@@ -82,6 +82,12 @@ const useMobile = () => {
 };
 
 // ── Helpers ───────────────────────────────────────────────────
+/** Primer nombre + primer apellido (dos primeras palabras) */
+const getNombreCorto = (nombre = '') => {
+  const partes = nombre.trim().split(/\s+/);
+  return partes.length >= 2 ? `${partes[0]} ${partes[1]}` : partes[0] ?? '';
+};
+
 const extractId = (rel) => {
   if (rel == null) return null;
   if (typeof rel === 'number') return rel;
@@ -426,7 +432,7 @@ const Panel = () => {
 
         return {
           id:       r.id,
-          nombre:   r.attributes?.Nombre    ?? r.attributes?.documento ?? '—',
+          nombre:   getNombreCorto(r.attributes?.Nombre ?? r.attributes?.documento ?? '—'),
           foto:     r.attributes?.foto      ?? null,
           documento:r.attributes?.documento ?? '—',
           area:     r.attributes?.area      ?? '—',
@@ -550,7 +556,7 @@ const Panel = () => {
     try {
       const reservaAux = reservations.find(r => r.id === id);
       await cancelReserva(id, reservaAux, 'Cancelada por el usuario');
-      // Actualizar localmente sin recargar todo
+      // Actualización local inmediata (sin recargar página)
       setReservations(prev =>
         prev.map(r => r.id === id ? {
           ...r,
@@ -565,6 +571,8 @@ const Panel = () => {
           },
         } : r)
       );
+      // Sincroniza con la API para asegurar consistencia
+      await cargarReservas();
     } catch (err) {
       console.error(err);
       alert('Error al cancelar la reserva. Intenta de nuevo.');
@@ -628,11 +636,36 @@ const Panel = () => {
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div />
-          <button className="btn-outline reservas-btn-atras"
-            onClick={() => navigate(-1)}
-            style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <IconArrowLeft /> Atrás
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {/* Cerrar sesión — solo icono */}
+            <button
+              className="btn-outline"
+              onClick={() => navigate('/')}
+              title="Cerrar sesión"
+              style={{
+                width: 34, height: 34, padding: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                borderRadius: "999px",
+                borderColor: "rgba(192,57,43,0.35)",
+                color: "#c0392b",
+              }}
+            >
+              <IconLogout />
+            </button>
+            {/* Atrás — solo icono */}
+            <button
+              className="btn-outline reservas-btn-atras"
+              onClick={() => navigate(-1)}
+              title="Volver"
+              style={{
+                width: 34, height: 34, padding: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                borderRadius: "999px",
+              }}
+            >
+              <IconArrowLeft />
+            </button>
+          </div>
         </div>
 
         {/* Layout */}
@@ -644,7 +677,7 @@ const Panel = () => {
 
           {/* Perfil */}
           <div className="bienvenida-card" style={{
-            width: isMobile ? "100%" : "240px",
+            width: isMobile ? "100%" : "300px",
             flexShrink: 0, boxSizing: "border-box",
           }}>
             <div className="bienvenida-avatar">
@@ -797,7 +830,7 @@ const Panel = () => {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ borderBottom: "2px solid rgba(80,54,41,0.12)" }}>
-                      {["Nombre", "Fecha", "Escritorio", "Turno", "Estado", "Acción"].map(h => (
+                      {["Fecha", "Escritorio", "Turno", "Estado", "Acción"].map(h => (
                         <th key={h} style={{
                           padding: "8px 12px", textAlign: "left",
                           fontSize: "0.7rem", fontWeight: 700,
@@ -820,23 +853,6 @@ const Panel = () => {
                           onMouseEnter={e => e.currentTarget.style.background = "rgba(146,97,79,0.04)"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                         >
-                          {/* Nombre */}
-                          <td style={{ padding: "12px 12px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              {r.foto && r.foto !== 'null' ? (
-                                <img src={r.foto} alt={r.nombre}
-                                  style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                              ) : (
-                                <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(80,54,41,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                  <span style={{ fontSize: 12 }}>👤</span>
-                                </div>
-                              )}
-                              <div>
-                                <div style={{ fontWeight: 600, fontSize: "0.83rem", color: "#503629" }}>{r.nombre}</div>
-                                <div style={{ fontSize: "0.72rem", color: "#92614F", opacity: 0.8 }}>{r.area}</div>
-                              </div>
-                            </div>
-                          </td>
                           {/* Fecha */}
                           <td style={{ padding: "12px 12px" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>

@@ -15,7 +15,7 @@ const Politicas = () => {
     {
       titulo: "Límite de reservas",
       descripcion: (
-        <>Puedes reservar <strong>máximo 1 espacio</strong> por día</>
+        <>Puedes reservar máximo 1 espacio por día</>
       ),
     },
     {
@@ -24,8 +24,8 @@ const Politicas = () => {
     },
     {
       titulo: "Confirmación",
-      descripcion: "Si en los primeros 15 minutos no se confirma la reserva, esta será cancelada automáticamente",
-    },
+      descripcion: "Solo puedes confirmar la reserva si estás cerca de la sala. La confirmación estará disponible desde las 5:00 a.m.; de lo contrario, se cancelará automáticamente",
+    }
   ];
 
   return (
