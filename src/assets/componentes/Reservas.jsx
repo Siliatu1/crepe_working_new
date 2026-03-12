@@ -697,6 +697,7 @@ export default function Reservas() {
       const resJson = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(resJson?.error?.message ?? `Error ${res.status}`);
       setReservaOk(true);
+      window.dispatchEvent(new CustomEvent('working-reservas-updated'));
       cargarReservas();
       setTimeout(() => { setSelectedId(null); setReservaOk(false); }, 2500);
     } catch (err) {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cancelReserva, updateReservaWithVerification } from "../../utils/reservasService";
+import useRealtimeSync from "../../hooks/useRealtimeSync";
 import {
   calculateDistance,
   checkGeolocationSupport,
@@ -460,6 +461,12 @@ const Panel = () => {
       cargarReservas();
     }
   }, [datosEmpleado?.documento, datosEmpleado?.document_number]);
+
+  useRealtimeSync(() => {
+    if (datosEmpleado?.documento || datosEmpleado?.document_number) {
+      cargarReservas();
+    }
+  });
 
   useEffect(() => {
     void refreshLocationStatus(true);
