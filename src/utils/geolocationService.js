@@ -224,7 +224,9 @@ const isReservationConfirmed = (reserva) =>
   reserva?.estado === 'Confirmada' || reserva?.confirmada === true;
 
 const isReservationCanceled = (reserva) =>
-  reserva?.estado === 'Cancelada' || reserva?.confirmada === false;
+  reserva?.estado === 'Cancelada' ||
+  String(reserva?.motivoCancelacion ?? '').trim().length > 0 ||
+  String(reserva?.verificacionAsistencia?.tipo ?? '').toLowerCase().includes('cancelacion');
 
 const buildPendingResult = (reserva, overrides = {}) => ({
   success: false,

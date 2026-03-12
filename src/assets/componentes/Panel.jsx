@@ -1,6 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { cancelReserva } from "../../utils/reservasService";
+import { cancelReserva, updateReservaWithVerification } from "../../utils/reservasService";
+import useRealtimeSync from "../../hooks/useRealtimeSync";
+import {
+  calculateDistance,
+  checkGeolocationSupport,
+  getCurrentPosition,
+  getVerificationTimeInfo,
+  getWorkplaceInfo,
+  verifyAttendance,
+} from "../../utils/geolocationService";
 
 const BASE         = 'https://macfer.crepesywaffles.com';
 const API_RESERVAS = `${BASE}/api/working-reservas`;
@@ -73,6 +82,12 @@ const useMobile = () => {
 };
 
 // ── Helpers ───────────────────────────────────────────────────
+/** Primer nombre + primer apellido (dos primeras palabras) */
+const getNombreCorto = (nombre = '') => {
+  const partes = nombre.trim().split(/\s+/);
+  return partes.length >= 2 ? `${partes[0]} ${partes[1]}` : partes[0] ?? '';
+};
+
 const extractId = (rel) => {
   if (rel == null) return null;
   if (typeof rel === 'number') return rel;
@@ -132,20 +147,50 @@ const getEstadoReserva = (attrs = {}) => {
   if (fueCanceladaManualmente) return 'Cancelada';
 
   if (estadoRaw === true) return 'Confirmada';
-  if (estadoRaw === false || estadoRaw == null) return 'Pendiente';
+  if (estadoRaw === false) return 'Cancelada';
+  if (estadoRaw == null) return 'Pendiente';
 
-  const estadoTexto = String(estadoRaw).trim().toLowerCase();
-  if (estadoTexto === 'confirmada') return 'Confirmada';
-  if (estadoTexto === 'cancelada') return 'Cancelada';
+  const estadoTexto = String(estadoRaw)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  if (estadoTexto === 'confirmada' || estadoTexto === 'confirmado' || estadoTexto === 'completada' || estadoTexto === 'completado') {
+    return 'Confirmada';
+  }
+
+  if (estadoTexto === 'cancelada' || estadoTexto === 'cancelado') {
+    return 'Cancelada';
+  }
+
+  if (estadoTexto === 'pendiente') return 'Pendiente';
   return 'Pendiente';
 };
 
 // ── Tarjeta mobile colapsable ─────────────────────────────────
-const ReservaCard = ({ r, cancelando, onCancelar }) => {
+const ReservaCard = ({
+  r,
+  cancelando,
+  confirmando,
+  onCancelar,
+  onConfirmar,
+  canConfirmByLocation,
+  confirmBlockedMessage,
+  remainingMinutes,
+}) => {
   const [open, setOpen] = useState(false);
   const hMeta = HORARIO_META[r.horarioId];
   const turnoTexto = r.turnoLabel || hMeta?.label || '—';
   const esCancelada = r.estado === 'Cancelada';
+  const esPendiente = r.estado === 'Pendiente';
+  const confirmDisabled =
+    confirmando === r.id ||
+    cancelando === r.id ||
+    !esPendiente ||
+    !canConfirmByLocation ||
+    Boolean(confirmBlockedMessage);
+
   return (
     <div style={{
       borderRadius: "12px",
@@ -199,7 +244,31 @@ const ReservaCard = ({ r, cancelando, onCancelar }) => {
               <span className="text-body" style={{ fontSize: "0.82rem" }}>{r.nombre}</span>
             </div>
           </div>
+          {esPendiente && (
+            <div style={{ marginTop: "8px", fontSize: "0.72rem", color: "#8A6D3B" }}>
+              {remainingMinutes != null && remainingMinutes > 0
+                ? `Ventana activa: quedan ${remainingMinutes} min`
+                : (confirmBlockedMessage || 'Pendiente de confirmación')}
+            </div>
+          )}
           <div style={{ marginTop: "12px", display: "flex", gap: "8px" }}>
+            <button
+              onClick={() => onConfirmar(r.id)}
+              disabled={confirmDisabled}
+              style={{
+                width: "100%",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+                padding: "8px", borderRadius: "8px",
+                border: "1px solid rgba(21,87,36,0.3)",
+                background: "rgba(21,87,36,0.08)",
+                color: "#155724", fontSize: "0.8rem", fontWeight: 600,
+                cursor: confirmDisabled ? "not-allowed" : "pointer",
+                opacity: confirmDisabled ? 0.6 : 1,
+                fontFamily: "inherit",
+              }}
+            >
+              {confirmando === r.id ? "Confirmando…" : "Confirmar"}
+            </button>
             <button
               onClick={() => onCancelar(r.id)}
               disabled={cancelando === r.id || esCancelada}
@@ -231,12 +300,100 @@ const Panel = () => {
   const location      = useLocation();
   const datosEmpleado = location.state?.datosEmpleado || null;
   const isMobile      = useMobile();
+  const workplaceInfo = getWorkplaceInfo();
+  const geoSupport = checkGeolocationSupport();
 
-  const [profileData,  setProfileData]  = useState(datosEmpleado);
+  const profileData = datosEmpleado;
   const [reservations, setReservations] = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState("");
   const [cancelando,   setCancelando]   = useState(null);
+  const [confirmando,  setConfirmando]  = useState(null);
+  const [cancelConfirmId, setCancelConfirmId] = useState(null);
+  const [isNearPoint,  setIsNearPoint]  = useState(false);
+  const [distanceMeters, setDistanceMeters] = useState(null);
+  const [locationChecking, setLocationChecking] = useState(false);
+  const [locationError, setLocationError] = useState("");
+  const [nowMs, setNowMs] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNowMs(Date.now());
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const getConfirmMeta = useCallback((reserva) => {
+    const timeInfo = getVerificationTimeInfo(reserva, [], new Date(nowMs));
+
+    if (!timeInfo.scheduleResolved) {
+      return {
+        canByTime: false,
+        blockedMessage: timeInfo.message || 'No se pudo validar el horario',
+        remainingMinutes: null,
+      };
+    }
+
+    if (!timeInfo.isToday) {
+      return {
+        canByTime: false,
+        blockedMessage: 'Solo puedes confirmar reservas del día de hoy.',
+        remainingMinutes: null,
+      };
+    }
+
+    if (!timeInfo.isActive) {
+      return {
+        canByTime: false,
+        blockedMessage: timeInfo.message || 'La ventana de confirmación no está activa.',
+        remainingMinutes: 0,
+      };
+    }
+
+    const remainingMinutes = timeInfo.verificationEnd
+      ? Math.max(0, Math.ceil((timeInfo.verificationEnd.getTime() - nowMs) / 60000))
+      : null;
+
+    return {
+      canByTime: true,
+      blockedMessage: '',
+      remainingMinutes,
+    };
+  }, [nowMs]);
+
+  const refreshLocationStatus = useCallback(async (silent = false) => {
+    if (!geoSupport.supported) {
+      setLocationError('Tu navegador no soporta geolocalización.');
+      setIsNearPoint(false);
+      return;
+    }
+
+    if (!silent) {
+      setLocationChecking(true);
+    }
+
+    try {
+      const position = await getCurrentPosition();
+      const distance = calculateDistance(
+        position.latitude,
+        position.longitude,
+        workplaceInfo.latitude,
+        workplaceInfo.longitude
+      );
+
+      setDistanceMeters(distance);
+      setIsNearPoint(distance <= workplaceInfo.radius);
+      setLocationError('');
+    } catch (err) {
+      setLocationError(err?.message || 'No fue posible obtener tu ubicación.');
+      setIsNearPoint(false);
+    } finally {
+      if (!silent) {
+        setLocationChecking(false);
+      }
+    }
+  }, [geoSupport.supported, workplaceInfo.latitude, workplaceInfo.longitude, workplaceInfo.radius]);
 
   // Carga las reservas del usuario actual y las normaliza en un formato simple
   const cargarReservas = async () => {
@@ -275,13 +432,15 @@ const Panel = () => {
 
         return {
           id:       r.id,
-          nombre:   r.attributes?.Nombre    ?? r.attributes?.documento ?? '—',
+          nombre:   getNombreCorto(r.attributes?.Nombre ?? r.attributes?.documento ?? '—'),
           foto:     r.attributes?.foto      ?? null,
           documento:r.attributes?.documento ?? '—',
           area:     r.attributes?.area      ?? '—',
           fecha:    r.attributes?.fecha_reserva ?? '—',
           estado:   getEstadoReserva(r.attributes),
           confirmada: r.attributes?.estado === true,
+          pendiente: r.attributes?.estado === null,
+          cancelada: r.attributes?.estado === false,
           motivoCancelacion: r.attributes?.motivoCancelacion ?? null,
           verificacionAsistencia: r.attributes?.verificacionAsistencia ?? null,
           puestoId: puestoId ?? (escritorioMatch ? Number(escritorioMatch) : null),
@@ -309,16 +468,105 @@ const Panel = () => {
     }
   }, [datosEmpleado?.documento, datosEmpleado?.document_number]);
 
+  useEffect(() => {
+    void refreshLocationStatus(true);
+  }, [refreshLocationStatus]);
+
+  const handleConfirmar = async (id) => {
+    const reservaAux = reservations.find(r => r.id === id);
+    if (!reservaAux || reservaAux.estado !== 'Pendiente') {
+      return;
+    }
+
+    const confirmMeta = getConfirmMeta(reservaAux);
+    if (!confirmMeta.canByTime) {
+      alert(confirmMeta.blockedMessage || 'La reserva no está en ventana de confirmación.');
+      return;
+    }
+
+    if (!isNearPoint) {
+      alert(`Debes estar dentro de ${workplaceInfo.radius} metros para confirmar la reserva.`);
+      return;
+    }
+
+    setConfirmando(id);
+    try {
+      const evaluation = await verifyAttendance(reservaAux, {
+        workplaceInfo,
+        referenceDate: new Date(nowMs),
+      });
+
+      if (!evaluation.shouldUpdate) {
+        alert(evaluation.message || 'La reserva no se puede confirmar en este momento.');
+        return;
+      }
+
+      const estadoNuevo = evaluation.newStatus;
+      const confirmadaNueva = estadoNuevo === 'Confirmada' ? true : estadoNuevo === 'Cancelada' ? false : null;
+
+      await updateReservaWithVerification(id, {
+        estado: estadoNuevo,
+        confirmada: confirmadaNueva,
+        verificacionAsistencia: {
+          fecha: new Date().toISOString(),
+          mensaje: evaluation.message,
+          distancia: evaluation.distance ?? null,
+          tipo: estadoNuevo === 'Confirmada' ? 'confirmacion-manual-geolocalizada' : 'auto-cancelacion',
+        },
+      }, reservaAux);
+
+      setReservations((prev) =>
+        prev.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                estado: estadoNuevo,
+                confirmada: confirmadaNueva,
+                verificacionAsistencia: {
+                  ...(r.verificacionAsistencia || {}),
+                  fecha: new Date().toISOString(),
+                  mensaje: evaluation.message,
+                  distancia: evaluation.distance ?? null,
+                  tipo: estadoNuevo === 'Confirmada' ? 'confirmacion-manual-geolocalizada' : 'auto-cancelacion',
+                },
+              }
+            : r
+        )
+      );
+
+      alert(evaluation.message || (estadoNuevo === 'Confirmada' ? 'Reserva confirmada.' : 'Reserva actualizada.'));
+    } catch (err) {
+      console.error(err);
+      alert(err?.message || 'Error al confirmar la reserva.');
+    } finally {
+      setConfirmando(null);
+      void refreshLocationStatus(true);
+    }
+  };
+
   // Cancelar = usar la función del servicio que construye correctamente el payload
   const handleCancelar = async (id) => {
     setCancelando(id);
     try {
       const reservaAux = reservations.find(r => r.id === id);
       await cancelReserva(id, reservaAux, 'Cancelada por el usuario');
-      // Actualizar localmente sin recargar todo
+      // Actualización local inmediata (sin recargar página)
       setReservations(prev =>
-        prev.map(r => r.id === id ? { ...r, estado: 'Cancelada' } : r)
+        prev.map(r => r.id === id ? {
+          ...r,
+          // En API el estado queda false para cancelada.
+          estado: 'Cancelada',
+          confirmada: false,
+          verificacionAsistencia: {
+            ...(r.verificacionAsistencia || {}),
+            fecha: new Date().toISOString(),
+            mensaje: 'Cancelada por el usuario',
+            tipo: 'cancelacion-manual',
+          },
+        } : r)
       );
+      // Sincroniza con la API para asegurar consistencia
+      await cargarReservas();
     } catch (err) {
       console.error(err);
       alert('Error al cancelar la reserva. Intenta de nuevo.');
@@ -327,10 +575,26 @@ const Panel = () => {
     }
   };
 
+  const solicitarCancelacion = (id) => {
+    setCancelConfirmId(id);
+  };
+
+  const cerrarConfirmacionCancelacion = () => {
+    setCancelConfirmId(null);
+  };
+
+  const confirmarCancelacion = async () => {
+    if (!cancelConfirmId) return;
+    const id = cancelConfirmId;
+    setCancelConfirmId(null);
+    await handleCancelar(id);
+  };
+
   // Estado mostrado en panel: Pendiente / Confirmada / Cancelada
   const pendientes = reservations.filter(r => r.estado === 'Pendiente');
   const confirmadas = reservations.filter(r => r.estado === 'Confirmada');
   const canceladas = reservations.filter(r => r.estado === 'Cancelada');
+  const reservaEnConfirmacion = reservations.find(r => r.id === cancelConfirmId) || null;
 
   if (loading) return (
     <div className="page-wrapper">
@@ -366,11 +630,36 @@ const Panel = () => {
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div />
-          <button className="btn-outline reservas-btn-atras"
-            onClick={() => navigate(-1)}
-            style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <IconArrowLeft /> Atrás
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {/* Cerrar sesión — solo icono */}
+            <button
+              className="btn-outline"
+              onClick={() => navigate('/')}
+              title="Cerrar sesión"
+              style={{
+                width: 34, height: 34, padding: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                borderRadius: "999px",
+                borderColor: "rgba(192,57,43,0.35)",
+                color: "#c0392b",
+              }}
+            >
+              <IconLogout />
+            </button>
+            {/* Atrás — solo icono */}
+            <button
+              className="btn-outline reservas-btn-atras"
+              onClick={() => navigate(-1)}
+              title="Volver"
+              style={{
+                width: 34, height: 34, padding: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                borderRadius: "999px",
+              }}
+            >
+              <IconArrowLeft />
+            </button>
+          </div>
         </div>
 
         {/* Layout */}
@@ -382,7 +671,7 @@ const Panel = () => {
 
           {/* Perfil */}
           <div className="bienvenida-card" style={{
-            width: isMobile ? "100%" : "240px",
+            width: isMobile ? "100%" : "300px",
             flexShrink: 0, boxSizing: "border-box",
           }}>
             <div className="bienvenida-avatar">
@@ -424,6 +713,38 @@ const Panel = () => {
                 <span className="text-muted">Total</span>
                 <span style={{ fontWeight: 700, color: "#503629" }}>{reservations.length}</span>
               </div>
+            </div>
+
+            <div style={{
+              marginTop: 12, padding: "10px 12px",
+              background: "rgba(80,54,41,0.05)", borderRadius: 10,
+              display: "flex", flexDirection: "column", gap: 8,
+            }}>
+              <div style={{ fontSize: "0.75rem", color: "#503629", fontWeight: 700 }}>
+                Confirmación por ubicación
+              </div>
+              <div style={{ fontSize: "0.74rem", color: isNearPoint ? "#155724" : "#8A6D3B" }}>
+                {isNearPoint
+                  ? `Estás dentro del perímetro (${Math.round(distanceMeters || 0)} m).`
+                  : `Para confirmar, debes estar dentro del perímetro de  ${workplaceInfo.radius} m.`}
+              </div>
+              {!!locationError && (
+                <div style={{ fontSize: "0.72rem", color: "#c0392b" }}>{locationError}</div>
+              )}
+              <button
+                onClick={() => void refreshLocationStatus()}
+                disabled={locationChecking}
+                style={{
+                  padding: "8px 10px", borderRadius: 8,
+                  border: "1px solid rgba(80,54,41,0.25)",
+                  background: "rgba(80,54,41,0.08)",
+                  color: "#503629", fontSize: "0.75rem", fontWeight: 600,
+                  cursor: locationChecking ? "not-allowed" : "pointer",
+                  opacity: locationChecking ? 0.7 : 1,
+                }}
+              >
+                {locationChecking ? "Verificando ubicación…" : "Actualizar ubicación"}
+              </button>
             </div>
 
             {/* Botón cerrar sesión */}
@@ -478,14 +799,22 @@ const Panel = () => {
             {/* MOBILE */}
             {isMobile && reservations.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                {reservations.map(r => (
-                  <ReservaCard
-                    key={r.id}
-                    r={r}
-                    cancelando={cancelando}
-                    onCancelar={handleCancelar}
-                  />
-                ))}
+                {reservations.map(r => {
+                  const confirmMeta = getConfirmMeta(r);
+                  return (
+                    <ReservaCard
+                      key={r.id}
+                      r={r}
+                      cancelando={cancelando}
+                      confirmando={confirmando}
+                      onCancelar={solicitarCancelacion}
+                      onConfirmar={handleConfirmar}
+                      canConfirmByLocation={isNearPoint}
+                      confirmBlockedMessage={confirmMeta.blockedMessage}
+                      remainingMinutes={confirmMeta.remainingMinutes}
+                    />
+                  );
+                })}
               </div>
             )}
 
@@ -495,7 +824,7 @@ const Panel = () => {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ borderBottom: "2px solid rgba(80,54,41,0.12)" }}>
-                      {["Nombre", "Fecha", "Escritorio", "Turno", "Estado", "Acción"].map(h => (
+                      {["Fecha", "Escritorio", "Turno", "Estado", "Acción"].map(h => (
                         <th key={h} style={{
                           padding: "8px 12px", textAlign: "left",
                           fontSize: "0.7rem", fontWeight: 700,
@@ -511,29 +840,13 @@ const Panel = () => {
                       const turnoTexto = r.turnoLabel || hMeta?.label || '—';
                       const esCancelada = r.estado === 'Cancelada';
                       const esPendiente = r.estado === 'Pendiente';
+                      const confirmMeta = getConfirmMeta(r);
                       return (
                         <tr key={r.id}
                           style={{ borderBottom: i < reservations.length - 1 ? "1px solid rgba(80,54,41,0.08)" : "none", transition: "background 0.15s" }}
                           onMouseEnter={e => e.currentTarget.style.background = "rgba(146,97,79,0.04)"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                         >
-                          {/* Nombre */}
-                          <td style={{ padding: "12px 12px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              {r.foto && r.foto !== 'null' ? (
-                                <img src={r.foto} alt={r.nombre}
-                                  style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                              ) : (
-                                <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(80,54,41,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                  <span style={{ fontSize: 12 }}>👤</span>
-                                </div>
-                              )}
-                              <div>
-                                <div style={{ fontWeight: 600, fontSize: "0.83rem", color: "#503629" }}>{r.nombre}</div>
-                                <div style={{ fontSize: "0.72rem", color: "#92614F", opacity: 0.8 }}>{r.area}</div>
-                              </div>
-                            </div>
-                          </td>
                           {/* Fecha */}
                           <td style={{ padding: "12px 12px" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -579,25 +892,48 @@ const Panel = () => {
                           <td style={{ padding: "12px 12px", textAlign: "right" }}>
                             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
                               <button
-                                onClick={() => handleCancelar(r.id)}
-                                disabled={cancelando === r.id || esCancelada}
+                                onClick={() => handleConfirmar(r.id)}
+                                disabled={confirmando === r.id || cancelando === r.id || !esPendiente || !isNearPoint || !confirmMeta.canByTime}
+                                style={{
+                                  display: "inline-flex", alignItems: "center", gap: 5,
+                                  padding: "4px 10px", borderRadius: 8,
+                                  border: "1px solid rgba(21,87,36,0.35)",
+                                  background: "rgba(21,87,36,0.08)",
+                                  color: "#155724", fontSize: "0.75rem", fontWeight: 600,
+                                  cursor: confirmando === r.id || cancelando === r.id || !esPendiente || !isNearPoint || !confirmMeta.canByTime ? "not-allowed" : "pointer",
+                                  opacity: confirmando === r.id || cancelando === r.id || !esPendiente || !isNearPoint || !confirmMeta.canByTime ? 0.6 : 1,
+                                  transition: "all 0.15s", fontFamily: "inherit",
+                                }}
+                              >
+                                {confirmando === r.id ? "Confirmando…" : "Confirmar"}
+                              </button>
+                              <button
+                                onClick={() => solicitarCancelacion(r.id)}
+                                disabled={cancelando === r.id || esCancelada || cancelConfirmId === r.id}
                                 style={{
                                   display: "inline-flex", alignItems: "center", gap: 5,
                                   padding: "4px 10px", borderRadius: 8,
                                   border: "1px solid rgba(220,53,69,0.35)",
                                   background: "rgba(220,53,69,0.06)",
                                   color: "#c0392b", fontSize: "0.75rem", fontWeight: 600,
-                                  cursor: cancelando === r.id || esCancelada ? "not-allowed" : "pointer",
-                                  opacity: cancelando === r.id || esCancelada ? 0.6 : 1,
+                                  cursor: cancelando === r.id || esCancelada || cancelConfirmId === r.id ? "not-allowed" : "pointer",
+                                  opacity: cancelando === r.id || esCancelada || cancelConfirmId === r.id ? 0.6 : 1,
                                   transition: "all 0.15s", fontFamily: "inherit",
                                 }}
-                                onMouseEnter={e => { if (cancelando !== r.id && !esCancelada) e.currentTarget.style.background = "rgba(220,53,69,0.12)"; }}
+                                onMouseEnter={e => { if (cancelando !== r.id && !esCancelada && cancelConfirmId !== r.id) e.currentTarget.style.background = "rgba(220,53,69,0.12)"; }}
                                 onMouseLeave={e => { e.currentTarget.style.background = "rgba(220,53,69,0.06)"; }}
                               >
                                 <IconTrash />
                                 {esCancelada ? "Cancelada" : cancelando === r.id ? "Cancelando…" : "Cancelar"}
                               </button>
                             </div>
+                            {esPendiente && (
+                              <div style={{ marginTop: 6, fontSize: "0.7rem", color: "#8A6D3B", textAlign: "right" }}>
+                                {confirmMeta.remainingMinutes != null && confirmMeta.remainingMinutes > 0
+                                  ? `Quedan ${confirmMeta.remainingMinutes} min para confirmar`
+                                  : (confirmMeta.blockedMessage || 'Pendiente de confirmación')}
+                              </div>
+                            )}
                           </td>
                         </tr>
                       );
@@ -610,6 +946,80 @@ const Panel = () => {
           </div>
         </div>
       </div>
+
+      {cancelConfirmId != null && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: "16px",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "420px",
+              background: "#fff",
+              borderRadius: "12px",
+              border: "1px solid rgba(80,54,41,0.15)",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+              padding: "18px",
+            }}
+          >
+            <h3 style={{ margin: 0, color: "#503629", fontSize: "1rem", fontWeight: 700 }}>
+              Confirmar cancelación
+            </h3>
+            <p style={{ margin: "10px 0 0", color: "#6B4A3A", fontSize: "0.88rem" }}>
+              ¿Seguro de cancelar su reserva?
+            </p>
+            {reservaEnConfirmacion && (
+              <p style={{ margin: "8px 0 0", color: "#92614F", fontSize: "0.8rem" }}>
+                Escritorio {reservaEnConfirmacion.puestoId ?? '—'} · {reservaEnConfirmacion.fecha || '—'}
+              </p>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "16px" }}>
+              <button
+                onClick={cerrarConfirmacionCancelacion}
+                style={{
+                  padding: "7px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(80,54,41,0.25)",
+                  background: "#fff",
+                  color: "#503629",
+                  fontSize: "0.82rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Cerrar
+              </button>
+              <button
+                onClick={confirmarCancelacion}
+                style={{
+                  padding: "7px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(220,53,69,0.35)",
+                  background: "rgba(220,53,69,0.1)",
+                  color: "#c0392b",
+                  fontSize: "0.82rem",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Aceptar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

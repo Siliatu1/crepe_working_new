@@ -154,7 +154,12 @@ const AdminPanel = () => {
         horaInicio: horarioRange.horaInicio,
         horaFin: horarioRange.horaFin,
         estado: values.estado || 'Pendiente',
-        confirmada: values.estado === 'Confirmada',
+        confirmada:
+          values.estado === 'Confirmada'
+            ? true
+            : values.estado === 'Cancelada'
+            ? false
+            : null,
         correo: values.correo || '',
         cargo: values.cargo || '',
         area: values.area || '',
@@ -304,6 +309,7 @@ const AdminPanel = () => {
       key: 'estado',
       width: 120,
       filters: [
+        { text: 'Pendiente', value: 'Pendiente' },
         { text: 'Confirmada', value: 'Confirmada' },
         { text: 'Cancelada', value: 'Cancelada' },
         { text: 'Completada', value: 'Completada' },
@@ -311,9 +317,10 @@ const AdminPanel = () => {
       onFilter: (value, record) => record.estado === value,
       render: (estado) => {
         let color = 'green';
+        if (estado === 'Pendiente') color = 'gold';
         if (estado === 'Cancelada') color = 'red';
         if (estado === 'Completada') color = 'blue';
-        return <Tag color={color}>{estado || 'Confirmada'}</Tag>;
+        return <Tag color={color}>{estado || 'Pendiente'}</Tag>;
       },
     },
     {
@@ -604,6 +611,7 @@ const AdminPanel = () => {
             onChange={(value) => setFiltros({ ...filtros, estado: value })}
             allowClear
           >
+            <Option value="Pendiente">Pendiente</Option>
             <Option value="Confirmada">Confirmada</Option>
             <Option value="Cancelada">Cancelada</Option>
             <Option value="Completada">Completada</Option>
@@ -645,7 +653,14 @@ const AdminPanel = () => {
           <div>
             <div style={{ fontSize: '12px', color: '#78716c', marginBottom: '4px' }}>Confirmadas</div>
             <div style={{ fontSize: '24px', fontWeight: '700', color: '#22c55e' }}>
-              {reservasFiltradas.filter(r => r.estado === 'Confirmada' || !r.estado).length}
+              {reservasFiltradas.filter(r => r.estado === 'Confirmada').length}
+            </div>
+          </div>
+          <div style={{ width: '1px', height: '40px', background: '#e7e5e4' }} />
+          <div>
+            <div style={{ fontSize: '12px', color: '#78716c', marginBottom: '4px' }}>Pendientes</div>
+            <div style={{ fontSize: '24px', fontWeight: '700', color: '#d97706' }}>
+              {reservasFiltradas.filter(r => r.estado === 'Pendiente').length}
             </div>
           </div>
           <div style={{ width: '1px', height: '40px', background: '#e7e5e4' }} />
@@ -709,7 +724,7 @@ const AdminPanel = () => {
           layout="vertical"
           onFinish={guardarReserva}
           initialValues={{
-            estado: 'Confirmada',
+            estado: 'Pendiente',
             horario: 'manana',
           }}
         >
@@ -769,6 +784,7 @@ const AdminPanel = () => {
             rules={[{ required: true, message: 'Por favor seleccione el estado' }]}
           >
             <Select placeholder="Seleccione el estado">
+              <Option value="Pendiente">Pendiente</Option>
               <Option value="Confirmada">Confirmada</Option>
               <Option value="Cancelada">Cancelada</Option>
               <Option value="Completada">Completada</Option>
