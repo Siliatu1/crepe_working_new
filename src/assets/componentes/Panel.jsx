@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cancelReserva, updateReservaWithVerification } from "../../utils/reservasService";
+import useRealtimeSync from "../../hooks/useRealtimeSync";
 import {
   calculateDistance,
   checkGeolocationSupport,
@@ -467,6 +468,7 @@ const Panel = () => {
     }
   }, [datosEmpleado?.documento, datosEmpleado?.document_number]);
 
+<<<<<<<<< Temporary merge branch 1
   useEffect(() => {
     void refreshLocationStatus(true);
   }, [refreshLocationStatus]);
@@ -543,7 +545,10 @@ const Panel = () => {
     }
   };
 
+  // Cancelar = usar la función del servicio que construye correctamente el payload
+=========
   // Cancelar reserva: actualiza estado local inmediatamente y luego recarga para sincronizar con API
+>>>>>>>>> Temporary merge branch 2
   const handleCancelar = async (id) => {
     setCancelando(id);
     try {
@@ -551,7 +556,22 @@ const Panel = () => {
       await cancelReserva(id, reservaAux, 'Cancelada por el usuario');
       // Actualización local inmediata (sin recargar página)
       setReservations(prev =>
-        prev.map(r => r.id === id ? { ...r, estado: 'Cancelada' } : r)
+<<<<<<<<< Temporary merge branch 1
+        prev.map(r => r.id === id ? {
+          ...r,
+          // En API el estado queda false para cancelada.
+          estado: 'Cancelada',
+          confirmada: false,
+          verificacionAsistencia: {
+            ...(r.verificacionAsistencia || {}),
+            fecha: new Date().toISOString(),
+            mensaje: 'Cancelada por el usuario',
+            tipo: 'cancelacion-manual',
+          },
+        } : r)
+=========
+        prev.map(r => r.id === id ? { ...r, estado: 'Cancelada', confirmada: false } : r)
+>>>>>>>>> Temporary merge branch 2
       );
       // Sincroniza con la API para asegurar consistencia
       await cargarReservas();
@@ -701,6 +721,39 @@ const Panel = () => {
                 <span className="text-muted">Total</span>
                 <span style={{ fontWeight: 700, color: "#503629" }}>{reservations.length}</span>
               </div>
+            </div>
+<<<<<<<<< Temporary merge branch 1
+
+            <div style={{
+              marginTop: 12, padding: "10px 12px",
+              background: "rgba(80,54,41,0.05)", borderRadius: 10,
+              display: "flex", flexDirection: "column", gap: 8,
+            }}>
+              <div style={{ fontSize: "0.75rem", color: "#503629", fontWeight: 700 }}>
+                Confirmación por ubicación
+              </div>
+              <div style={{ fontSize: "0.74rem", color: isNearPoint ? "#155724" : "#8A6D3B" }}>
+                {isNearPoint
+                  ? `Estás dentro del perímetro (${Math.round(distanceMeters || 0)} m).`
+                  : `Para confirmar, debes estar dentro del perímetro de  ${workplaceInfo.radius} m.`}
+              </div>
+              {!!locationError && (
+                <div style={{ fontSize: "0.72rem", color: "#c0392b" }}>{locationError}</div>
+              )}
+              <button
+                onClick={() => void refreshLocationStatus()}
+                disabled={locationChecking}
+                style={{
+                  padding: "8px 10px", borderRadius: 8,
+                  border: "1px solid rgba(80,54,41,0.25)",
+                  background: "rgba(80,54,41,0.08)",
+                  color: "#503629", fontSize: "0.75rem", fontWeight: 600,
+                  cursor: locationChecking ? "not-allowed" : "pointer",
+                  opacity: locationChecking ? 0.7 : 1,
+                }}
+              >
+                {locationChecking ? "Verificando ubicación…" : "Actualizar ubicación"}
+              </button>
             </div>
 
             {/* Botón cerrar sesión */}
