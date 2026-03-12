@@ -18,15 +18,29 @@ const toEstado = (value) => {
   if (value === false) return 'Cancelada';
   if (value == null) return 'Pendiente';
 
-  const normalized = String(value).trim().toLowerCase();
-  if (normalized === 'confirmada') return 'Confirmada';
-  if (normalized === 'cancelada') return 'Cancelada';
+  const normalized = String(value)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  if (normalized === 'confirmada' || normalized === 'confirmado' || normalized === 'completada' || normalized === 'completado') {
+    return 'Confirmada';
+  }
+
+  if (normalized === 'cancelada' || normalized === 'cancelado') {
+    return 'Cancelada';
+  }
+
+  if (normalized === 'pendiente') return 'Pendiente';
   return 'Pendiente';
 };
 
 const toApiEstado = (merged = {}) => {
-  if (merged.confirmada === true || merged.estado === 'Confirmada') return true;
-  if (merged.confirmada === false || merged.estado === 'Cancelada') return false;
+  const normalizedEstado = toEstado(merged.estado);
+
+  if (merged.confirmada === true || normalizedEstado === 'Confirmada') return true;
+  if (merged.confirmada === false || normalizedEstado === 'Cancelada') return false;
   return null;
 };
 
@@ -96,16 +110,17 @@ const buildQueryParams = (filters = {}) => {
   return params;
 };
 
-const buildRemoteData = (baseReserva = {}, override = {}) => {
+const buildRemoteData = (baseReserva = {}, override = {}, options = {}) => {
+  const { includeNullEstado = true } = options;
   const merged = { ...baseReserva, ...override };
+  const apiEstado = toApiEstado(merged);
 
-  return {
+  const remoteData = {
     Nombre: merged.nombre || merged.Nombre || '',
     foto: merged.foto || '',
     documento: String(merged.cedula || merged.documento || ''),
     area: merged.area || merged.area_nombre || '',
     fecha_reserva: merged.fecha || merged.fecha_reserva || null,
-    estado: toApiEstado(merged),
     escritorio: merged.escritorio || undefined,
     escritorioId: merged.escritorioId || undefined,
     horario: merged.horario || undefined,
@@ -115,6 +130,12 @@ const buildRemoteData = (baseReserva = {}, override = {}) => {
     correo: merged.correo || undefined,
     cargo: merged.cargo || undefined,
   };
+
+  if (apiEstado !== null || includeNullEstado) {
+    remoteData.estado = apiEstado;
+  }
+
+  return remoteData;
 };
 
 const saveOverride = (id, updateData) => {
@@ -162,7 +183,7 @@ export const updateReservaWithVerification = async (id, updateData, currentReser
 
 export const createReservaRecord = async (reservaData) => {
   const response = await axiosInstance.post(API_RESERVAS_ENDPOINT, {
-    data: buildRemoteData(reservaData),
+    data: buildRemoteData(reservaData, {}, { includeNullEstado: true }),
   });
 
   const created = normalizeReserva(response.data?.data ?? response.data);

@@ -40,6 +40,16 @@ const toISO   = d => d.toISOString().split('T')[0];
 const toLabel = d =>
   `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
 
+const getReservationWindowForDate = (selectedDate) => {
+  const start = new Date(selectedDate);
+  start.setHours(5, 0, 0, 0);
+
+  const end = new Date(selectedDate);
+  end.setHours(17, 0, 0, 0);
+
+  return { start, end };
+};
+
 const buildGetUrl = (fecha) =>
   `${API_RESERVAS}?filters[fecha_reserva][$eq]=${fecha}&populate=*`;
 
@@ -436,6 +446,8 @@ const BookingCard = ({
   onConfirm, onCancel,
   reservando, reservaOk, reservaErr,
   yaReservoHoy,
+  canReserveNow,
+  reserveWindowMessage,
 }) => {
   const [horarioSelId, setHorarioSelId] = React.useState(null);
 
@@ -452,9 +464,11 @@ const BookingCard = ({
   const todoBloqueado   = bloq.size >= 3;
   const tieneMonitor    = CON_MONITOR.includes(escritorioId);
   const horarioSelObj   = horarios.find(h => h.id === horarioSelId);
-  const puedeReservar   = !yaReservoHoy && !todoBloqueado && !!horarioSelId && !reservaOk;
+  const puedeReservar   = canReserveNow && !yaReservoHoy && !todoBloqueado && !!horarioSelId && !reservaOk;
 
-  const aviso = yaReservoHoy
+  const aviso = !canReserveNow
+    ? reserveWindowMessage
+    : yaReservoHoy
     ? '⚠ Ya tienes una reserva para este día'
     : todoBloqueado
     ? 'Este escritorio no tiene turnos disponibles'
@@ -602,6 +616,12 @@ export default function Reservas() {
 
   const fechaActual = FECHAS[fechaIndex];
   const fechaISO    = toISO(fechaActual.date);
+  const { start: reservaWindowStart, end: reservaWindowEnd } = getReservationWindowForDate(fechaActual.date);
+  const now = new Date();
+  const canReserveNow = now >= reservaWindowStart && now <= reservaWindowEnd;
+  const reserveWindowMessage = now < reservaWindowStart
+    ? `No puede reservar en horario no permitido. Las reservas para ${fechaActual.label.toLowerCase()} se habilitan desde las 5:00 am.`
+    : `No puede reservar en horario no permitido. Las reservas para ${fechaActual.label.toLowerCase()} cerraron a las 5:00 pm.`;
 
   useEffect(() => {
     fetch(API_HORARIOS)
@@ -648,6 +668,7 @@ export default function Reservas() {
 
   const handleReservar = async (horarioObj) => {
     if (!usuario || !selectedId || !horarioObj) return;
+    if (!canReserveNow) { setReservaErr(reserveWindowMessage); return; }
     if (yaReservoHoy) { setReservaErr('Ya tienes una reserva para este día.'); return; }
     if (turnosBloqueados(reservas, selectedId).has(horarioObj.id)) {
       setReservaErr('Este turno ya no está disponible. Elige otro.');
@@ -871,6 +892,8 @@ export default function Reservas() {
         reservaOk={reservaOk}
         reservaErr={reservaErr}
         yaReservoHoy={yaReservoHoy}
+        canReserveNow={canReserveNow}
+        reserveWindowMessage={reserveWindowMessage}
       />
 
       {/* ── Modal Mis Reservas ── */}

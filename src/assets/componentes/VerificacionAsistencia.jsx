@@ -3,10 +3,10 @@ import { message } from 'antd';
 import {
   checkGeolocationSupport,
   checkLocationPermission,
-  getCurrentPosition,
   getPermissionInstructions,
   getWorkplaceInfo,
   requestLocationPermission,
+  verifyAttendance,
 } from '../../utils/geolocationService';
 
 const BASE = 'https://macfer.crepesywaffles.com';
@@ -14,7 +14,67 @@ const API_VERIFICAR_ASISTENCIA = `${BASE}/api/working-verificacions`;
 
 const mapEstadoFromApi = (value) => {
   if (value === true) return 'Confirmada';
+  if (value === false) return 'Cancelada';
+  if (value == null) return 'Pendiente';
+
+  const normalized = String(value)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  if (normalized === 'confirmada' || normalized === 'confirmado' || normalized === 'completada' || normalized === 'completado') {
+    return 'Confirmada';
+  }
+
+  if (normalized === 'cancelada' || normalized === 'cancelado') {
+    return 'Cancelada';
+  }
+
+  if (normalized === 'pendiente') return 'Pendiente';
   return 'Pendiente';
+};
+
+const extractEstadoFromPayload = (payload) => {
+  const candidates = [
+    payload?.data?.attributes?.working_reserva?.data?.estado,
+    payload?.data?.attributes?.working_reserva?.data?.attributes?.estado,
+    payload?.data?.attributes?.working_reserva?.attributes?.estado,
+    payload?.data?.attributes?.working_reserva?.estado,
+    payload?.data?.attributes?.working_reserva,
+    payload?.data?.attributes?.reserva?.data?.attributes?.estado,
+    payload?.data?.attributes?.reserva?.attributes?.estado,
+    payload?.data?.attributes?.reserva?.estado,
+    payload?.data?.attributes?.estado,
+    payload?.data?.estado,
+    payload?.data?.reserva?.estado,
+    payload?.reserva?.estado,
+    payload?.newStatus,
+    payload?.attributes?.estado,
+    payload?.estado,
+  ];
+
+  for (const value of candidates) {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value;
+    }
+  }
+
+  return null;
+};
+
+const extractEstadoBoolean = (...values) => {
+  for (const value of values) {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+  }
+
+  return null;
 };
 
 const findVerificacionByReserva = async (reservaId) => {
@@ -116,7 +176,7 @@ const VerificacionAsistencia = ({
         success: false,
         shouldUpdate: false,
         newStatus: reserva.estado || 'Pendiente',
-        confirmed: reserva.confirmada ?? null,
+        confirmed: reserva.confirmada ?? true,
         alertType: 'error',
         message: 'Tu navegador no soporta geolocalización.',
       };
@@ -145,7 +205,7 @@ const VerificacionAsistencia = ({
           success: false,
           shouldUpdate: false,
           newStatus: reserva.estado || 'Pendiente',
-          confirmed: reserva.confirmada ?? null,
+          confirmed: reserva.confirmada ?? true,
           alertType: 'warning',
           message: permissionMessage,
         };
@@ -155,7 +215,27 @@ const VerificacionAsistencia = ({
         return deniedResult;
       }
 
-      const position = await getCurrentPosition();
+      const localVerification = await verifyAttendance(reserva, { workplaceInfo });
+
+      if (!localVerification.success) {
+        const blockedResult = {
+          success: false,
+          shouldUpdate: false,
+          newStatus: reserva.estado || 'Pendiente',
+          confirmed: reserva.confirmada ?? null,
+          alertType: localVerification.alertType || 'warning',
+          message: localVerification.message || 'No fue posible confirmar la asistencia con geolocalizacion.',
+          distance: localVerification.distance ?? null,
+          position: localVerification.position ?? null,
+          timeInfo: localVerification.timeInfo ?? null,
+        };
+
+        setLastResult(blockedResult);
+        emitAlert(blockedResult.alertType, blockedResult.message);
+        return blockedResult;
+      }
+
+      const position = localVerification.position;
       const reservaId = reserva.id ?? reserva.key;
 
       const apiResult = await postVerificarAsistencia({
@@ -164,28 +244,40 @@ const VerificacionAsistencia = ({
         lng: position.longitude,
       });
 
-      const updatedReserva = apiResult?.data || apiResult?.reserva || {};
-      const relatedEstado = updatedReserva?.attributes?.working_reserva?.data?.attributes?.estado;
-      const estadoApi = typeof relatedEstado === 'boolean'
-        ? relatedEstado
-        : (updatedReserva?.estado ?? null);
-      const estadoTexto = mapEstadoFromApi(estadoApi);
-      const confirmada = estadoApi === true ? true : null;
+      const updatedReserva = apiResult?.data || apiResult?.reserva || null;
+      const estadoApi = extractEstadoFromPayload(apiResult);
+      const estadoBoolean = extractEstadoBoolean(
+        estadoApi,
+        updatedReserva?.estado,
+        updatedReserva?.attributes?.estado,
+        updatedReserva?.attributes?.working_reserva?.data?.attributes?.estado,
+        updatedReserva?.attributes?.working_reserva?.attributes?.estado,
+        updatedReserva?.attributes?.working_reserva?.estado
+      );
+      const estadoTexto = mapEstadoFromApi(
+        estadoBoolean ??
+        estadoApi ??
+        updatedReserva?.estado ??
+        updatedReserva?.attributes?.estado ??
+        reserva.estado
+      );
+      const confirmada = estadoBoolean ?? (estadoTexto === 'Confirmada' ? true : estadoTexto === 'Cancelada' ? false : null);
 
       const finalResult = {
-        success: estadoApi === true,
+        success: estadoTexto === 'Confirmada',
         shouldUpdate: true,
         newStatus: estadoTexto,
         confirmed: confirmada,
-        distance: apiResult?.distance ?? null,
-        message: apiResult?.message || (estadoApi === true ? 'Reserva confirmada por geolocalizacion.' : 'Reserva sigue pendiente.'),
-        alertType: estadoApi === true ? 'success' : 'warning',
+        distance: apiResult?.distance ?? localVerification.distance ?? null,
+        message: apiResult?.message || localVerification.message || (estadoTexto === 'Confirmada' ? 'Reserva confirmada por geolocalizacion.' : 'Reserva sigue pendiente.'),
+        alertType: estadoTexto === 'Confirmada' ? 'success' : estadoTexto === 'Cancelada' ? 'error' : 'warning',
         position,
+        timeInfo: localVerification.timeInfo ?? null,
       };
 
       const reservaActualizada = {
         ...reserva,
-        ...updatedReserva,
+        ...(updatedReserva ?? {}),
         estado: estadoTexto,
         confirmada,
       };
@@ -202,7 +294,7 @@ const VerificacionAsistencia = ({
         newStatus: reserva.estado || 'Pendiente',
         confirmed: reserva.confirmada ?? null,
         alertType: 'error',
-        message: error.message || 'Error al verificar la asistencia.',
+        message: [error.message, error.details].filter(Boolean).join(' ') || 'Error al verificar la asistencia.',
       };
 
       setLastResult(failedResult);
