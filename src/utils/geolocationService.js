@@ -8,6 +8,7 @@ const WORKPLACE_COORDS = {
 
 const ALLOWED_RADIUS_METERS = 1000;
 const VERIFICATION_WINDOW_MINUTES = 25;
+const AUTO_CANCEL_REASON = '! Usuario no confirmo!';
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const WORKING_RESERVAS_ENDPOINT = 'https://macfer.crepesywaffles.com/api/working-reservas';
 
@@ -737,7 +738,7 @@ export const evaluateReservationStatus = (reserva, horarios = [], referenceDate 
       shouldUpdate: true,
       newStatus: 'Cancelada',
       confirmed: false,
-      message: `Reserva cancelada por no confirmar dentro de los primeros ${VERIFICATION_WINDOW_MINUTES} minutos del turno.`,
+      message: AUTO_CANCEL_REASON,
       timeInfo,
       alertType: 'warning'
     };
@@ -805,7 +806,7 @@ export const verifyAttendance = async (reserva, options = {}) => {
         shouldUpdate: !isReservationCanceled(reserva),
         newStatus: 'Cancelada',
         confirmed: false,
-        message: `La reserva quedó cancelada porque no se confirmó durante los primeros ${VERIFICATION_WINDOW_MINUTES} minutos del turno.`,
+        message: AUTO_CANCEL_REASON,
         timeInfo,
         alertType: 'warning'
       };
