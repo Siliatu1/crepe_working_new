@@ -37,7 +37,6 @@ const SILLAS = [
 // ─── Días y fecha ─────────────────────────────────────────────────────────────
 const DIAS_CORTO = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
-/** Genera los próximos `n` días hábiles a partir de hoy (incluye hoy si es hábil) */
 const generarFechasHabiles = (n = 2) => {
   const fechas = [];
   const hoy    = new Date();
@@ -45,10 +44,10 @@ const generarFechasHabiles = (n = 2) => {
   let cursor = new Date(hoy);
   while (fechas.length < n) {
     const dow = cursor.getDay();
-    if (dow !== 0 && dow !== 6) {  // excluye sábado (6) y domingo (0)
-      const dia      = DIAS_CORTO[dow];
-      const dd       = cursor.getDate();
-      const mm       = cursor.getMonth() + 1;
+    if (dow !== 0 && dow !== 6) {
+      const dia          = DIAS_CORTO[dow];
+      const dd           = cursor.getDate();
+      const mm           = cursor.getMonth() + 1;
       const formatoFecha = `${dia}. ${dd}/${mm}`;
       fechas.push({
         date:       new Date(cursor),
@@ -67,10 +66,8 @@ const generarFechasHabiles = (n = 2) => {
 const getReservationWindowForDate = (selectedDate) => {
   const start = new Date(selectedDate);
   start.setHours(5, 0, 0, 0);
-
   const end = new Date(selectedDate);
   end.setHours(17, 0, 0, 0);
-
   return { start, end };
 };
 
@@ -106,7 +103,6 @@ const getNombre    = (r) => r.attributes?.Nombre ?? r.attributes?.documento ?? r
 const getPrimerNombre = (r) => getNombre(r).split(' ')[0];
 const getFoto      = (r) => r.attributes?.foto ?? r.foto ?? null;
 
-/** Obtiene el estado de una reserva, normalizando los diferentes formatos de la API */
 const getEstado = (r) => {
   const estadoRaw = r.attributes?.estado ?? r.estado;
   if (estadoRaw === true || estadoRaw === 'Confirmada' || estadoRaw === 'confirmada' || estadoRaw === 'Completada' || estadoRaw === 'completada') {
@@ -118,10 +114,8 @@ const getEstado = (r) => {
   return 'Pendiente';
 };
 
-/** Verifica si una reserva está activa (no cancelada) */
 const esReservaActiva = (r) => getEstado(r) !== 'Cancelada';
 
-/** Primer nombre + primer apellido */
 const getNombreCorto = (nombre = '') => {
   const partes = nombre.trim().split(/\s+/);
   return partes.length >= 2 ? `${partes[0]} ${partes[1]}` : partes[0] ?? '';
@@ -142,16 +136,16 @@ const turnosBloqueados = (reservas, puestoId) => {
 };
 
 const calcEstado = (reservas, puestoId) => {
-  const rp           = reservas.filter(r => getPuestoId(r) === puestoId && esReservaActiva(r));
-  const tieneAM      = rp.some(r => getHorarioId(r) === H_AM);
-  const tienePM      = rp.some(r => getHorarioId(r) === H_PM);
-  const tieneCompleto= rp.some(r => getHorarioId(r) === H_COMPLETO);
+  const rp            = reservas.filter(r => getPuestoId(r) === puestoId && esReservaActiva(r));
+  const tieneAM       = rp.some(r => getHorarioId(r) === H_AM);
+  const tienePM       = rp.some(r => getHorarioId(r) === H_PM);
+  const tieneCompleto = rp.some(r => getHorarioId(r) === H_COMPLETO);
   if (tieneCompleto || (tieneAM && tienePM)) return 'ocupado';
   if (tieneAM || tienePM)                    return 'limitado';
   return 'disponible';
 };
 
-// ─── Selector de fecha tipo chips ─────────────────────────────────────────────
+// ─── Selector de fecha ────────────────────────────────────────────────────────
 const DateSelector = ({ fechas, fechaIndex, setFechaIndex }) => (
   <div className="reservas-dia-nav">
     <button
@@ -163,7 +157,6 @@ const DateSelector = ({ fechas, fechaIndex, setFechaIndex }) => (
       <ChevronLeft size={16} />
     </button>
 
-    {/* Chip de fecha */}
     <div className="reservas-dia-label" style={{ gap: 6 }}>
       <Calendar size={13} />
       <span style={{ fontSize: '0.7rem', color: 'rgba(80,54,41,0.55)', fontWeight: 600 }}>
@@ -182,85 +175,87 @@ const DateSelector = ({ fechas, fechaIndex, setFechaIndex }) => (
   </div>
 );
 
-// ─── OcupantesPanel ───────────────────────────────────────────────────────────
-const OcupantesPanelContent = ({ reservas }) => (
-  <div className="op-tabla">
-    <div className="op-tabla__head">
-      <span className="op-tabla__head-esc text-label">#</span>
-      <span className="op-tabla__head-info text-label">Ocupante</span>
-    </div>
-    {[1, 2, 3, 4, 5, 6].map(id => {
-      const estado       = calcEstado(reservas, id);
-      const rp           = reservas.filter(r => getPuestoId(r) === id && esReservaActiva(r));
-      const tieneMonitor = CON_MONITOR.includes(id);
-      const vacio        = rp.length === 0;
+// ─── TimeBadge ────────────────────────────────────────────────────────────────
+const TimeBadge = ({ time }) => {
+  if (time === 'am')   return <span className="op-fila__turno op-fila__turno--am">AM</span>;
+  if (time === 'pm')   return <span className="op-fila__turno op-fila__turno--pm">PM</span>;
+  return <span className="op-fila__turno op-fila__turno--full">Todo el día</span>;
+};
 
-      return (
-        <div key={id} className={`op-fila op-fila--${estado} ${vacio ? 'op-fila--vacio' : ''}`}>
-          <span className="op-fila__num">{id}</span>
-          <div className="op-fila__personas">
-            {rp.map((r, i) => {
-              const hId   = getHorarioId(r);
-              const hMeta = HORARIO_META[hId];
-              const foto  = getFoto(r);
-              const nombre= getPrimerNombre(r);
-              return (
-                <div key={i} className="op-fila__persona">
-                  {foto && foto !== 'null' ? (
-                    <img src={foto} alt={nombre} className="op-fila__foto" />
-                  ) : (
-                    <div className="op-fila__avatar"><User size={11} strokeWidth={2.5} /></div>
-                  )}
-                  <span className="op-fila__nombre">{nombre}</span>
-                  {hMeta && (
-                    <span className={`op-fila__turno op-fila__turno--${hMeta.badgeKey}`}>
-                      {hMeta.badge}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          {tieneMonitor && (
-            <span className="op-fila__monitor">
-              <Monitor size={10} strokeWidth={2.5} />
-            </span>
-          )}
-        </div>
-      );
-    })}
-  </div>
-);
-
-// Estado visual mejorado por fila
-const EstadoLinea = ({ estado }) => {
-  const config = {
-    disponible: { color: '#27ae60', label: 'Libre',     bg: 'rgba(39,174,96,0.1)'  },
-    limitado:   { color: '#f0a500', label: 'Parcial',   bg: 'rgba(240,165,0,0.1)'  },
-    ocupado:    { color: '#e74c3c', label: 'Ocupado',   bg: 'rgba(231,76,60,0.1)'  },
-  }[estado] ?? { color: '#92614F', label: '—', bg: 'transparent' };
-
+// ─── OcupantesPanelContent ────────────────────────────────────────────────────
+const OcupantesPanelContent = ({ reservas, asCard = false }) => {
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 4,
-      fontSize: '0.58rem', fontWeight: 700,
-      padding: '2px 6px', borderRadius: '999px',
-      background: config.bg, color: config.color,
-    }}>
-      <span style={{ width: 5, height: 5, borderRadius: '50%', background: config.color, flexShrink: 0 }} />
-      {config.label}
-    </span>
+    <div className={asCard ? 'op-tabla' : undefined}>
+      {[1, 2, 3, 4, 5, 6].map(id => {
+        const rp   = reservas.filter(r => getPuestoId(r) === id && esReservaActiva(r));
+        const hasM = CON_MONITOR.includes(id);
+        return (
+          <div
+            key={id}
+            className="op-fila"
+            style={{ gridTemplateColumns: '1fr 18px' }}
+          >
+            {/* Ocupantes */}
+            <div className="op-fila__personas">
+              <span className="text-muted" style={{ fontSize: '0.66rem', fontWeight: 700 }}>
+                Escritorio {id}
+              </span>
+              {rp.length > 0 ? (
+                rp.map((r, i) => {
+                  const hId    = getHorarioId(r);
+                  const meta   = HORARIO_META[hId];
+                  const foto   = getFoto(r);
+                  const nombre = getPrimerNombre(r);
+                  return (
+                    <div key={i} className="op-fila__persona">
+                      {foto && foto !== 'null' ? (
+                        <img
+                          src={foto}
+                          alt={nombre}
+                          className="op-fila__foto"
+                        />
+                      ) : (
+                        <div className="op-fila__avatar">
+                          <User size={10} strokeWidth={2.5} />
+                        </div>
+                      )}
+                      <span className="op-fila__nombre">
+                        {nombre}
+                      </span>
+                      {meta && <TimeBadge time={meta.badgeKey} />}
+                    </div>
+                  );
+                })
+              ) : (
+                <span className="text-muted" style={{ fontSize: '0.68rem', fontWeight: 600 }}>
+                  Disponible
+                </span>
+              )}
+            </div>
+
+            {/* Icono monitor */}
+            {hasM && (
+              <div className="op-fila__monitor">
+                <Monitor
+                  size={13}
+                  strokeWidth={2}
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 };
 
-// Wrapper panel desktop + drawer móvil
+// ─── OcupantesPanel — wrapper desktop + drawer móvil ─────────────────────────
 const OcupantesPanel = ({ reservas }) => {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   return (
     <>
       {/* Desktop/tablet */}
       <div className="ocupantes-panel">
-        <div className="ocupantes-panel__titulo text-label">Escritorios</div>
         <OcupantesPanelContent reservas={reservas} />
       </div>
 
@@ -279,7 +274,6 @@ const OcupantesPanel = ({ reservas }) => {
         <div className="ocupantes-drawer-backdrop" onClick={() => setDrawerOpen(false)}>
           <div className="ocupantes-drawer" onClick={e => e.stopPropagation()}>
             <div className="ocupantes-drawer__header">
-              <span className="text-label">Estado de escritorios</span>
               <button
                 className="ocupantes-drawer__close btn-outline"
                 onClick={() => setDrawerOpen(false)}
@@ -289,12 +283,33 @@ const OcupantesPanel = ({ reservas }) => {
               </button>
             </div>
             <div className="ocupantes-drawer__body">
-              <OcupantesPanelContent reservas={reservas} />
+              <OcupantesPanelContent reservas={reservas} asCard />
             </div>
           </div>
         </div>
       )}
     </>
+  );
+};
+
+// ─── EstadoLinea ──────────────────────────────────────────────────────────────
+const EstadoLinea = ({ estado }) => {
+  const config = {
+    disponible: { color: '#27ae60', label: 'Libre',   bg: 'rgba(39,174,96,0.1)'  },
+    limitado:   { color: '#f0a500', label: 'Parcial', bg: 'rgba(240,165,0,0.1)'  },
+    ocupado:    { color: '#e74c3c', label: 'Ocupado', bg: 'rgba(231,76,60,0.1)'  },
+  }[estado] ?? { color: '#92614F', label: '—', bg: 'transparent' };
+
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      fontSize: '0.58rem', fontWeight: 700,
+      padding: '2px 6px', borderRadius: '999px',
+      background: config.bg, color: config.color,
+    }}>
+      <span style={{ width: 5, height: 5, borderRadius: '50%', background: config.color, flexShrink: 0 }} />
+      {config.label}
+    </span>
   );
 };
 
@@ -319,11 +334,11 @@ const BookingCard = ({
 
   if (!escritorioId) return null;
 
-  const bloq            = turnosBloqueados(reservas, escritorioId);
-  const todoBloqueado   = bloq.size >= 3;
-  const tieneMonitor    = CON_MONITOR.includes(escritorioId);
-  const horarioSelObj   = horarios.find(h => h.id === horarioSelId);
-  const puedeReservar   = canReserveNow && !yaReservoHoy && !todoBloqueado && !!horarioSelId && !reservaOk;
+  const bloq          = turnosBloqueados(reservas, escritorioId);
+  const todoBloqueado = bloq.size >= 3;
+  const tieneMonitor  = CON_MONITOR.includes(escritorioId);
+  const horarioSelObj = horarios.find(h => h.id === horarioSelId);
+  const puedeReservar = canReserveNow && !yaReservoHoy && !todoBloqueado && !!horarioSelId && !reservaOk;
 
   const aviso = !canReserveNow
     ? reserveWindowMessage
@@ -367,7 +382,6 @@ const BookingCard = ({
             <span className="booking-escritorio-nombre">Escritorio {escritorioId}</span>
             {tieneMonitor && <span className="booking-badge-monitor">Con monitor</span>}
           </div>
-          {/* Estado del escritorio */}
           <div style={{ marginTop: 6 }}>
             <EstadoLinea estado={calcEstado(reservas, escritorioId)} />
           </div>
@@ -439,9 +453,9 @@ const BookingCard = ({
             onClick={() => puedeReservar && onConfirm(horarioSelObj)}
             disabled={reservando || !puedeReservar}
           >
-            {reservaOk      ? '¡Listo!'        :
-             reservando     ? 'Reservando…'     :
-             !puedeReservar ? 'No disponible'   :
+            {reservaOk      ? '¡Listo!'       :
+             reservando     ? 'Reservando…'    :
+             !puedeReservar ? 'No disponible'  :
                               'Reservar'}
           </button>
         </div>
@@ -458,20 +472,18 @@ export default function Reservas() {
   const usuario  = location.state?.datosEmpleado ?? null;
   const esAdmin  = usuario && ADMINS.includes(String(usuario.document_number));
 
-  // Fechas hábiles (hoy y mañana solamente)
   const FECHAS = React.useMemo(() => generarFechasHabiles(2), []);
 
-  const [fechaIndex,    setFechaIndex]    = useState(0);
-  const [horarios,      setHorarios]      = useState([]);
-  const [reservas,      setReservas]      = useState([]);
-  const [loadingR,      setLoadingR]      = useState(false);
-  const [hoverId,       setHoverId]       = useState(null);
-  const [selectedId,    setSelectedId]    = useState(null);
-  const [reservando,    setReservando]    = useState(false);
-  const [reservaOk,     setReservaOk]     = useState(false);
-  const [reservaErr,    setReservaErr]    = useState(null);
-  const [ultimaSync,    setUltimaSync]    = useState(null);
-  const [mostrarMisRes, setMostrarMisRes] = useState(false);
+  const [fechaIndex,  setFechaIndex]  = useState(0);
+  const [horarios,    setHorarios]    = useState([]);
+  const [reservas,    setReservas]    = useState([]);
+  const [loadingR,    setLoadingR]    = useState(false);
+  const [hoverId,     setHoverId]     = useState(null);
+  const [selectedId,  setSelectedId]  = useState(null);
+  const [reservando,  setReservando]  = useState(false);
+  const [reservaOk,   setReservaOk]   = useState(false);
+  const [reservaErr,  setReservaErr]  = useState(null);
+  const [ultimaSync,  setUltimaSync]  = useState(null);
 
   const fechaActual = FECHAS[fechaIndex];
   const fechaISO    = fechaActual.iso;
@@ -514,7 +526,6 @@ export default function Reservas() {
 
   useRealtimeSync(cargarReservas);
 
-  // Si la silla seleccionada se ocupa: deseleccionar sin recargar página
   useEffect(() => {
     if (selectedId && calcEstado(reservas, selectedId) === 'ocupado') {
       setSelectedId(null);
@@ -567,13 +578,13 @@ export default function Reservas() {
     }
   };
 
-  const getSilla    = (id) => {
+  const getSilla   = (id) => {
     const e = calcEstado(reservas, id);
     if (e === 'ocupado')  return sillaOcu;
     if (e === 'limitado') return sillaLim;
     return sillaDis;
   };
-  const getTooltip  = (id) => {
+  const getTooltip = (id) => {
     const e = calcEstado(reservas, id);
     if (e === 'ocupado')  return 'Escritorio lleno — sin turnos disponibles';
     if (e === 'limitado') return 'Clic para ver turnos disponibles';
@@ -599,8 +610,6 @@ export default function Reservas() {
           </div>
 
           <div className="reservas-header-right" style={{ flexWrap: 'nowrap' }}>
-
-            {/* Selector de fecha mejorado */}
             <DateSelector
               fechas={FECHAS}
               fechaIndex={fechaIndex}
@@ -609,7 +618,6 @@ export default function Reservas() {
 
             <div style={{ width: 1, height: 26, background: 'rgba(80,54,41,0.15)', flexShrink: 0 }} />
 
-            {/* Panel / Admin */}
             <button
               className="btn-outline"
               style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
@@ -619,7 +627,6 @@ export default function Reservas() {
               {esAdmin ? <Shield size={14} strokeWidth={2.5} /> : <Ticket size={16} strokeWidth={2.5} color="#503629" />}
             </button>
 
-            {/* Cerrar sesión */}
             <button
               className="btn-outline"
               style={{
@@ -635,7 +642,6 @@ export default function Reservas() {
               <LogOut size={14} strokeWidth={2} />
             </button>
 
-            {/* Atrás */}
             <button
               className="btn-outline reservas-btn-atras"
               style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
@@ -704,9 +710,9 @@ export default function Reservas() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
             {[
-              { img: sillaDis, label: 'Disponible'             },
-              { img: sillaLim, label: 'Disponibilidad limitada' },
-              { img: sillaOcu, label: 'Ocupado'                 },
+              { img: sillaDis, label: 'Disponible'              },
+              { img: sillaLim, label: 'Disponibilidad limitada'  },
+              { img: sillaOcu, label: 'Ocupado'                  },
             ].map(({ img, label }) => (
               <div key={label} className="reservas-leyenda-item">
                 <img src={img} alt={label} className="reservas-leyenda-img" />

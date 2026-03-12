@@ -1496,15 +1496,17 @@ $footer-h: 52px;
   backdrop-filter: blur(2px);
   z-index: 300;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-lg;
   animation: fadeIn 0.15s ease;
 }
 
 .ocupantes-drawer {
-  width: 100%;
+  width: min(420px, 92vw);
   background: $color-light-secondary;
-  border-radius: $radius-xl $radius-xl 0 0;
-  box-shadow: 0 -8px 32px rgba(40, 25, 15, 0.2);
+  border-radius: $radius-xl;
+  box-shadow: 0 10px 34px rgba(40, 25, 15, 0.24);
   max-height: 80dvh;
   display: flex;
   flex-direction: column;
@@ -1552,7 +1554,7 @@ $footer-h: 52px;
   scrollbar-width: thin;
   scrollbar-color: rgba(80,54,41,0.2) transparent;
 
-  .op-tabla { box-shadow: none; border-color: rgba(80, 54, 41, 0.1); }
+  .op-tabla { box-shadow: 0 2px 10px rgba(80, 54, 41, 0.07); border-color: rgba(80, 54, 41, 0.12); }
 }
 
 // ── Mapa: compensar panel fijo 220px a la izquierda ───────
