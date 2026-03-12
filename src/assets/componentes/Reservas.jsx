@@ -546,19 +546,24 @@ export default function Reservas() {
 
   const fechaActual = FECHAS[fechaIndex];
   const fechaISO    = fechaActual.iso;
-  const { start: reservaWindowStart, end: reservaWindowEnd } = getReservationWindowForDate(fechaActual.date);
   const now = new Date();
+  const hoyLocal = new Date(now);
+  hoyLocal.setHours(0, 0, 0, 0);
+
+  const fechaSeleccionada = new Date(fechaActual.date);
+  fechaSeleccionada.setHours(0, 0, 0, 0);
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  const diasDiferencia = Math.round((fechaSeleccionada.getTime() - hoyLocal.getTime()) / dayMs);
   const currentHour = now.getHours();
-  const isNightBlockForPasadoManana = fechaIndex === 2 && (currentHour >= 17 || currentHour < 5);
+  const isEarlyMorning = currentHour < 5;
+  const isPasadoMananaOMas = diasDiferencia >= 2;
 
-  const baseWindowAllowed = now >= reservaWindowStart && now <= reservaWindowEnd;
-  const canReserveNow = baseWindowAllowed && !isNightBlockForPasadoManana;
+  const canReserveNow = !(isEarlyMorning && isPasadoMananaOMas);
 
-  const reserveWindowMessage = isNightBlockForPasadoManana
-    ? 'No puede reservar para pasado mañana entre 5:00 pm y 5:00 am.'
-    : now < reservaWindowStart
-    ? `No puede reservar en horario no permitido. Las reservas para ${fechaActual.label.toLowerCase()} se habilitan desde las 5:00 am.`
-    : `No puede reservar en horario no permitido. Las reservas para ${fechaActual.label.toLowerCase()} cerraron a las 5:00 pm.`;
+  const reserveWindowMessage = isEarlyMorning && isPasadoMananaOMas
+    ? 'No puede reservar para pasado mañana (o fechas posteriores) entre 12:00 am y 5:00 am.'
+    : '';
 
   useEffect(() => {
     fetch(API_HORARIOS)
