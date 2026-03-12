@@ -110,6 +110,13 @@ const buildQueryParams = (filters = {}) => {
   return params;
 };
 
+const getLocalDateString = (referenceDate = new Date()) => {
+  const year = referenceDate.getFullYear();
+  const month = String(referenceDate.getMonth() + 1).padStart(2, '0');
+  const day = String(referenceDate.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const buildRemoteData = (baseReserva = {}, override = {}, options = {}) => {
   const { includeNullEstado = true } = options;
   const merged = { ...baseReserva, ...override };
@@ -246,7 +253,7 @@ export const cancelReserva = async (id, currentReserva = null, motivo = 'Reserva
 };
 
 export const getReservasPendientesHoy = async () => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateString();
   const reservas = await getReservas({ fecha: today });
   return reservas.filter((reserva) => reserva.estado === 'Pendiente');
 };

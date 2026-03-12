@@ -548,8 +548,15 @@ export default function Reservas() {
   const fechaISO    = fechaActual.iso;
   const { start: reservaWindowStart, end: reservaWindowEnd } = getReservationWindowForDate(fechaActual.date);
   const now = new Date();
-  const canReserveNow = now >= reservaWindowStart && now <= reservaWindowEnd;
-  const reserveWindowMessage = now < reservaWindowStart
+  const currentHour = now.getHours();
+  const isNightBlockForPasadoManana = fechaIndex === 2 && (currentHour >= 17 || currentHour < 5);
+
+  const baseWindowAllowed = now >= reservaWindowStart && now <= reservaWindowEnd;
+  const canReserveNow = baseWindowAllowed && !isNightBlockForPasadoManana;
+
+  const reserveWindowMessage = isNightBlockForPasadoManana
+    ? 'No puede reservar para pasado mañana entre 5:00 pm y 5:00 am.'
+    : now < reservaWindowStart
     ? `No puede reservar en horario no permitido. Las reservas para ${fechaActual.label.toLowerCase()} se habilitan desde las 5:00 am.`
     : `No puede reservar en horario no permitido. Las reservas para ${fechaActual.label.toLowerCase()} cerraron a las 5:00 pm.`;
 

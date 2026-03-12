@@ -42,6 +42,17 @@ const normalizeText = (value) =>
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '');
 
+const resolveHorarioAlias = (value) => {
+  const normalized = normalizeText(value);
+
+  if (!normalized) return '';
+  if (normalized === '1' || normalized === 'manana' || normalized === 'turno1' || normalized === 'am') return 'manana';
+  if (normalized === '2' || normalized === 'tarde' || normalized === 'turno2' || normalized === 'pm') return 'tarde';
+  if (normalized === '3' || normalized === 'completo' || normalized === 'diacompleto' || normalized === 'turno3' || normalized === 'fullday') return 'completo';
+
+  return normalized;
+};
+
 const getTodayString = (referenceDate = new Date()) => {
   const year = referenceDate.getFullYear();
   const month = String(referenceDate.getMonth() + 1).padStart(2, '0');
@@ -196,26 +207,36 @@ const resolveHorarioFromReserva = (reserva, horarios = []) => {
 
   const normalizedHorario = normalizeText(reserva?.horario);
   const normalizedTurno = normalizeText(reserva?.turno);
+  const normalizedTurnoLabel = normalizeText(reserva?.turnoLabel);
   const normalizedHorarioNombre = normalizeText(reserva?.horarioNombre);
+  const normalizedHorarioId = resolveHorarioAlias(reserva?.horarioId);
+  const normalizedWorkingHorarioId = resolveHorarioAlias(reserva?.workingHorarioId);
   const startMinutes = parseTimeToMinutes(reserva?.horaInicio, reserva?.turno);
   const endMinutes = parseTimeToMinutes(reserva?.horaFin, reserva?.turno);
 
   return sourceHorarios.find((horario) => {
     const horarioSourceId = String(horario.sourceId ?? '');
+    const normalizedSourceId = resolveHorarioAlias(horarioSourceId);
     const horarioName = normalizeText(horario.nombre);
+    const horarioAlias = resolveHorarioAlias(horario.id);
 
     return (
-      normalizedHorario === normalizeText(horario.id) ||
+      normalizedHorario === horarioAlias ||
       normalizedHorario === horarioName ||
       normalizedTurno === horarioName ||
+      normalizedTurnoLabel === horarioName ||
+      normalizedTurno === horarioAlias ||
+      normalizedTurnoLabel === horarioAlias ||
       normalizedHorarioNombre === horarioName ||
-      String(reserva?.horarioId ?? '') === horarioSourceId ||
-      String(reserva?.workingHorarioId ?? '') === horarioSourceId ||
+      normalizedHorarioId === normalizedSourceId ||
+      normalizedHorarioId === horarioAlias ||
+      normalizedWorkingHorarioId === normalizedSourceId ||
+      normalizedWorkingHorarioId === horarioAlias ||
       (startMinutes != null && startMinutes === horario.startMinutes &&
         (endMinutes == null || endMinutes === horario.endMinutes)) ||
-      (normalizedTurno.includes('manana') && horario.id === 'manana') ||
-      (normalizedTurno.includes('tarde') && horario.id === 'tarde') ||
-      ((normalizedTurno.includes('completo') || normalizedTurno.includes('dia')) && horario.id === 'completo')
+      ((normalizedTurno.includes('manana') || normalizedTurnoLabel.includes('manana')) && horarioAlias === 'manana') ||
+      ((normalizedTurno.includes('tarde') || normalizedTurnoLabel.includes('tarde')) && horarioAlias === 'tarde') ||
+      ((normalizedTurno.includes('completo') || normalizedTurno.includes('dia') || normalizedTurnoLabel.includes('completo') || normalizedTurnoLabel.includes('dia')) && horarioAlias === 'completo')
     );
   }) ?? null;
 };
