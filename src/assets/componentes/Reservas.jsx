@@ -487,12 +487,24 @@ export default function Reservas() {
 
   const fechaActual = FECHAS[fechaIndex];
   const fechaISO    = fechaActual.iso;
-  const { start: reservaWindowStart, end: reservaWindowEnd } = getReservationWindowForDate(fechaActual.date);
   const now = new Date();
-  const canReserveNow = now >= reservaWindowStart && now <= reservaWindowEnd;
-  const reserveWindowMessage = now < reservaWindowStart
-    ? `No puede reservar en horario no permitido. Las reservas para ${fechaActual.label.toLowerCase()} se habilitan desde las 5:00 am.`
-    : `No puede reservar en horario no permitido. Las reservas para ${fechaActual.label.toLowerCase()} cerraron a las 5:00 pm.`;
+  const hoyLocal = new Date(now);
+  hoyLocal.setHours(0, 0, 0, 0);
+
+  const fechaSeleccionada = new Date(fechaActual.date);
+  fechaSeleccionada.setHours(0, 0, 0, 0);
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  const diasDiferencia = Math.round((fechaSeleccionada.getTime() - hoyLocal.getTime()) / dayMs);
+  const currentHour = now.getHours();
+  const isEarlyMorning = currentHour < 5;
+  const isPasadoMananaOMas = diasDiferencia >= 2;
+
+  const canReserveNow = !(isEarlyMorning && isPasadoMananaOMas);
+
+  const reserveWindowMessage = isEarlyMorning && isPasadoMananaOMas
+    ? 'No puede reservar para pasado mañana (o fechas posteriores) entre 12:00 am y 5:00 am.'
+    : '';
 
   useEffect(() => {
     fetch(API_HORARIOS)

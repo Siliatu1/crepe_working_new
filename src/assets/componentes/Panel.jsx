@@ -101,7 +101,7 @@ const getHorarioLabel = (r, horarioId) => {
 
 const getEstadoReserva = (attrs = {}) => {
   const estadoRaw = attrs?.estado;
-  const motivo = String(attrs?.motivoCancelacion ?? '').trim();
+  const motivo = String(attrs?.motivo_cancelacion ?? attrs?.motivoCancelacion ?? '').trim();
   const tipoVerificacion = String(attrs?.verificacionAsistencia?.tipo ?? '').toLowerCase();
   const fueCanceladaManualmente = motivo.length > 0 || tipoVerificacion.includes('cancelacion');
 
@@ -215,7 +215,17 @@ const ReservaCard = ({
               <span className="text-body" style={{ fontSize: "0.82rem" }}>{r.nombre}</span>
             </div>
           </div>
-          {esPendiente && (
+            {esCancelada && r.motivoCancelacion && (
+              <div style={{ marginTop: "8px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                <span style={{ fontSize: "0.74rem", color: "#92614F", fontWeight: 700 }}>
+                  Motivo cancelación
+                </span>
+                <span className="text-body" style={{ fontSize: "0.78rem", color: "#6B4A3A" }}>
+                  {r.motivoCancelacion}
+                </span>
+              </div>
+            )}
+            {esPendiente && (
             <div style={{ marginTop: "8px", fontSize: "0.72rem", color: "#8A6D3B" }}>
               {helperMessage || (remainingMinutes != null && remainingMinutes > 0
                 ? `Ventana activa: quedan ${remainingMinutes} min`
@@ -283,6 +293,8 @@ const Panel = () => {
   const [cancelando,   setCancelando]   = useState(null);
   const [confirmando,  setConfirmando]  = useState(null);
   const [cancelConfirmId, setCancelConfirmId] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelReasonError, setCancelReasonError] = useState('');
   const [isNearPoint,  setIsNearPoint]  = useState(false);
   const [distanceMeters, setDistanceMeters] = useState(null);
   const [locationChecking, setLocationChecking] = useState(false);
@@ -415,7 +427,7 @@ const Panel = () => {
           confirmada: r.attributes?.estado === true,
           pendiente: r.attributes?.estado === null,
           cancelada: r.attributes?.estado === false,
-          motivoCancelacion: r.attributes?.motivoCancelacion ?? null,
+          motivoCancelacion: r.attributes?.motivo_cancelacion ?? r.attributes?.motivoCancelacion ?? null,
           verificacionAsistencia: r.attributes?.verificacionAsistencia ?? null,
           puestoId: puestoId ?? (escritorioMatch ? Number(escritorioMatch) : null),
           horarioId,
@@ -526,10 +538,13 @@ const Panel = () => {
 
       const estadoNuevo = evaluation.newStatus;
       const confirmadaNueva = estadoNuevo === 'Confirmada' ? true : estadoNuevo === 'Cancelada' ? false : null;
+      const motivoCancelacion = estadoNuevo === 'Cancelada' ? evaluation.message : null;
 
       await updateReservaWithVerification(id, {
         estado: estadoNuevo,
         confirmada: confirmadaNueva,
+        motivoCancelacion,
+        motivo_cancelacion: motivoCancelacion,
         verificacionAsistencia: {
           fecha: new Date().toISOString(),
           mensaje: evaluation.message,
@@ -545,6 +560,7 @@ const Panel = () => {
                 ...r,
                 estado: estadoNuevo,
                 confirmada: confirmadaNueva,
+                motivoCancelacion,
                 verificacionAsistencia: {
                   ...(r.verificacionAsistencia || {}),
                   fecha: new Date().toISOString(),
@@ -568,13 +584,10 @@ const Panel = () => {
   };
 
   // Cancelar = usar la función del servicio que construye correctamente el payload
-  const handleCancelar = async (id) => {
+  const handleCancelar = async (id, motivoCancelacion) => {
     setCancelando(id);
     try {
       const reservaAux = reservations.find(r => r.id === id);
-      const motivoCancelacion = esAdmin
-        ? 'Cancelada por un administrador'
-        : 'Cancelada por el usuario';
       await cancelReserva(id, reservaAux, motivoCancelacion);
       // Actualización local inmediata (sin recargar página)
       setReservations(prev =>
@@ -583,6 +596,7 @@ const Panel = () => {
           // En API el estado queda false para cancelada.
           estado: 'Cancelada',
           confirmada: false,
+          motivoCancelacion,
           verificacionAsistencia: {
             ...(r.verificacionAsistencia || {}),
             fecha: new Date().toISOString(),
@@ -603,17 +617,30 @@ const Panel = () => {
 
   const solicitarCancelacion = (id) => {
     setCancelConfirmId(id);
+    setCancelReason('');
+    setCancelReasonError('');
   };
 
   const cerrarConfirmacionCancelacion = () => {
     setCancelConfirmId(null);
+    setCancelReason('');
+    setCancelReasonError('');
   };
 
   const confirmarCancelacion = async () => {
     if (!cancelConfirmId) return;
+
+    const motivo = cancelReason.trim();
+    if (!motivo) {
+      setCancelReasonError('Debes ingresar el motivo de cancelación.');
+      return;
+    }
+
     const id = cancelConfirmId;
     setCancelConfirmId(null);
-    await handleCancelar(id);
+    setCancelReason('');
+    setCancelReasonError('');
+    await handleCancelar(id, motivo);
   };
 
   // Estado mostrado en panel: Pendiente / Confirmada / Cancelada
@@ -885,10 +912,7 @@ const Panel = () => {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ borderBottom: "2px solid rgba(80,54,41,0.12)" }}>
-                      {[
-                        ...(esAdmin ? ['Reservado por'] : []),
-                        "Fecha", "Escritorio", "Turno", "Estado", "Acción"
-                      ].map(h => (
+                      {["Fecha", "Escritorio", "Turno", "Estado", "Acción"].map(h => (
                         <th key={h} style={{
                           padding: "8px 12px", textAlign: "left",
                           fontSize: "0.7rem", fontWeight: 700,
@@ -964,7 +988,26 @@ const Panel = () => {
                               {r.estado}
                             </span>
                           </td>
-                          {/* Cancelar */}
+                          {/* Motivo */}
+                          <td style={{ padding: "12px 12px", maxWidth: "260px" }}>
+                            <span
+                              className="text-body"
+                              style={{
+                                fontSize: "0.78rem",
+                                color: "#6B4A3A",
+                                display: "inline-block",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                verticalAlign: "middle",
+                                maxWidth: "240px",
+                              }}
+                              title={r.motivoCancelacion || ''}
+                            >
+                              {r.estado === 'Cancelada' ? (r.motivoCancelacion || '—') : '—'}
+                            </span>
+                          </td>
+                          {/* Acciones */}
                           <td style={{ padding: "12px 12px", textAlign: "right" }}>
                             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
                               <button
@@ -1060,6 +1103,41 @@ const Panel = () => {
                 Escritorio {reservaEnConfirmacion.puestoId ?? '—'} · {reservaEnConfirmacion.fecha || '—'}
               </p>
             )}
+
+            <div style={{ marginTop: "12px" }}>
+              <label
+                htmlFor="cancel-reason"
+                style={{ display: "block", marginBottom: "6px", color: "#503629", fontSize: "0.78rem", fontWeight: 600 }}
+              >
+                Motivo de cancelación
+              </label>
+              <textarea
+                id="cancel-reason"
+                value={cancelReason}
+                onChange={(e) => {
+                  setCancelReason(e.target.value);
+                  if (cancelReasonError) setCancelReasonError('');
+                }}
+                placeholder="Escribe el motivo"
+                rows={3}
+                style={{
+                  width: "100%",
+                  resize: "vertical",
+                  borderRadius: "8px",
+                  border: `1px solid ${cancelReasonError ? 'rgba(192,57,43,0.6)' : 'rgba(80,54,41,0.25)'}`,
+                  padding: "8px 10px",
+                  fontSize: "0.82rem",
+                  fontFamily: "inherit",
+                  color: "#503629",
+                  boxSizing: "border-box",
+                }}
+              />
+              {cancelReasonError && (
+                <div style={{ marginTop: "6px", fontSize: "0.74rem", color: "#c0392b" }}>
+                  {cancelReasonError}
+                </div>
+              )}
+            </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "16px" }}>
               <button

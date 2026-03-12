@@ -8,6 +8,7 @@ const WORKPLACE_COORDS = {
 
 const ALLOWED_RADIUS_METERS = 1000;
 const VERIFICATION_WINDOW_MINUTES = 25;
+const AUTO_CANCEL_REASON = '! Usuario no confirmo!';
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const WORKING_RESERVAS_ENDPOINT = 'https://macfer.crepesywaffles.com/api/working-reservas';
 
@@ -41,6 +42,17 @@ const normalizeText = (value) =>
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '');
+
+const resolveHorarioAlias = (value) => {
+  const normalized = normalizeText(value);
+
+  if (!normalized) return '';
+  if (normalized === '1' || normalized === 'manana' || normalized === 'turno1' || normalized === 'am') return 'manana';
+  if (normalized === '2' || normalized === 'tarde' || normalized === 'turno2' || normalized === 'pm') return 'tarde';
+  if (normalized === '3' || normalized === 'completo' || normalized === 'diacompleto' || normalized === 'turno3' || normalized === 'fullday') return 'completo';
+
+  return normalized;
+};
 
 const getTodayString = (referenceDate = new Date()) => {
   const year = referenceDate.getFullYear();
@@ -196,26 +208,36 @@ const resolveHorarioFromReserva = (reserva, horarios = []) => {
 
   const normalizedHorario = normalizeText(reserva?.horario);
   const normalizedTurno = normalizeText(reserva?.turno);
+  const normalizedTurnoLabel = normalizeText(reserva?.turnoLabel);
   const normalizedHorarioNombre = normalizeText(reserva?.horarioNombre);
+  const normalizedHorarioId = resolveHorarioAlias(reserva?.horarioId);
+  const normalizedWorkingHorarioId = resolveHorarioAlias(reserva?.workingHorarioId);
   const startMinutes = parseTimeToMinutes(reserva?.horaInicio, reserva?.turno);
   const endMinutes = parseTimeToMinutes(reserva?.horaFin, reserva?.turno);
 
   return sourceHorarios.find((horario) => {
     const horarioSourceId = String(horario.sourceId ?? '');
+    const normalizedSourceId = resolveHorarioAlias(horarioSourceId);
     const horarioName = normalizeText(horario.nombre);
+    const horarioAlias = resolveHorarioAlias(horario.id);
 
     return (
-      normalizedHorario === normalizeText(horario.id) ||
+      normalizedHorario === horarioAlias ||
       normalizedHorario === horarioName ||
       normalizedTurno === horarioName ||
+      normalizedTurnoLabel === horarioName ||
+      normalizedTurno === horarioAlias ||
+      normalizedTurnoLabel === horarioAlias ||
       normalizedHorarioNombre === horarioName ||
-      String(reserva?.horarioId ?? '') === horarioSourceId ||
-      String(reserva?.workingHorarioId ?? '') === horarioSourceId ||
+      normalizedHorarioId === normalizedSourceId ||
+      normalizedHorarioId === horarioAlias ||
+      normalizedWorkingHorarioId === normalizedSourceId ||
+      normalizedWorkingHorarioId === horarioAlias ||
       (startMinutes != null && startMinutes === horario.startMinutes &&
         (endMinutes == null || endMinutes === horario.endMinutes)) ||
-      (normalizedTurno.includes('manana') && horario.id === 'manana') ||
-      (normalizedTurno.includes('tarde') && horario.id === 'tarde') ||
-      ((normalizedTurno.includes('completo') || normalizedTurno.includes('dia')) && horario.id === 'completo')
+      ((normalizedTurno.includes('manana') || normalizedTurnoLabel.includes('manana')) && horarioAlias === 'manana') ||
+      ((normalizedTurno.includes('tarde') || normalizedTurnoLabel.includes('tarde')) && horarioAlias === 'tarde') ||
+      ((normalizedTurno.includes('completo') || normalizedTurno.includes('dia') || normalizedTurnoLabel.includes('completo') || normalizedTurnoLabel.includes('dia')) && horarioAlias === 'completo')
     );
   }) ?? null;
 };
@@ -716,7 +738,7 @@ export const evaluateReservationStatus = (reserva, horarios = [], referenceDate 
       shouldUpdate: true,
       newStatus: 'Cancelada',
       confirmed: false,
-      message: `Reserva cancelada por no confirmar dentro de los primeros ${VERIFICATION_WINDOW_MINUTES} minutos del turno.`,
+      message: AUTO_CANCEL_REASON,
       timeInfo,
       alertType: 'warning'
     };
@@ -784,7 +806,7 @@ export const verifyAttendance = async (reserva, options = {}) => {
         shouldUpdate: !isReservationCanceled(reserva),
         newStatus: 'Cancelada',
         confirmed: false,
-        message: `La reserva quedó cancelada porque no se confirmó durante los primeros ${VERIFICATION_WINDOW_MINUTES} minutos del turno.`,
+        message: AUTO_CANCEL_REASON,
         timeInfo,
         alertType: 'warning'
       };

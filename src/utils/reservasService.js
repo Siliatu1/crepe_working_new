@@ -69,7 +69,7 @@ const normalizeReserva = (item) => {
     horaFin: attrs.horaFin || null,
     horarioId: attrs.horarioId || horarioRel?.id || null,
     verificacionAsistencia: attrs.verificacionAsistencia || null,
-    motivoCancelacion: attrs.motivoCancelacion || null,
+    motivoCancelacion: attrs.motivo_cancelacion || attrs.motivoCancelacion || null,
     createdAt: attrs.createdAt || null,
     updatedAt: attrs.updatedAt || null,
     rawAttributes: attrs,
@@ -110,6 +110,13 @@ const buildQueryParams = (filters = {}) => {
   return params;
 };
 
+const getLocalDateString = (referenceDate = new Date()) => {
+  const year = referenceDate.getFullYear();
+  const month = String(referenceDate.getMonth() + 1).padStart(2, '0');
+  const day = String(referenceDate.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const buildRemoteData = (baseReserva = {}, override = {}, options = {}) => {
   const { includeNullEstado = true } = options;
   const merged = { ...baseReserva, ...override };
@@ -129,6 +136,7 @@ const buildRemoteData = (baseReserva = {}, override = {}, options = {}) => {
     horaFin: merged.horaFin || undefined,
     correo: merged.correo || undefined,
     cargo: merged.cargo || undefined,
+    motivo_cancelacion: merged.motivo_cancelacion ?? merged.motivoCancelacion ?? undefined,
   };
 
   if (apiEstado !== null || includeNullEstado) {
@@ -144,7 +152,7 @@ const saveOverride = (id, updateData) => {
   inMemoryStatusMap.set(String(id), {
     estado: updateData.estado,
     confirmada: updateData.confirmada,
-    motivoCancelacion: updateData.motivoCancelacion ?? null,
+    motivoCancelacion: updateData.motivo_cancelacion ?? updateData.motivoCancelacion ?? null,
     verificacionAsistencia: updateData.verificacionAsistencia ?? null,
     updatedAt: new Date().toISOString(),
   });
@@ -237,6 +245,7 @@ export const cancelReserva = async (id, currentReserva = null, motivo = 'Reserva
     estado: 'Cancelada',
     confirmada: false,
     motivoCancelacion: motivo,
+    motivo_cancelacion: motivo,
     verificacionAsistencia: {
       fecha: new Date().toISOString(),
       mensaje: motivo,
@@ -246,7 +255,7 @@ export const cancelReserva = async (id, currentReserva = null, motivo = 'Reserva
 };
 
 export const getReservasPendientesHoy = async () => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateString();
   const reservas = await getReservas({ fecha: today });
   return reservas.filter((reserva) => reserva.estado === 'Pendiente');
 };
@@ -268,6 +277,7 @@ export const cancelarReservasVencidas = async () => {
       estado: 'Cancelada',
       confirmada: false,
       motivoCancelacion: evaluation.message,
+      motivo_cancelacion: evaluation.message,
       verificacionAsistencia: {
         fecha: new Date().toISOString(),
         mensaje: evaluation.message,
