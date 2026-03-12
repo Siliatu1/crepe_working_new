@@ -73,6 +73,12 @@ const useMobile = () => {
 };
 
 // ── Helpers ───────────────────────────────────────────────────
+/** Primer nombre + primer apellido (dos primeras palabras) */
+const getNombreCorto = (nombre = '') => {
+  const partes = nombre.trim().split(/\s+/);
+  return partes.length >= 2 ? `${partes[0]} ${partes[1]}` : partes[0] ?? '';
+};
+
 const extractId = (rel) => {
   if (rel == null) return null;
   if (typeof rel === 'number') return rel;
@@ -275,7 +281,7 @@ const Panel = () => {
 
         return {
           id:       r.id,
-          nombre:   r.attributes?.Nombre    ?? r.attributes?.documento ?? '—',
+          nombre:   getNombreCorto(r.attributes?.Nombre ?? r.attributes?.documento ?? '—'),
           foto:     r.attributes?.foto      ?? null,
           documento:r.attributes?.documento ?? '—',
           area:     r.attributes?.area      ?? '—',
@@ -309,16 +315,18 @@ const Panel = () => {
     }
   }, [datosEmpleado?.documento, datosEmpleado?.document_number]);
 
-  // Cancelar = usar la función del servicio que construye correctamente el payload
+  // Cancelar reserva: actualiza estado local inmediatamente y luego recarga para sincronizar con API
   const handleCancelar = async (id) => {
     setCancelando(id);
     try {
       const reservaAux = reservations.find(r => r.id === id);
       await cancelReserva(id, reservaAux, 'Cancelada por el usuario');
-      // Actualizar localmente sin recargar todo
+      // Actualización local inmediata (sin recargar página)
       setReservations(prev =>
-        prev.map(r => r.id === id ? { ...r, estado: 'Cancelada' } : r)
+        prev.map(r => r.id === id ? { ...r, estado: 'Cancelada', confirmada: false } : r)
       );
+      // Sincroniza con la API para asegurar consistencia
+      await cargarReservas();
     } catch (err) {
       console.error(err);
       alert('Error al cancelar la reserva. Intenta de nuevo.');
@@ -366,11 +374,36 @@ const Panel = () => {
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div />
-          <button className="btn-outline reservas-btn-atras"
-            onClick={() => navigate(-1)}
-            style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <IconArrowLeft /> Atrás
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {/* Cerrar sesión — solo icono */}
+            <button
+              className="btn-outline"
+              onClick={() => navigate('/')}
+              title="Cerrar sesión"
+              style={{
+                width: 34, height: 34, padding: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                borderRadius: "999px",
+                borderColor: "rgba(192,57,43,0.35)",
+                color: "#c0392b",
+              }}
+            >
+              <IconLogout />
+            </button>
+            {/* Atrás — solo icono */}
+            <button
+              className="btn-outline reservas-btn-atras"
+              onClick={() => navigate(-1)}
+              title="Volver"
+              style={{
+                width: 34, height: 34, padding: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                borderRadius: "999px",
+              }}
+            >
+              <IconArrowLeft />
+            </button>
+          </div>
         </div>
 
         {/* Layout */}
