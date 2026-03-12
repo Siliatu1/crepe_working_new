@@ -64,6 +64,16 @@ const generarFechasHabiles = (n = 5) => {
   return fechas;
 };
 
+const getReservationWindowForDate = (selectedDate) => {
+  const start = new Date(selectedDate);
+  start.setHours(5, 0, 0, 0);
+
+  const end = new Date(selectedDate);
+  end.setHours(17, 0, 0, 0);
+
+  return { start, end };
+};
+
 const buildGetUrl = (fecha) =>
   `${API_RESERVAS}?filters[fecha_reserva][$eq]=${fecha}&populate=*`;
 
@@ -366,7 +376,6 @@ const BookingCard = ({
   onConfirm, onCancel,
   reservando, reservaOk, reservaErr,
   yaReservoHoy,
-  fechaSeleccionada,
 }) => {
   const [horarioSelId, setHorarioSelId] = React.useState(null);
 
@@ -379,13 +388,15 @@ const BookingCard = ({
 
   if (!escritorioId) return null;
 
-  const bloq          = turnosBloqueados(reservas, escritorioId);
-  const todoBloqueado = bloq.size >= 3;
-  const tieneMonitor  = CON_MONITOR.includes(escritorioId);
-  const horarioSelObj = horarios.find(h => h.id === horarioSelId);
-  const puedeReservar = !yaReservoHoy && !todoBloqueado && !!horarioSelId && !reservaOk;
+  const bloq            = turnosBloqueados(reservas, escritorioId);
+  const todoBloqueado   = bloq.size >= 3;
+  const tieneMonitor    = CON_MONITOR.includes(escritorioId);
+  const horarioSelObj   = horarios.find(h => h.id === horarioSelId);
+  const puedeReservar   = !yaReservoHoy && !todoBloqueado && !!horarioSelId && !reservaOk;
 
-  const aviso = yaReservoHoy
+  const aviso = !canReserveNow
+    ? reserveWindowMessage
+    : yaReservoHoy
     ? '⚠ Ya tienes una reserva para este día'
     : todoBloqueado
     ? 'Este escritorio no tiene turnos disponibles'
@@ -532,7 +543,7 @@ export default function Reservas() {
   const [mostrarMisRes, setMostrarMisRes] = useState(false);
 
   const fechaActual = FECHAS[fechaIndex];
-  const fechaISO    = fechaActual.iso;
+  const fechaISO    = toISO(fechaActual.date);
 
   useEffect(() => {
     fetch(API_HORARIOS)
@@ -580,6 +591,7 @@ export default function Reservas() {
 
   const handleReservar = async (horarioObj) => {
     if (!usuario || !selectedId || !horarioObj) return;
+    if (!canReserveNow) { setReservaErr(reserveWindowMessage); return; }
     if (yaReservoHoy) { setReservaErr('Ya tienes una reserva para este día.'); return; }
     if (turnosBloqueados(reservas, selectedId).has(horarioObj.id)) {
       setReservaErr('Este turno ya no está disponible. Elige otro.');
@@ -595,7 +607,7 @@ export default function Reservas() {
           documento:        String(usuario.document_number),
           area:             usuario.area_nombre ?? '',
           fecha_reserva:    fechaISO,
-          estado:           false,
+          estado:           null,
           working_puestos:  { id: selectedId },
           working_horarios: { id: horarioObj.id },
         },
@@ -779,8 +791,15 @@ export default function Reservas() {
         reservaOk={reservaOk}
         reservaErr={reservaErr}
         yaReservoHoy={yaReservoHoy}
-        fechaSeleccionada={fechaActual}
       />
+
+      {/* ── Modal Mis Reservas ── */}
+      {mostrarMisRes && (
+        <MisReservasModal
+          usuario={usuario}
+          onClose={() => setMostrarMisRes(false)}
+        />
+      )}
     </div>
   );
 }
