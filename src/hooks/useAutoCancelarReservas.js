@@ -10,10 +10,16 @@ const useAutoCancelarReservas = (enabled = true) => {
 
     // Función para verificar y cancelar
     const verificarYCancelar = async () => {
-      const result = await cancelarReservasVencidas();
+      try {
+        const result = await cancelarReservasVencidas();
 
-      if (isMounted && result.canceled > 0) {
-        console.log(` Auto-cancelación: ${result.message}`);
+        if (isMounted && result.canceled > 0) {
+          console.log(`Auto-cancelación: ${result.message}`);
+        }
+      } catch (error) {
+        if (isMounted) {
+          console.error('Error en auto-cancelación de reservas:', error);
+        }
       }
     };
 
