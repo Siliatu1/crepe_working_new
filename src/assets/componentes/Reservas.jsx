@@ -376,12 +376,9 @@ const BookingCard = ({
   onConfirm, onCancel,
   reservando, reservaOk, reservaErr,
   yaReservoHoy,
-<<<<<<<<< Temporary merge branch 1
   canReserveNow,
   reserveWindowMessage,
-=========
   fechaSeleccionada,
->>>>>>>>> Temporary merge branch 2
 }) => {
   const [horarioSelId, setHorarioSelId] = React.useState(null);
 
@@ -399,13 +396,6 @@ const BookingCard = ({
   const tieneMonitor    = CON_MONITOR.includes(escritorioId);
   const horarioSelObj   = horarios.find(h => h.id === horarioSelId);
   const puedeReservar   = canReserveNow && !yaReservoHoy && !todoBloqueado && !!horarioSelId && !reservaOk;
-=========
-  const bloq          = turnosBloqueados(reservas, escritorioId);
-  const todoBloqueado = bloq.size >= 3;
-  const tieneMonitor  = CON_MONITOR.includes(escritorioId);
-  const horarioSelObj = horarios.find(h => h.id === horarioSelId);
-  const puedeReservar = !yaReservoHoy && !todoBloqueado && !!horarioSelId && !reservaOk;
->>>>>>>>> Temporary merge branch 2
 
   const aviso = !canReserveNow
     ? reserveWindowMessage
@@ -556,17 +546,13 @@ export default function Reservas() {
   const [mostrarMisRes, setMostrarMisRes] = useState(false);
 
   const fechaActual = FECHAS[fechaIndex];
-<<<<<<<<< Temporary merge branch 1
-  const fechaISO    = toISO(fechaActual.date);
+  const fechaISO    = fechaActual.iso;
   const { start: reservaWindowStart, end: reservaWindowEnd } = getReservationWindowForDate(fechaActual.date);
   const now = new Date();
   const canReserveNow = now >= reservaWindowStart && now <= reservaWindowEnd;
   const reserveWindowMessage = now < reservaWindowStart
     ? `No puede reservar en horario no permitido. Las reservas para ${fechaActual.label.toLowerCase()} se habilitan desde las 5:00 am.`
     : `No puede reservar en horario no permitido. Las reservas para ${fechaActual.label.toLowerCase()} cerraron a las 5:00 pm.`;
-=========
-  const fechaISO    = fechaActual.iso;
->>>>>>>>> Temporary merge branch 2
 
   useEffect(() => {
     fetch(API_HORARIOS)
@@ -815,12 +801,9 @@ export default function Reservas() {
         reservaOk={reservaOk}
         reservaErr={reservaErr}
         yaReservoHoy={yaReservoHoy}
-<<<<<<<<< Temporary merge branch 1
         canReserveNow={canReserveNow}
         reserveWindowMessage={reserveWindowMessage}
-=========
         fechaSeleccionada={fechaActual}
->>>>>>>>> Temporary merge branch 2
       />
     </div>
   );

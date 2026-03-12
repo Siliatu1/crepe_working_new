@@ -468,7 +468,6 @@ const Panel = () => {
     }
   }, [datosEmpleado?.documento, datosEmpleado?.document_number]);
 
-<<<<<<<<< Temporary merge branch 1
   useEffect(() => {
     void refreshLocationStatus(true);
   }, [refreshLocationStatus]);
@@ -546,9 +545,6 @@ const Panel = () => {
   };
 
   // Cancelar = usar la función del servicio que construye correctamente el payload
-=========
-  // Cancelar reserva: actualiza estado local inmediatamente y luego recarga para sincronizar con API
->>>>>>>>> Temporary merge branch 2
   const handleCancelar = async (id) => {
     setCancelando(id);
     try {
@@ -556,7 +552,6 @@ const Panel = () => {
       await cancelReserva(id, reservaAux, 'Cancelada por el usuario');
       // Actualización local inmediata (sin recargar página)
       setReservations(prev =>
-<<<<<<<<< Temporary merge branch 1
         prev.map(r => r.id === id ? {
           ...r,
           // En API el estado queda false para cancelada.
@@ -569,9 +564,6 @@ const Panel = () => {
             tipo: 'cancelacion-manual',
           },
         } : r)
-=========
-        prev.map(r => r.id === id ? { ...r, estado: 'Cancelada', confirmada: false } : r)
->>>>>>>>> Temporary merge branch 2
       );
       // Sincroniza con la API para asegurar consistencia
       await cargarReservas();
@@ -722,7 +714,6 @@ const Panel = () => {
                 <span style={{ fontWeight: 700, color: "#503629" }}>{reservations.length}</span>
               </div>
             </div>
-<<<<<<<<< Temporary merge branch 1
 
             <div style={{
               marginTop: 12, padding: "10px 12px",
