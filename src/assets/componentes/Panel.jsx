@@ -415,7 +415,7 @@ const Panel = () => {
 
           {/* Perfil */}
           <div className="bienvenida-card" style={{
-            width: isMobile ? "100%" : "240px",
+            width: isMobile ? "100%" : "300px",
             flexShrink: 0, boxSizing: "border-box",
           }}>
             <div className="bienvenida-avatar">
@@ -458,26 +458,6 @@ const Panel = () => {
                 <span style={{ fontWeight: 700, color: "#503629" }}>{reservations.length}</span>
               </div>
             </div>
-
-            {/* Botón cerrar sesión */}
-            <button
-              onClick={() => navigate('/')}
-              style={{
-                marginTop: 16, width: "100%",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
-                padding: "10px 14px", borderRadius: "8px",
-                border: "1px solid rgba(192,57,43,0.3)",
-                background: "rgba(192,57,43,0.08)",
-                color: "#c0392b", fontSize: "0.8rem", fontWeight: 600,
-                cursor: "pointer", fontFamily: "inherit",
-                transition: "all 0.15s",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = "rgba(192,57,43,0.15)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "rgba(192,57,43,0.08)"; }}
-            >
-              <IconLogout />
-              Cerrar sesión
-            </button>
           </div>
 
           {/* Tabla de reservas */}
@@ -528,7 +508,7 @@ const Panel = () => {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ borderBottom: "2px solid rgba(80,54,41,0.12)" }}>
-                      {["Nombre", "Fecha", "Escritorio", "Turno", "Estado", "Acción"].map(h => (
+                      {["Fecha", "Escritorio", "Turno", "Estado", "Acción"].map(h => (
                         <th key={h} style={{
                           padding: "8px 12px", textAlign: "left",
                           fontSize: "0.7rem", fontWeight: 700,
@@ -550,23 +530,6 @@ const Panel = () => {
                           onMouseEnter={e => e.currentTarget.style.background = "rgba(146,97,79,0.04)"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                         >
-                          {/* Nombre */}
-                          <td style={{ padding: "12px 12px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              {r.foto && r.foto !== 'null' ? (
-                                <img src={r.foto} alt={r.nombre}
-                                  style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                              ) : (
-                                <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(80,54,41,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                  <span style={{ fontSize: 12 }}>👤</span>
-                                </div>
-                              )}
-                              <div>
-                                <div style={{ fontWeight: 600, fontSize: "0.83rem", color: "#503629" }}>{r.nombre}</div>
-                                <div style={{ fontSize: "0.72rem", color: "#92614F", opacity: 0.8 }}>{r.area}</div>
-                              </div>
-                            </div>
-                          </td>
                           {/* Fecha */}
                           <td style={{ padding: "12px 12px" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>

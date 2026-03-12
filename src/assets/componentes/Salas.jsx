@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import mesaImg from "../mesa.png";
 
@@ -38,29 +38,40 @@ const IconRefresh = () => (
     <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
   </svg>
 );
+const IconPlus = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+  </svg>
+);
+const IconClose = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+  </svg>
+);
 
 // ── Normaliza una sala desde la API ───────────────────────
+// El campo de imagen en Strapi es "foto" (array de medios)
 const normalizeSala = (item) => {
   const a = item.attributes ?? item;
-  // Soporta imagen como relación Strapi (imagen.data.attributes.url) o URL directa
+
+  // foto es un array de relaciones Strapi: foto.data[0].attributes.url
   let imagenUrl = null;
-  if (a.imagen?.data?.attributes?.url) {
-    imagenUrl = a.imagen.data.attributes.url.startsWith('http')
-      ? a.imagen.data.attributes.url
-      : `${BASE}${a.imagen.data.attributes.url}`;
-  } else if (typeof a.imagen === 'string' && a.imagen.length > 0) {
-    imagenUrl = a.imagen.startsWith('http') ? a.imagen : `${BASE}${a.imagen}`;
-  } else if (a.imagenUrl) {
-    imagenUrl = a.imagenUrl;
+  const fotoArr = a.foto?.data;
+  if (Array.isArray(fotoArr) && fotoArr.length > 0) {
+    const url = fotoArr[0].attributes?.url;
+    if (url) imagenUrl = url.startsWith('http') ? url : `${BASE}${url}`;
+  } else if (typeof a.foto === 'string' && a.foto.length > 0) {
+    imagenUrl = a.foto.startsWith('http') ? a.foto : `${BASE}${a.foto}`;
   }
+
   return {
-    id:          item.id,
-    nombre:      a.nombre      ?? a.name    ?? `Sala ${item.id}`,
-    escritorios: a.escritorios ?? a.puestos ?? 0,
-    monitores:   a.monitores   ?? 0,
-    imagen:      imagenUrl,
-    disponible:  a.disponible  !== false,
-    ruta:        '/reservas',
+    id:         item.id,
+    nombre:     a.nombre    ?? a.name    ?? `Sala ${item.id}`,
+    capacidad:  a.capacidad ?? 0,           // total de puestos
+    monitores:  a.monitores ?? 0,
+    imagen:     imagenUrl,
+    disponible: a.disponible !== false,
+    ruta:       '/reservas',
   };
 };
 
@@ -101,7 +112,7 @@ const SalaCard = ({ sala, onClick }) => {
         <div className="salas-card-features">
           <div className="salas-card-feature">
             <IconChair />
-            <span className="text-muted">{sala.escritorios} escritorios</span>
+            <span className="text-muted">{sala.capacidad} {sala.capacidad === 1 ? 'puesto' : 'puestos'}</span>
           </div>
           {sala.monitores > 0 && (
             <div className="salas-card-feature">
@@ -130,21 +141,130 @@ const SalaCard = ({ sala, onClick }) => {
   );
 };
 
+// ── Modal: crear nueva sala ───────────────────────────────
+const initialForm = { nombre: '', capacidad: '', monitores: '' };
+
+const CrearSalaModal = ({ onClose, onCreated }) => {
+  const [form,    setForm]    = useState(initialForm);
+  const [saving,  setSaving]  = useState(false);
+  const [error,   setError]   = useState(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const nombre    = form.nombre.trim();
+    const capacidad = parseInt(form.capacidad, 10);
+    const monitores = parseInt(form.monitores,  10) || 0;
+    if (!nombre)          return setError('El nombre es obligatorio.');
+    if (isNaN(capacidad) || capacidad < 1) return setError('La capacidad debe ser mayor a 0.');
+    if (monitores > capacidad) return setError('Los monitores no pueden superar la capacidad.');
+
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_SALAS}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: { nombre, capacidad, monitores } }),
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const json = await res.json();
+      onCreated(normalizeSala(json.data));
+    } catch {
+      setError('No se pudo crear la sala. Intenta de nuevo.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="salas-modal-backdrop" onClick={onClose}>
+      <div className="salas-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+        {/* Header */}
+        <div className="salas-modal-header">
+          <span className="salas-modal-title">Nueva sala</span>
+          <button className="salas-modal-close" onClick={onClose} aria-label="Cerrar"><IconClose /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="salas-modal-form">
+          <div className="salas-modal-field">
+            <label className="salas-modal-label">Nombre *</label>
+            <input
+              ref={inputRef}
+              className="form-input"
+              type="text"
+              placeholder="Ej: CREPE WORKING 2"
+              value={form.nombre}
+              onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
+              maxLength={80}
+              disabled={saving}
+            />
+          </div>
+
+          <div className="salas-modal-row">
+            <div className="salas-modal-field">
+              <label className="salas-modal-label">Puestos totales *</label>
+              <input
+                className="form-input"
+                type="number"
+                min="1"
+                max="100"
+                placeholder="6"
+                value={form.capacidad}
+                onChange={e => setForm(f => ({ ...f, capacidad: e.target.value }))}
+                disabled={saving}
+              />
+            </div>
+            <div className="salas-modal-field">
+              <label className="salas-modal-label">Con monitor</label>
+              <input
+                className="form-input"
+                type="number"
+                min="0"
+                max="100"
+                placeholder="0"
+                value={form.monitores}
+                onChange={e => setForm(f => ({ ...f, monitores: e.target.value }))}
+                disabled={saving}
+              />
+            </div>
+          </div>
+
+          {error && <p className="salas-modal-error">{error}</p>}
+
+          <div className="salas-modal-actions">
+            <button type="button" className="btn-outline" onClick={onClose} disabled={saving}>
+              Cancelar
+            </button>
+            <button type="submit" className="btn-primary" disabled={saving}>
+              {saving ? 'Guardando…' : 'Crear sala'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 // ── Componente principal ──────────────────────────────────
 export default function Salas() {
   const navigate = useNavigate();
   const location = useLocation();
   const usuario  = location.state?.datosEmpleado || null;
   const nombre   = usuario?.nombre?.split(" ")[0] ?? "allí";
+  const esAdmin  = ADMINS.includes(usuario?.documento ?? usuario?.document_number ?? '');
 
-  const [salas,   setSalas]   = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState(null);
+  const [salas,      setSalas]      = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState(null);
+  const [modalOpen,  setModalOpen]  = useState(false);
 
   const cargarSalas = () => {
     setLoading(true);
     setError(null);
-    fetch(`${API_SALAS}?populate=imagen&sort=id:asc`)
+    fetch(`${API_SALAS}?populate=foto&sort=id:asc`)
       .then(r => r.json())
       .then(json => {
         const data = Array.isArray(json.data) ? json.data : [];
@@ -156,100 +276,97 @@ export default function Salas() {
 
   useEffect(() => { cargarSalas(); }, []);
 
-  // Contenedor escala con la cantidad de salas
-  const numSalas       = salas.length;
-  const containerWidth = numSalas <= 1 ? '340px'
-    : numSalas <= 2    ? '520px'
-    : numSalas <= 4    ? '720px'
-    : '940px';
+  const handleCreated = (nuevaSala) => {
+    setSalas(prev => [...prev, nuevaSala]);
+    setModalOpen(false);
+  };
 
   return (
-    <div className="page-wrapper">
-      <div
-        className="bienvenida-card"
-        style={{
-          width: '1000px',
-          transition: 'max-width 0.3s ease',
-        }}
-      >
+    <>
+      {modalOpen && (
+        <CrearSalaModal onClose={() => setModalOpen(false)} onCreated={handleCreated} />
+      )}
 
-        {/* Header */}
-        <div style={{
-          display: 'flex', alignItems: 'flex-start',
-          justifyContent: 'space-between', marginBottom: 4,
-        }}>
-          <div style={{ flex: 1 }}>
-            <h1 className="bienvenida-saludo" style={{ textAlign: 'left', marginBottom: 4 }}>
-              Hola, <span className="text-accent">{nombre}</span>
-            </h1>
-            <p className="text-muted bienvenida-sub" style={{ textAlign: 'left', marginBottom: 0 }}>
-              Elige la sala que deseas reservar
+      <div className="salas-page-wrapper">
+        <div className="salas-container">
+
+          {/* Header */}
+          <div className="salas-header">
+            <div>
+              <h1 className="bienvenida-saludo salas-title">Elige la sala que deseas reservar</h1>
+            </div>
+
+            <div className="salas-header-actions">
+              <button
+                className="salas-icon-btn"
+                onClick={cargarSalas}
+                title="Refrescar"
+                aria-label="Refrescar salas"
+              >
+                <IconRefresh />
+              </button>
+              {esAdmin && (
+                <button
+                  className="salas-icon-btn salas-icon-btn--primary"
+                  onClick={() => setModalOpen(true)}
+                  title="Crear nueva sala"
+                  aria-label="Crear nueva sala"
+                >
+                  <IconPlus />
+                </button>
+              )}
+              <button
+                className="salas-icon-btn salas-icon-btn--danger"
+                onClick={() => navigate('/')}
+                title="Cerrar sesión"
+                aria-label="Cerrar sesión"
+              >
+                <IconLogout />
+              </button>
+            </div>
+          </div>
+
+          <div className="bienvenida-divider" style={{ margin: '16px 0' }} />
+
+          {/* Cargando */}
+          {loading && (
+            <div className="salas-state-msg">
+              Cargando salas…
+            </div>
+          )}
+
+          {/* Error */}
+          {error && !loading && (
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+              <p style={{ color: '#c0392b', fontSize: '0.82rem', marginBottom: 12 }}>{error}</p>
+              <button className="btn-outline" onClick={cargarSalas} style={{ fontSize: '0.8rem', padding: '7px 16px' }}>
+                Reintentar
+              </button>
+            </div>
+          )}
+
+          {/* Vacío */}
+          {!loading && !error && salas.length === 0 && (
+            <p className="text-muted" style={{ textAlign: 'center', padding: '24px 0', fontSize: '0.85rem' }}>
+              No hay salas registradas.
             </p>
-          </div>
+          )}
 
-          {/* Acciones */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 12, marginTop: 2 }}>
-            <button
-              className="btn-outline"
-              onClick={() => navigate('/')}
-              title="Cerrar sesión"
-              style={{
-                width: 32, height: 32, padding: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                borderRadius: '999px',
-                borderColor: 'rgba(192,57,43,0.35)',
-                color: '#c0392b',
-              }}
-            >
-              <IconLogout />
-            </button>
-          </div>
+          {/* Grid */}
+          {!loading && !error && salas.length > 0 && (
+            <div className="salas-grid">
+              {salas.map((sala) => (
+                <SalaCard
+                  key={sala.id}
+                  sala={sala}
+                  onClick={() => navigate(sala.ruta, { state: { datosEmpleado: usuario, salaId: sala.id, salaNombre: sala.nombre } })}
+                />
+              ))}
+            </div>
+          )}
+
         </div>
-
-        <div className="bienvenida-divider" style={{ margin: '16px 0' }} />
-
-        {/* Cargando */}
-        {loading && (
-          <div style={{ textAlign: 'center', padding: '32px 0', color: '#92614F', fontSize: '0.85rem' }}>
-            Cargando salas…
-          </div>
-        )}
-
-        {/* Error */}
-        {error && !loading && (
-          <div style={{ textAlign: 'center', padding: '20px 0' }}>
-            <p style={{ color: '#c0392b', fontSize: '0.82rem', marginBottom: 12 }}>{error}</p>
-            <button className="btn-outline" onClick={cargarSalas} style={{ fontSize: '0.8rem', padding: '7px 16px' }}>
-              Reintentar
-            </button>
-          </div>
-        )}
-
-        {/* Vacío */}
-        {!loading && !error && salas.length === 0 && (
-          <p className="text-muted" style={{ textAlign: 'center', padding: '24px 0', fontSize: '0.85rem' }}>
-            No hay salas registradas.
-          </p>
-        )}
-
-        {/* Grid dinámico */}
-        {!loading && !error && salas.length > 0 && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-            gap: '16px',
-          }}>
-            {salas.map((sala) => (
-              <SalaCard
-                key={sala.id}
-                sala={sala}
-                onClick={() => navigate(sala.ruta, { state: { datosEmpleado: usuario } })}
-              />
-            ))}
-          </div>
-        )}
-
       </div>
-    </div>
+    </>
   );
 }
