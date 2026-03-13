@@ -62,14 +62,6 @@ const generarFechasHabiles = (n = 2) => {
   return fechas;
 };
 
-const getReservationWindowForDate = (selectedDate) => {
-  const start = new Date(selectedDate);
-  start.setHours(5, 0, 0, 0);
-  const end = new Date(selectedDate);
-  end.setHours(17, 0, 0, 0);
-  return { start, end };
-};
-
 const buildGetUrl = (fecha) =>
   `${API_RESERVAS}?filters[fecha_reserva][$eq]=${fecha}&populate=*`;
 
@@ -84,14 +76,6 @@ const buildUserHistoryUrl = (documento, fecha) => {
 };
 
 // ─── Diagnóstico ──────────────────────────────────────────────────────────────
-const logEstructura = (reservas) => {
-  if (!reservas.length) return;
-  const r = reservas[0];
-  console.group('🔍 [DEBUG] Estructura de reserva de la API');
-  console.log('Reserva completa:', JSON.stringify(r, null, 2));
-  console.groupEnd();
-};
-
 // ─── Extracción de IDs ────────────────────────────────────────────────────────
 const extractId = (rel) => {
   if (rel === null || rel === undefined) return null;
@@ -384,7 +368,6 @@ const BookingCard = ({
   rotacionBloqueada,
   rotationMessage,
   reserveWindowMessage,
-  fechaSeleccionada,
 }) => {
   const [horarioSelId, setHorarioSelId] = React.useState(null);
 
@@ -542,7 +525,6 @@ export default function Reservas() {
   const [reservando,  setReservando]  = useState(false);
   const [reservaOk,   setReservaOk]   = useState(false);
   const [reservaErr,  setReservaErr]  = useState(null);
-  const [ultimaSync,  setUltimaSync]  = useState(null);
   const [loadingRotacion, setLoadingRotacion] = useState(false);
   const [ultimaReservaPrevia, setUltimaReservaPrevia] = useState(null);
 
@@ -626,9 +608,6 @@ export default function Reservas() {
       .then(r => r.json())
       .then(json => {
         const data = Array.isArray(json.data) ? json.data : [];
-        console.group(`📦 [API] Reservas para ${fechaISO} — total: ${data.length}`);
-        logEstructura(data);
-        console.groupEnd();
         setReservas(data);
       })
       .catch(err => { console.error('[Reservas] error:', err); setReservas([]); })
@@ -640,7 +619,7 @@ export default function Reservas() {
     setSelectedId(null);
     setReservaErr(null);
     setReservaOk(false);
-  }, [fechaISO]);
+  }, [fechaISO, cargarReservas]);
 
   useEffect(() => {
     if (selectedId && calcEstado(reservas, selectedId) === 'ocupado') {
@@ -858,7 +837,6 @@ export default function Reservas() {
         rotacionBloqueada={!loadingRotacion && !!selectedId && selectedId === ultimoPuestoReservado}
         rotationMessage={getRotationMessage(selectedId)}
         reserveWindowMessage={reserveWindowMessage}
-        fechaSeleccionada={fechaActual}
       />
     </div>
   );

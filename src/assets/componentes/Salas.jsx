@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import mesaImg from "../mesa.png";
 import { Monitor, LogOut, Armchair, Ticket, ArrowLeft, ArrowRight, Users } from "lucide-react";
@@ -111,20 +111,28 @@ export default function Salas() {
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
 
-  const cargarSalas = () => {
+  const cargarSalas = useCallback(async () => {
     setLoading(true);
     setError(null);
-    fetch(`${API_SALAS}?populate=foto&sort=id:asc`)
-      .then(r => r.json())
-      .then(json => {
-        const data = Array.isArray(json.data) ? json.data : [];
-        setSalas(data.map(normalizeSala));
-      })
-      .catch(() => setError('No se pudieron cargar las salas.'))
-      .finally(() => setLoading(false));
-  };
+    try {
+      const response = await fetch(`${API_SALAS}?populate=foto&sort=id:asc`);
+      const json = await response.json();
+      const data = Array.isArray(json.data) ? json.data : [];
+      setSalas(data.map(normalizeSala));
+    } catch {
+      setError('No se pudieron cargar las salas.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  useEffect(() => { cargarSalas(); }, []);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void cargarSalas();
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [cargarSalas]);
 
   return (
     <div className="salas-page-wrapper">
