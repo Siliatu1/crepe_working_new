@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import mesaImg from "../mesa.png";
-import { Monitor, LogOut, Armchair, Ticket, ArrowLeft, ArrowRight, Users } from "lucide-react";
+import { Monitor, LogOut, Armchair, ArrowLeft, ArrowRight } from "lucide-react";
 
 // ── Constantes ────────────────────────────────────────────
 const BASE      = 'https://macfer.crepesywaffles.com';
@@ -70,7 +70,7 @@ const SalaCard = ({ sala, onClick }) => {
         <div className="bienvenida-divider" style={{ margin: "10px 0" }} />
         <div className="salas-card-features">
           <div className="salas-card-feature">
-            <Users size={16} strokeWidth={2.5} />
+            <Armchair size={16} strokeWidth={2.5} />
             <span className="text-muted">{sala.capacidad} {sala.capacidad === 1 ? 'puesto' : 'puestos'}</span>
           </div>
           {sala.monitores > 0 && (
