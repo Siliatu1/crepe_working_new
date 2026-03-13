@@ -44,7 +44,7 @@ const Bienvenida = () => {
         </div>
 
         {/* Saludo */}
-        <h1 className="bienvenida-saludo">¡Hola, {datosEmpleado.nombre?.split(" ")[0]}!</h1>
+        <h1 className="bienvenida-saludo">¡Hola, <strong>{datosEmpleado.nombre?.split(" ")[0]}</strong>!</h1>
         <p className="text-muted bienvenida-sub">Bienvenido a tu espacio de trabajo</p>
 
         {/* Información */}

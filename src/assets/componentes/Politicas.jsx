@@ -17,6 +17,10 @@ const Politicas = () => {
       descripcion: "Solo puedes tener 1 reserva activa por día (pendiente o confirmada)"
     },
     {
+      titulo: "Rotación de puesto",
+      descripcion: "Debes rotar de puesto cada día hábil. No puedes elegir el mismo puesto en días consecutivos",
+    },
+    {
       titulo: "Disponibilidad y fechas",
       descripcion: "Las reservas se habilitan en días hábiles y para las fechas permitidas por el sistema. Entre 12:00 a.m. y 5:00 a.m. no se permite reservar para pasado mañana o fechas posteriores",
     },
@@ -35,9 +39,7 @@ const Politicas = () => {
       <div className="bienvenida-card bienvenida-card--politicas">
 
         {/* Encabezado */}
-        <h1 className="bienvenida-saludo">
-          Políticas de <span className="text-accent">reserva</span>
-        </h1>
+        <h1 className="bienvenida-saludo">Políticas de reserva</h1>
         <p className="text-muted bienvenida-sub">Lee las condiciones antes de continuar</p>
 
         {/* Lista de políticas */}

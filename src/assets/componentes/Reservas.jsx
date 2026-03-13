@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, ArrowLeft, Shield, Calendar, Monitor, Ticket, User, X, LogOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, Armchair, Calendar, Monitor, Ticket, User, X, LogOut } from 'lucide-react';
 import sillaDis from '../../assets/sillaDis.png';
 import sillaLim from '../../assets/sillaLim.png';
 import sillaOcu from '../../assets/sillaOcu.png';
@@ -108,7 +108,39 @@ const extractId = (rel) => {
 
 const getPuestoId  = (r) => extractId(r.attributes?.working_puestos)  ?? extractId(r.working_puestos)  ?? null;
 const getHorarioId = (r) => extractId(r.attributes?.working_horarios) ?? extractId(r.working_horarios) ?? null;
-const getNombre    = (r) => r.attributes?.Nombre ?? r.attributes?.documento ?? r.Nombre ?? r.documento ?? '—';
+const getNombre = (r) => {
+  const attrs = r?.attributes ?? r ?? {};
+  const nombreCompleto = [
+    attrs.Nombre,
+    attrs.nombreCompleto,
+    attrs.nombre_completo,
+    attrs.fullName,
+    attrs.full_name,
+  ].find((value) => typeof value === 'string' && value.trim());
+
+  if (nombreCompleto) return nombreCompleto;
+
+  const nombres = [
+    attrs.nombre,
+    attrs.nombres,
+    attrs.firstName,
+    attrs.first_name,
+  ].find((value) => typeof value === 'string' && value.trim());
+
+  const apellidos = [
+    attrs.apellidos,
+    attrs.apellido,
+    attrs.lastName,
+    attrs.last_name,
+    attrs.primer_apellido,
+    attrs.segundo_apellido,
+    attrs.apellido_paterno,
+    attrs.apellido_materno,
+  ].find((value) => typeof value === 'string' && value.trim());
+
+  const combinado = [nombres, apellidos].filter(Boolean).join(' ').trim();
+  return combinado || attrs.documento || '—';
+};
 const getPrimerNombre = (r) => getNombre(r).split(' ')[0];
 const getFoto      = (r) => r.attributes?.foto ?? r.foto ?? null;
 
@@ -126,8 +158,17 @@ const getEstado = (r) => {
 const esReservaActiva = (r) => getEstado(r) !== 'Cancelada';
 
 const getNombreCorto = (nombre = '') => {
-  const partes = nombre.trim().split(/\s+/);
-  return partes.length >= 2 ? `${partes[0]} ${partes[1]}` : partes[0] ?? '';
+  const partes = String(nombre).trim().split(/\s+/).filter(Boolean);
+
+  if (partes.length >= 3) {
+    return `${partes[0]} ${partes[partes.length - 2]}`;
+  }
+
+  if (partes.length === 2) {
+    return `${partes[0]} ${partes[1]}`;
+  }
+
+  return partes[0] ?? '';
 };
 
 const formatFechaIso = (isoDate) => {
@@ -209,55 +250,70 @@ const OcupantesPanelContent = ({ reservas, asCard = false }) => {
           <div
             key={id}
             className="op-fila"
-            style={{ gridTemplateColumns: '1fr 18px' }}
+            style={{ gridTemplateColumns: '1fr' }}
           >
-            {/* Ocupantes */}
             <div className="op-fila__personas">
-              <span className="text-muted" style={{ fontSize: '0.66rem', fontWeight: 700 }}>
-                Escritorio {id}
-              </span>
               {rp.length > 0 ? (
-                rp.map((r, i) => {
-                  const hId    = getHorarioId(r);
-                  const meta   = HORARIO_META[hId];
-                  const foto   = getFoto(r);
-                  const nombre = getPrimerNombre(r);
-                  return (
-                    <div key={i} className="op-fila__persona">
-                      {foto && foto !== 'null' ? (
-                        <img
-                          src={foto}
-                          alt={nombre}
-                          className="op-fila__foto"
-                        />
-                      ) : (
-                        <div className="op-fila__avatar">
-                          <User size={10} strokeWidth={2.5} />
+                <>
+                  <div className="op-fila__persona-top">
+                    <span className="op-fila__escritorio-label">Escritorio {id}</span>
+                    {hasM && (
+                      <div className="op-fila__monitor-inline" title="Con monitor de apoyo">
+                        <Monitor size={12} strokeWidth={2} />
+                      </div>
+                    )}
+                  </div>
+                  {rp.map((r, i) => {
+                    const hId    = getHorarioId(r);
+                    const meta   = HORARIO_META[hId];
+                    const foto   = getFoto(r);
+                    const nombre = getPrimerNombre(r);
+                    return (
+                      <div key={i} className="op-fila__persona-card">
+                        <div className="op-fila__persona">
+                          {foto && foto !== 'null' ? (
+                            <img
+                              src={foto}
+                              alt={nombre}
+                              className="op-fila__foto"
+                            />
+                          ) : (
+                            <div className="op-fila__avatar">
+                              <User size={10} strokeWidth={2.5} />
+                            </div>
+                          )}
+                          <div className="op-fila__persona-main">
+                            <span className="op-fila__nombre">
+                              {nombre}
+                            </span>
+                            {meta && <TimeBadge time={meta.badgeKey} />}
+                          </div>
                         </div>
-                      )}
-                      <span className="op-fila__nombre">
-                        {nombre}
-                      </span>
-                      {meta && <TimeBadge time={meta.badgeKey} />}
-                    </div>
-                  );
-                })
+                      </div>
+                    );
+                  })}
+                </>
               ) : (
-                <span className="text-muted" style={{ fontSize: '0.68rem', fontWeight: 600 }}>
-                  Disponible
-                </span>
+                <div className="op-fila__persona-card">
+                  <div className="op-fila__persona-top">
+                    <span className="op-fila__escritorio-label">Escritorio {id}</span>
+                    {hasM && (
+                      <div className="op-fila__monitor-inline" title="Con monitor de apoyo">
+                        <Monitor size={12} strokeWidth={2} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="op-fila__persona">
+                    <div className="op-fila__avatar op-fila__avatar--empty">
+                      <User size={10} strokeWidth={2.5} />
+                    </div>
+                    <span className="text-muted" style={{ fontSize: '0.68rem', fontWeight: 600 }}>
+                      Disponible
+                    </span>
+                  </div>
+                </div>
               )}
             </div>
-
-            {/* Icono monitor */}
-            {hasM && (
-              <div className="op-fila__monitor">
-                <Monitor
-                  size={13}
-                  strokeWidth={2}
-                />
-              </div>
-            )}
           </div>
         );
       })}
@@ -393,9 +449,6 @@ const BookingCard = ({
             <span className="booking-escritorio-nombre">Escritorio {escritorioId}</span>
             {tieneMonitor && <span className="booking-badge-monitor">Con monitor</span>}
           </div>
-          <div style={{ marginTop: 6 }}>
-            <EstadoLinea estado={calcEstado(reservas, escritorioId)} />
-          </div>
         </div>
         <div className="booking-divider" />
 
@@ -407,7 +460,7 @@ const BookingCard = ({
               const esBloq        = bloq.has(h.id);
               const esSel         = horarioSelId === h.id;
               const meta          = HORARIO_META[h.id];
-              const deshabilitado = esBloq || yaReservoHoy;
+              const deshabilitado = esBloq;
               return (
                 <button
                   key={h.id}
@@ -425,11 +478,6 @@ const BookingCard = ({
                 >
                   <span className="booking-horario-label">{meta?.label}</span>
                   <span className="booking-horario-hora">{meta?.hora}</span>
-                  {esBloq && (
-                    <span style={{ fontSize: '0.63rem', color: '#c0392b', marginTop: 2 }}>
-                      No disponible
-                    </span>
-                  )}
                 </button>
               );
             })}
@@ -441,7 +489,7 @@ const BookingCard = ({
           <>
             <div className="booking-divider" />
             <div className="booking-section booking-section--compact">
-              {reservaOk  && <div className="booking-feedback booking-feedback--ok">✓ ¡Reservado con éxito!</div>}
+              {reservaOk  && <div className="booking-feedback booking-feedback--ok">Reservado!</div>}
               {reservaErr && <div className="booking-feedback booking-feedback--error">{reservaErr}</div>}
               {!reservaOk && !reservaErr && aviso && (
                 <div className="booking-feedback booking-feedback--error" style={{ background: 'rgba(192,57,43,0.08)' }}>
@@ -464,9 +512,9 @@ const BookingCard = ({
             onClick={() => puedeReservar && onConfirm(horarioSelObj)}
             disabled={reservando || !puedeReservar}
           >
-            {reservaOk      ? '¡Listo!'       :
-             reservando     ? 'Reservando…'    :
-             !puedeReservar ? 'No disponible'  :
+            {reservaOk      ? 'Reservar'       :
+             reservando     ? 'Reservar'    :
+             !puedeReservar ? 'Reservar'  :
                               'Reservar'}
           </button>
         </div>
@@ -678,38 +726,25 @@ export default function Reservas() {
   return (
     <div className="reservas-wrapper">
       <div className="reservas-inner">
+        <div className="top-right-nav-actions reservas-top-right-nav-actions">
+          <DateSelector
+            fechas={FECHAS}
+            fechaIndex={fechaIndex}
+            setFechaIndex={setFechaIndex}
+          />
 
-        {/* ── Header ── */}
-        <header className="reservas-header">
-          <div className="reservas-titulo">
-            Crepe-Working <span className="text-accent">1</span>
-          </div>
-
-          <div className="reservas-header-date">
-            <DateSelector
-              fechas={FECHAS}
-              fechaIndex={fechaIndex}
-              setFechaIndex={setFechaIndex}
-            />
-          </div>
-        </header>
-
-        <div className="top-right-nav-actions">
+          <div className="top-nav-btn-group">
           <button
-            className="btn-outline"
-            style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
+            className="btn-outline top-nav-icon-btn"
             onClick={() => navigate('/panel', { state: { datosEmpleado: usuario } })}
             title={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
           >
-            {esAdmin ? <Shield size={14} strokeWidth={2.5} /> : <Ticket size={16} strokeWidth={2.5} color="#503629" />}
+            <Armchair size={14} strokeWidth={2.5} />
           </button>
 
           <button
-            className="btn-outline"
+            className="btn-outline top-nav-icon-btn"
             style={{
-              width: 34, height: 34, padding: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              borderRadius: '999px', flexShrink: 0,
               borderColor: 'rgba(192,57,43,0.35)',
               color: '#c0392b',
             }}
@@ -720,13 +755,13 @@ export default function Reservas() {
           </button>
 
           <button
-            className="btn-outline reservas-btn-atras"
-            style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
+            className="btn-outline reservas-btn-atras top-nav-icon-btn"
             onClick={() => navigate(-1)}
             title="Volver"
           >
             <ArrowLeft size={14} strokeWidth={2.5} />
           </button>
+          </div>
         </div>
 
         {/* ── Mapa ── */}
@@ -794,7 +829,7 @@ export default function Reservas() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
             {[
               { img: sillaDis, label: 'Disponible'              },
-              { img: sillaLim, label: 'Disponibilidad limitada'  },
+              { img: sillaLim, label: 'Limitado'  },
               { img: sillaOcu, label: 'Ocupado'                  },
             ].map(({ img, label }) => (
               <div key={label} className="reservas-leyenda-item">

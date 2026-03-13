@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { User, Calendar, Monitor, Clock, Shield, Ticket, ArrowLeft, Trash2, LogOut, ChevronDown } from 'lucide-react';
+import { User, Calendar, Monitor, Clock, Armchair, Ticket, ArrowLeft, Trash2, LogOut, ChevronDown } from 'lucide-react';
 import { cancelReserva, updateReservaWithVerification } from "../../utils/reservasService";
 import useRealtimeSync from '../../hooks/useRealtimeSync';
 import {
@@ -107,6 +107,21 @@ const getHorarioLabel = (r, horarioId) => {
   return meta?.label ?? null;
 };
 
+const getSalaInfo = (r) => {
+  const puestosData = r.attributes?.working_puestos?.data;
+  const pAttr = Array.isArray(puestosData)
+    ? puestosData[0]?.attributes
+    : puestosData?.attributes ?? null;
+  const salaData = pAttr?.working_sala?.data;
+  if (salaData) {
+    return {
+      salaId:    salaData.id ?? null,
+      salaNombre: salaData.attributes?.nombre ?? `Sala ${salaData.id}`,
+    };
+  }
+  return { salaId: null, salaNombre: null };
+};
+
 const getEstadoReserva = (attrs = {}) => {
   const estadoRaw = attrs?.estado;
 
@@ -198,6 +213,14 @@ const ReservaCard = ({
           }}>
             {r.estado}
           </span>
+          <span style={{
+            padding: "2px 7px", borderRadius: "20px",
+            fontSize: "0.68rem", fontWeight: 700,
+            background: "rgba(80,54,41,0.08)", color: "#92614F",
+            fontFamily: "monospace",
+          }}>
+            #{r.id}
+          </span>
         </div>
         <IconChevron open={open} />
       </button>
@@ -207,12 +230,30 @@ const ReservaCard = ({
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             {showOwner && (
               <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <span style={{ fontSize: "0.82rem", color: "#92614F" }}>👤</span>
+                {r.foto && r.foto !== "null" ? (
+                  <img src={r.foto} alt="Foto" style={{
+                    width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover", flexShrink: 0
+                  }} />
+                ) : (
+                  <div style={{
+                    width: "24px", height: "24px", borderRadius: "50%",
+                    background: "rgba(204,138,34,0.1)", display: "flex",
+                    alignItems: "center", justifyContent: "center", flexShrink: 0
+                  }}>
+                    <User size={12} color="#92614F" strokeWidth={2} />
+                  </div>
+                )}
                 <span className="text-body" style={{ fontSize: "0.82rem" }}>
                   {r.nombreCompleto || r.nombre}
                 </span>
               </div>
             )}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <Ticket size={13} color="#92614F" strokeWidth={2} />
+              <span style={{ fontSize: "0.75rem", color: "#92614F", fontFamily: "monospace", fontWeight: 700 }}>
+                Reserva #{r.id}
+              </span>
+            </div>
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <Calendar size={13} color="#CC8A22" strokeWidth={2} />
               <span className="text-body" style={{ fontSize: "0.82rem" }}>
@@ -225,10 +266,7 @@ const ReservaCard = ({
                 {hMeta?.hora ? `${turnoTexto} · ${hMeta.hora}` : turnoTexto}
               </span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <span style={{ fontSize: "0.82rem", color: "#92614F" }}>👤</span>
-              <span className="text-body" style={{ fontSize: "0.82rem" }}>{r.nombre}</span>
-            </div>
+
           </div>
             {(esCancelada || r.estado === 'Confirmada') && (r.motivoCancelacion || r.motivoGestion) && (
               <div style={{ marginTop: "8px", display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -336,6 +374,10 @@ const Panel = () => {
   const [locationError, setLocationError] = useState("");
   const [nowMs, setNowMs] = useState(Date.now());
   const [showAllReservations, setShowAllReservations] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterEstado, setFilterEstado] = useState('todos');
+  const [filterSala, setFilterSala] = useState('todas');
+  const [adminTab, setAdminTab] = useState('todos');
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -439,6 +481,8 @@ const Panel = () => {
         filtroDocumento +
         filtroFecha +
         `&populate[working_puestos][fields][0]=id&populate[working_puestos][fields][1]=nombre` +
+        `&populate[working_puestos][populate][working_sala][fields][0]=id` +
+        `&populate[working_puestos][populate][working_sala][fields][1]=nombre` +
         `&populate[working_horarios][fields][0]=id&populate[working_horarios][fields][1]=nombre` +
         `&pagination[pageSize]=40000`;
 
@@ -454,6 +498,7 @@ const Panel = () => {
         const escritorioMatch = typeof escritorioFallback === 'string'
           ? escritorioFallback.match(/\d+/)?.[0]
           : null;
+        const { salaId, salaNombre } = getSalaInfo(r);
 
         return {
           id:       r.id,
@@ -471,6 +516,8 @@ const Panel = () => {
           motivoGestion: r.attributes?.verificacionAsistencia?.mensaje ?? null,
           verificacionAsistencia: r.attributes?.verificacionAsistencia ?? null,
           puestoId: puestoId ?? (escritorioMatch ? Number(escritorioMatch) : null),
+          salaId,
+          salaNombre,
           horarioId,
           horario: r.attributes?.horario ?? null,
           turno: r.attributes?.turno ?? null,
@@ -744,6 +791,41 @@ const Panel = () => {
   const canceladas = reservations.filter(r => r.estado === 'Cancelada');
   const reservaEnConfirmacion = reservations.find(r => r.id === cancelConfirmId) || null;
 
+  // Salas únicas disponibles en el conjunto actual de reservas
+  const availableSalas = useMemo(() => {
+    const map = new Map();
+    reservations.forEach(r => {
+      if (r.salaId) map.set(r.salaId, r.salaNombre ?? `Sala ${r.salaId}`);
+    });
+    return [...map.entries()].map(([id, nombre]) => ({ id, nombre }));
+  }, [reservations]);
+
+  // Reservas filtradas para el panel
+  const filteredReservations = useMemo(() => {
+    let result = reservations;
+    // Admin tabs: mis / otros / todos
+    if (esAdmin) {
+      if (adminTab === 'mis') result = result.filter(r => r.documento === documentoUsuario);
+      else if (adminTab === 'otros') result = result.filter(r => r.documento !== documentoUsuario);
+    }
+    // Filtro por estado
+    if (filterEstado !== 'todos') result = result.filter(r => r.estado === filterEstado);
+    // Filtro por sala
+    if (filterSala !== 'todas') result = result.filter(r => String(r.salaId) === filterSala);
+    // Búsqueda: por ID, nombre, documento, escritorio
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(r =>
+        String(r.id).includes(q) ||
+        (r.nombreCompleto ?? '').toLowerCase().includes(q) ||
+        (r.nombre ?? '').toLowerCase().includes(q) ||
+        (r.documento ?? '').toLowerCase().includes(q) ||
+        String(r.puestoId ?? '').includes(q)
+      );
+    }
+    return result;
+  }, [reservations, esAdmin, adminTab, filterEstado, filterSala, searchQuery, documentoUsuario]);
+
   if (loading) return (
     <div className="page-wrapper">
       <div className="bienvenida-card">
@@ -770,23 +852,20 @@ const Panel = () => {
       padding: isMobile ? "16px" : "28px 24px",
     }}>
       <div className="top-right-nav-actions">
+        <div className="top-nav-btn-group">
         <button
-          className="btn-outline"
+          className="btn-outline top-nav-icon-btn"
           onClick={() => navigate('/panel', { state: { datosEmpleado } })}
           title={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
           aria-label={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
-          style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
         >
-          {esAdmin ? <Shield size={14} strokeWidth={2.5} /> : <Ticket size={16} color="#503629" strokeWidth={2.5} />}
+          <Armchair size={14} strokeWidth={2.5} />
         </button>
         <button
-          className="btn-outline"
+          className="btn-outline top-nav-icon-btn"
           onClick={() => navigate('/')}
           title="Cerrar sesión"
           style={{
-            width: 34, height: 34, padding: 0,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            borderRadius: "999px",
             borderColor: "rgba(192,57,43,0.35)",
             color: "#c0392b",
           }}
@@ -794,22 +873,18 @@ const Panel = () => {
           <LogOut size={14} strokeWidth={2} />
         </button>
         <button
-          className="btn-outline reservas-btn-atras"
+          className="btn-outline reservas-btn-atras top-nav-icon-btn"
           onClick={() => navigate(-1)}
           title="Volver"
-          style={{
-            width: 34, height: 34, padding: 0,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            borderRadius: "999px",
-          }}
         >
           <ArrowLeft size={14} strokeWidth={2.5} />
         </button>
+        </div>
       </div>
 
       <div style={{
-        width: "100%", maxWidth: "1040px",
-        margin: "0 auto", display: "flex",
+        width: "100%", maxWidth: "none",
+        margin: 0, display: "flex",
         flexDirection: "column", gap: "16px",
       }}>
 
@@ -822,7 +897,7 @@ const Panel = () => {
 
           {/* Perfil */}
           <div className="bienvenida-card" style={{
-            width: isMobile ? "100%" : "300px",
+            width: isMobile ? "100%" : "250px",
             flexShrink: 0, boxSizing: "border-box",
           }}>
             <div className="bienvenida-avatar">
@@ -833,7 +908,7 @@ const Panel = () => {
               )}
             </div>
             <h1 className="bienvenida-saludo">
-              ¡Hola, <span className="text-accent">{profileData?.nombre?.split(" ")[0]}</span>!
+              ¡Hola, {profileData?.nombre?.split(" ")[0]}!
             </h1>
             <div className="bienvenida-info">
               <div>
@@ -843,8 +918,9 @@ const Panel = () => {
               </div>
             </div>
             <div style={{ marginTop: 10, fontSize: "0.78rem", color: esAdmin ? "#CC8A22" : "#92614F", fontWeight: 700 }}>
-              {esAdmin ? 'Modo administrador' : 'Modo usuario'}
+              {esAdmin ? 'Administrador' : 'Usuario'}
             </div>
+
             {/* Resumen rápido */}
             <div style={{
               marginTop: 16, padding: "10px 14px",
@@ -916,81 +992,153 @@ const Panel = () => {
               </div>
             )}
 
-            {/* Botón cerrar sesión */}
-            <button
-              onClick={() => navigate('/')}
-              style={{
-                marginTop: 16, width: "100%",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
-                padding: "10px 14px", borderRadius: "8px",
-                border: "1px solid rgba(192,57,43,0.3)",
-                background: "rgba(192,57,43,0.08)",
-                color: "#c0392b", fontSize: "0.8rem", fontWeight: 600,
-                cursor: "pointer", fontFamily: "inherit",
-                transition: "all 0.15s",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = "rgba(192,57,43,0.15)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "rgba(192,57,43,0.08)"; }}
-            >
-              <LogOut size={14} strokeWidth={2} />
-              Cerrar sesión
-            </button>
+
           </div>
 
           {/* Tabla de reservas */}
           <div className="bienvenida-card" style={{
             flex: 1, padding: isMobile ? "16px" : "20px 24px",
-            minWidth: 0, boxSizing: "border-box",
+            minWidth: isMobile ? 0 : "500px", boxSizing: "border-box",
             width: isMobile ? "100%" : "auto",
           }}>
-            <div style={{
-              display: "flex", alignItems: "center",
-              justifyContent: "space-between", marginBottom: "16px",
-            }}>
-              <h2 className="bienvenida-saludo" style={{ margin: 0, fontSize: "1.05rem" }}>
-                {showAllReservations
-                  ? (esAdmin ? 'Todas las ' : 'Mis ')
-                  : 'Reservas de '}<span className="text-accent">{showAllReservations ? 'reservas' : 'hoy'}</span>
-              </h2>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <button
-                  onClick={() => setShowAllReservations((prev) => !prev)}
+            {/* ── Cabecera ──────────────────────────────────── */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
+              {/* Fila 1: título + toggle hoy/todas */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <h2 className="bienvenida-saludo" style={{ margin: 0, fontSize: "1.05rem" }}>
+                  {showAllReservations
+                    ? (esAdmin ? 'Todas las ' : 'Mis ')
+                    : 'Reservas de '}<span className="text-accent">{showAllReservations ? 'reservas' : 'hoy'}</span>
+                </h2>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button
+                    onClick={() => setShowAllReservations((prev) => !prev)}
+                    style={{
+                      padding: "6px 10px", borderRadius: 8,
+                      border: "1px solid rgba(80,54,41,0.25)",
+                      background: "rgba(80,54,41,0.06)",
+                      color: "#503629", fontSize: "0.75rem", fontWeight: 700,
+                      cursor: "pointer", fontFamily: "inherit",
+                    }}
+                  >
+                    {showAllReservations ? 'Ver hoy' : (esAdmin ? 'Ver todas' : 'Ver todas mis')}
+                  </button>
+                </div>
+              </div>
+
+              {/* Fila 2 (admin): tabs Todas / Mis reservas / Otras */}
+              {esAdmin && (
+                <div style={{ display: "flex", gap: 6 }}>
+                  {[
+                    { key: 'todos',  label: 'Todas' },
+                    { key: 'mis',    label: 'Mis reservas' },
+                    { key: 'otros',  label: 'Otras' },
+                  ].map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => setAdminTab(key)}
+                      style={{
+                        padding: "5px 12px", borderRadius: 20,
+                        border: adminTab === key
+                          ? "1px solid rgba(204,138,34,0.55)"
+                          : "1px solid rgba(80,54,41,0.2)",
+                        background: adminTab === key
+                          ? "rgba(204,138,34,0.14)"
+                          : "rgba(80,54,41,0.04)",
+                        color: adminTab === key ? "#8A6D3B" : "#503629",
+                        fontSize: "0.73rem", fontWeight: adminTab === key ? 700 : 500,
+                        cursor: "pointer", fontFamily: "inherit",
+                        transition: "all 0.15s",
+                      }}
+                    >{label}</button>
+                  ))}
+                </div>
+              )}
+
+              {/* Fila 3: filtros + buscador */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                {/* Filtro estado */}
+                <select
+                  value={filterEstado}
+                  onChange={e => setFilterEstado(e.target.value)}
                   style={{
-                    padding: "6px 10px",
-                    borderRadius: 8,
-                    border: "1px solid rgba(80,54,41,0.25)",
-                    background: "rgba(80,54,41,0.06)",
-                    color: "#503629",
-                    fontSize: "0.75rem",
-                    fontWeight: 700,
+                    padding: "6px 10px", borderRadius: 8,
+                    border: "1px solid rgba(80,54,41,0.22)",
+                    background: "#FDFAF7", color: "#503629",
+                    fontSize: "0.75rem", fontFamily: "inherit",
                     cursor: "pointer",
-                    fontFamily: "inherit",
                   }}
                 >
-                  {showAllReservations
-                    ? 'Ver reservas de hoy'
-                    : (esAdmin ? 'Ver todas las reservas' : 'Ver todas mis reservas')}
-                </button>
-                <span style={{
-                  padding: "3px 12px", borderRadius: 20,
-                  background: "rgba(80,54,41,0.08)", color: "#503629",
-                  fontSize: "0.75rem", fontWeight: 700,
-                }}>
-                  {reservations.length}
-                </span>
+                  <option value="todos">Todos los estados</option>
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="Confirmada">Confirmada</option>
+                  <option value="Cancelada">Cancelada</option>
+                </select>
+
+                {/* Filtro sala */}
+                {availableSalas.length > 0 && (
+                  <select
+                    value={filterSala}
+                    onChange={e => setFilterSala(e.target.value)}
+                    style={{
+                      padding: "6px 10px", borderRadius: 8,
+                      border: "1px solid rgba(80,54,41,0.22)",
+                      background: "#FDFAF7", color: "#503629",
+                      fontSize: "0.75rem", fontFamily: "inherit",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <option value="todas">Todas las salas</option>
+                    {availableSalas.map(s => (
+                      <option key={s.id} value={String(s.id)}>{s.nombre}</option>
+                    ))}
+                  </select>
+                )}
+
+                {/* Buscador */}
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder={esAdmin ? "Buscar por ID, nombre, cédula…" : "Buscar por ID de reserva…"}
+                  style={{
+                    flex: 1, minWidth: 160,
+                    padding: "6px 10px", borderRadius: 8,
+                    border: "1px solid rgba(80,54,41,0.22)",
+                    background: "#FDFAF7", color: "#503629",
+                    fontSize: "0.75rem", fontFamily: "inherit",
+                    outline: "none",
+                  }}
+                />
+                {(searchQuery || filterEstado !== 'todos' || filterSala !== 'todas' || (esAdmin && adminTab !== 'todos')) && (
+                  <button
+                    onClick={() => { setSearchQuery(''); setFilterEstado('todos'); setFilterSala('todas'); setAdminTab('todos'); }}
+                    style={{
+                      padding: "6px 10px", borderRadius: 8,
+                      border: "1px solid rgba(192,57,43,0.28)",
+                      background: "rgba(192,57,43,0.06)",
+                      color: "#c0392b", fontSize: "0.73rem", fontWeight: 600,
+                      cursor: "pointer", fontFamily: "inherit",
+                    }}
+                  >
+                    Limpiar filtros
+                  </button>
+                )}
               </div>
             </div>
 
-            {reservations.length === 0 && (
+            {filteredReservations.length === 0 && (
               <p className="text-muted" style={{ fontSize: "0.85rem", textAlign: "center", padding: "24px 0" }}>
-                {showAllReservations ? 'No hay reservas registradas.' : 'No hay reservas para hoy.'}
+                {reservations.length === 0
+                  ? (showAllReservations ? 'No hay reservas registradas.' : 'No hay reservas para hoy.')
+                  : 'No hay reservas que coincidan con los filtros.'}
               </p>
             )}
 
             {/* MOBILE */}
-            {isMobile && reservations.length > 0 && (
+            {isMobile && filteredReservations.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                {reservations.map(r => {
+                {filteredReservations.map(r => {
                   const confirmMeta = getConfirmMeta(r);
                   const canAdminConfirm = esAdmin && r.estado === 'Pendiente';
                   return (
@@ -1020,15 +1168,16 @@ const Panel = () => {
             )}
 
             {/* DESKTOP */}
-            {!isMobile && reservations.length > 0 && (
+            {!isMobile && filteredReservations.length > 0 && (
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ borderBottom: "2px solid rgba(80,54,41,0.12)" }}>
                       {[
+                        'ID',
                         ...(esAdmin ? ['Usuario'] : []),
                         'Fecha',
-                        'Escritorio',
+                        'Sala / Escritorio',
                         'Turno',
                         'Estado',
                         'Motivo',
@@ -1044,7 +1193,7 @@ const Panel = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {reservations.map((r, i) => {
+                    {filteredReservations.map((r, i) => {
                       const hMeta = HORARIO_META[r.horarioId];
                       const turnoTexto = r.turnoLabel || hMeta?.label || '—';
                       const esCancelada = r.estado === 'Cancelada';
@@ -1052,10 +1201,22 @@ const Panel = () => {
                       const confirmMeta = getConfirmMeta(r);
                       return (
                         <tr key={r.id}
-                          style={{ borderBottom: i < reservations.length - 1 ? "1px solid rgba(80,54,41,0.08)" : "none", transition: "background 0.15s" }}
+                          style={{ borderBottom: i < filteredReservations.length - 1 ? "1px solid rgba(80,54,41,0.08)" : "none", transition: "background 0.15s" }}
                           onMouseEnter={e => e.currentTarget.style.background = "rgba(146,97,79,0.04)"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                         >
+                          {/* ID de reserva */}
+                          <td style={{ padding: "12px 12px" }}>
+                            <span style={{
+                              display: "inline-block",
+                              padding: "2px 8px", borderRadius: 20,
+                              background: "rgba(80,54,41,0.08)",
+                              color: "#92614F", fontSize: "0.72rem", fontWeight: 700,
+                              fontFamily: "monospace", letterSpacing: "0.02em",
+                            }}>
+                              #{r.id}
+                            </span>
+                          </td>
                           {esAdmin && (
                             <td style={{ padding: "12px 12px" }}>
                               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -1079,13 +1240,20 @@ const Panel = () => {
                               </span>
                             </div>
                           </td>
-                          {/* Escritorio */}
+                          {/* Sala / Escritorio */}
                           <td style={{ padding: "12px 12px" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                               <Monitor size={13} color="#CC8A22" strokeWidth={2} />
-                              <span className="text-body" style={{ fontSize: "0.82rem" }}>
-                                {r.puestoId ? `Escritorio ${r.puestoId}` : '—'}
-                              </span>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                                {r.salaNombre && (
+                                  <span style={{ fontSize: "0.72rem", color: "#CC8A22", fontWeight: 600 }}>
+                                    {r.salaNombre}
+                                  </span>
+                                )}
+                                <span className="text-body" style={{ fontSize: "0.82rem" }}>
+                                  {r.puestoId ? `Escritorio ${r.puestoId}` : '—'}
+                                </span>
+                              </div>
                             </div>
                           </td>
                           {/* Turno */}
