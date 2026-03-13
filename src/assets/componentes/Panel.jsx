@@ -719,55 +719,49 @@ const Panel = () => {
       overflowY: "auto",
       padding: isMobile ? "16px" : "28px 24px",
     }}>
+      <div className="top-right-nav-actions">
+        <button
+          className="btn-outline"
+          onClick={() => navigate('/panel', { state: { datosEmpleado } })}
+          title={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
+          aria-label={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
+          style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
+        >
+          {esAdmin ? <Shield size={14} strokeWidth={2.5} /> : <Ticket size={16} color="#503629" strokeWidth={2.5} />}
+        </button>
+        <button
+          className="btn-outline"
+          onClick={() => navigate('/')}
+          title="Cerrar sesión"
+          style={{
+            width: 34, height: 34, padding: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            borderRadius: "999px",
+            borderColor: "rgba(192,57,43,0.35)",
+            color: "#c0392b",
+          }}
+        >
+          <LogOut size={14} strokeWidth={2} />
+        </button>
+        <button
+          className="btn-outline reservas-btn-atras"
+          onClick={() => navigate(-1)}
+          title="Volver"
+          style={{
+            width: 34, height: 34, padding: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            borderRadius: "999px",
+          }}
+        >
+          <ArrowLeft size={14} strokeWidth={2.5} />
+        </button>
+      </div>
+
       <div style={{
         width: "100%", maxWidth: "1040px",
         margin: "0 auto", display: "flex",
         flexDirection: "column", gap: "16px",
       }}>
-
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div />
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button
-              className="btn-outline"
-              onClick={() => navigate('/panel', { state: { datosEmpleado } })}
-              title={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
-              aria-label={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
-              style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
-            >
-              {esAdmin ? <Shield size={14} strokeWidth={2.5} /> : <Ticket size={16} color="#503629" strokeWidth={2.5} />}
-            </button>
-            {/* Cerrar sesión — solo icono */}
-            <button
-              className="btn-outline"
-              onClick={() => navigate('/')}
-              title="Cerrar sesión"
-              style={{
-                width: 34, height: 34, padding: 0,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                borderRadius: "999px",
-                borderColor: "rgba(192,57,43,0.35)",
-                color: "#c0392b",
-              }}
-            >
-              <LogOut size={14} strokeWidth={2} />
-            </button>
-            {/* Atrás — solo icono */}
-            <button
-              className="btn-outline reservas-btn-atras"
-              onClick={() => navigate(-1)}
-              title="Volver"
-              style={{
-                width: 34, height: 34, padding: 0,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                borderRadius: "999px",
-              }}
-            >
-              <ArrowLeft size={14} strokeWidth={2.5} />
-            </button>
-          </div>
-        </div>
 
         {/* Layout */}
         <div style={{

@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, ArrowLeft, Shield, Calendar, RefreshCw, Monitor, Ticket, User, X, LogOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, Shield, Calendar, Monitor, Ticket, User, X, LogOut } from 'lucide-react';
 import sillaDis from '../../assets/sillaDis.png';
 import sillaLim from '../../assets/sillaLim.png';
 import sillaOcu from '../../assets/sillaOcu.png';
 import mesaImg  from '../../assets/mesa.png';
-import useRealtimeSync from '../../hooks/useRealtimeSync';
 
 // ─── URLs ─────────────────────────────────────────────────────────────────────
 const BASE         = 'https://macfer.crepesywaffles.com';
@@ -272,19 +271,7 @@ const OcupantesPanel = ({ reservas }) => {
       {/* Drawer móvil */}
       {drawerOpen && (
         <div className="ocupantes-drawer-backdrop" onClick={() => setDrawerOpen(false)}>
-          <div className="ocupantes-drawer" onClick={e => e.stopPropagation()}>
-            <div className="ocupantes-drawer__header">
-              <button
-                className="ocupantes-drawer__close btn-outline"
-                onClick={() => setDrawerOpen(false)}
-                aria-label="Cerrar"
-              >
-                <X size={14} strokeWidth={2.5} />
-              </button>
-            </div>
-            <div className="ocupantes-drawer__body">
-              <OcupantesPanelContent reservas={reservas} asCard />
-            </div>
+            <div className="ocupantes-drawer__body"><OcupantesPanelContent reservas={reservas} asCard />
           </div>
         </div>
       )}
@@ -483,7 +470,6 @@ export default function Reservas() {
   const [reservando,  setReservando]  = useState(false);
   const [reservaOk,   setReservaOk]   = useState(false);
   const [reservaErr,  setReservaErr]  = useState(null);
-  const [ultimaSync,  setUltimaSync]  = useState(null);
 
   const fechaActual = FECHAS[fechaIndex];
   const fechaISO    = fechaActual.iso;
@@ -523,7 +509,6 @@ export default function Reservas() {
         logEstructura(data);
         console.groupEnd();
         setReservas(data);
-        setUltimaSync(new Date());
       })
       .catch(err => { console.error('[Reservas] error:', err); setReservas([]); })
       .finally(() => setLoadingR(false));
@@ -535,8 +520,6 @@ export default function Reservas() {
     setReservaErr(null);
     setReservaOk(false);
   }, [fechaISO]);
-
-  useRealtimeSync(cargarReservas);
 
   useEffect(() => {
     if (selectedId && calcEstado(reservas, selectedId) === 'ocupado') {
@@ -609,61 +592,53 @@ export default function Reservas() {
 
         {/* ── Header ── */}
         <header className="reservas-header">
-          <div className="reservas-header-left">
-            <div className="reservas-titulo">
-              Crepe-Working <span className="text-accent">1</span>
-            </div>
-            {ultimaSync && (
-              <div style={{ fontSize: '0.65rem', color: 'rgba(80,54,41,0.45)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                <RefreshCw size={13} strokeWidth={2.5} />
-                Actualizado {ultimaSync.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
-              </div>
-            )}
+          <div className="reservas-titulo">
+            Crepe-Working <span className="text-accent">1</span>
           </div>
 
-          <div className="reservas-header-right" style={{ flexWrap: 'nowrap' }}>
+          <div className="reservas-header-date">
             <DateSelector
               fechas={FECHAS}
               fechaIndex={fechaIndex}
               setFechaIndex={setFechaIndex}
             />
-
-            <div style={{ width: 1, height: 26, background: 'rgba(80,54,41,0.15)', flexShrink: 0 }} />
-
-            <button
-              className="btn-outline"
-              style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
-              onClick={() => navigate('/panel', { state: { datosEmpleado: usuario } })}
-              title={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
-            >
-              {esAdmin ? <Shield size={14} strokeWidth={2.5} /> : <Ticket size={16} strokeWidth={2.5} color="#503629" />}
-            </button>
-
-            <button
-              className="btn-outline"
-              style={{
-                width: 34, height: 34, padding: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                borderRadius: '999px', flexShrink: 0,
-                borderColor: 'rgba(192,57,43,0.35)',
-                color: '#c0392b',
-              }}
-              onClick={() => navigate('/')}
-              title="Cerrar sesión"
-            >
-              <LogOut size={14} strokeWidth={2} />
-            </button>
-
-            <button
-              className="btn-outline reservas-btn-atras"
-              style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
-              onClick={() => navigate(-1)}
-              title="Volver"
-            >
-              <ArrowLeft size={14} strokeWidth={2.5} />
-            </button>
           </div>
         </header>
+
+        <div className="top-right-nav-actions">
+          <button
+            className="btn-outline"
+            style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
+            onClick={() => navigate('/panel', { state: { datosEmpleado: usuario } })}
+            title={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
+          >
+            {esAdmin ? <Shield size={14} strokeWidth={2.5} /> : <Ticket size={16} strokeWidth={2.5} color="#503629" />}
+          </button>
+
+          <button
+            className="btn-outline"
+            style={{
+              width: 34, height: 34, padding: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              borderRadius: '999px', flexShrink: 0,
+              borderColor: 'rgba(192,57,43,0.35)',
+              color: '#c0392b',
+            }}
+            onClick={() => navigate('/')}
+            title="Cerrar sesión"
+          >
+            <LogOut size={14} strokeWidth={2} />
+          </button>
+
+          <button
+            className="btn-outline reservas-btn-atras"
+            style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
+            onClick={() => navigate(-1)}
+            title="Volver"
+          >
+            <ArrowLeft size={14} strokeWidth={2.5} />
+          </button>
+        </div>
 
         {/* ── Mapa ── */}
         <div className="reservas-mapa reservas-mapa--con-panel">

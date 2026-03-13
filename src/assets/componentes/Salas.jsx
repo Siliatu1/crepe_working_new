@@ -129,9 +129,7 @@ export default function Salas() {
   return (
     <div className="salas-page-wrapper">
         <div className="salas-layout">
-          <div className="salas-top-actions-row">
-            <div />
-            <div className="salas-header-actions" style={{ flexWrap: 'nowrap' }}>
+            <div className="top-right-nav-actions salas-header-actions" style={{ flexWrap: 'nowrap' }}>
               <button
                 className="btn-outline"
                 style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
@@ -166,7 +164,6 @@ export default function Salas() {
                 <ArrowLeft size={14} strokeWidth={2.5} />
               </button>
             </div>
-          </div>
 
           <div className="salas-container">
 

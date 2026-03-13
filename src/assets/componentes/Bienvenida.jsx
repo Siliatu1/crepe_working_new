@@ -32,7 +32,7 @@ const Bienvenida = () => {
     <div className="page-wrapper">
       <div className="bienvenida-card">
 
-        {/* Avatar */}
+        {/* Foto */}
         <div className="bienvenida-avatar">
           {datosEmpleado.foto && datosEmpleado.foto !== "null" ? (
             <img src={datosEmpleado.foto} alt="Foto" className="bienvenida-foto" />
@@ -44,12 +44,10 @@ const Bienvenida = () => {
         </div>
 
         {/* Saludo */}
-        <h1 className="bienvenida-saludo">
-          ¡Hola, <span className="text-accent">{datosEmpleado.nombre?.split(" ")[0]}</span>!
-        </h1>
+        <h1 className="bienvenida-saludo">¡Hola, {datosEmpleado.nombre?.split(" ")[0]}!</h1>
         <p className="text-muted bienvenida-sub">Bienvenido a tu espacio de trabajo</p>
 
-        {/* Info */}
+        {/* Información */}
         <div className="bienvenida-info">
           <div>
             <div className="text-label">Cargo y Área</div>

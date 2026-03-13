@@ -377,8 +377,14 @@
 
 .bienvenida-card {
   @extend .card;
-  width: 340px;
+  width: 400px;
+  max-width: calc(100vw - 24px);
   text-align: center;
+}
+
+.bienvenida-card--politicas {
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
 }
 
 .bienvenida-avatar    { display: flex; justify-content: center; margin-bottom: $spacing-xl; }
@@ -517,24 +523,20 @@
 // ── Header ────────────────────────────────────────────────
 .reservas-header {
   padding: $spacing-md $spacing-3xl;
-  border-bottom: 1px solid rgba(80, 54, 41, 0.1);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: $spacing-md;
-  background-color: #fff;
+  justify-content: flex-start;
+  gap: $spacing-sm;
+  background-color: transparent;
   flex-shrink: 0;
 
   @include respond-to('sm') {
     padding: $spacing-sm $spacing-lg;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: $spacing-xs;
   }
-}
-
-.reservas-header-left {
-  display: flex;
-  align-items: center;
-  gap: $spacing-md;
 }
 
 .reservas-titulo {
@@ -543,15 +545,19 @@
   color: $color-dark-primary;
   letter-spacing: -0.3px;
   font-family: $font-family-display;
-}
-
-.reservas-header-right {
-  display: flex;
-  align-items: center;
-  gap: $spacing-md;
 
   @include respond-to('sm') {
-    gap: $spacing-sm;
+    text-align: center;
+  }
+}
+
+.reservas-header-date {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  @include respond-to('sm') {
+    width: 100%;
   }
 }
 
@@ -1011,7 +1017,7 @@
 
 .salas-layout {
   width: 100%;
-  max-width: 340px;
+  max-width: 400px;
   margin: auto 0;
   display: flex;
   flex-direction: column;
@@ -1026,6 +1032,21 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.top-right-nav-actions {
+  position: fixed;
+  top: $spacing-md;
+  right: $spacing-lg;
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  z-index: 120;
+
+  @include respond-to('sm') {
+    top: $spacing-sm;
+    right: $spacing-sm;
+  }
 }
 
 .salas-container {
@@ -1492,8 +1513,6 @@ $footer-h: 52px;
 .ocupantes-drawer-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(40, 25, 15, 0.4);
-  backdrop-filter: blur(2px);
   z-index: 300;
   display: flex;
   align-items: center;
