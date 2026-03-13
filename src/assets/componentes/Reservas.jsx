@@ -73,6 +73,16 @@ const getReservationWindowForDate = (selectedDate) => {
 const buildGetUrl = (fecha) =>
   `${API_RESERVAS}?filters[fecha_reserva][$eq]=${fecha}&populate=*`;
 
+const buildUserHistoryUrl = (documento, fecha) => {
+  const params = new URLSearchParams();
+  params.set('filters[documento][$eq]', documento);
+  params.set('filters[fecha_reserva][$lt]', fecha);
+  params.set('sort[0]', 'fecha_reserva:desc');
+  params.set('pagination[pageSize]', '50');
+  params.set('populate', '*');
+  return `${API_RESERVAS}?${params.toString()}`;
+};
+
 // ─── Diagnóstico ──────────────────────────────────────────────────────────────
 const logEstructura = (reservas) => {
   if (!reservas.length) return;
@@ -118,6 +128,13 @@ const esReservaActiva = (r) => getEstado(r) !== 'Cancelada';
 const getNombreCorto = (nombre = '') => {
   const partes = nombre.trim().split(/\s+/);
   return partes.length >= 2 ? `${partes[0]} ${partes[1]}` : partes[0] ?? '';
+};
+
+const formatFechaIso = (isoDate) => {
+  if (!isoDate) return '';
+  const [y, m, d] = String(isoDate).split('-').map(Number);
+  if (!y || !m || !d) return String(isoDate);
+  return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
 };
 
 // ─── Lógica de disponibilidad ─────────────────────────────────────────────────
@@ -307,6 +324,9 @@ const BookingCard = ({
   reservando, reservaOk, reservaErr,
   yaReservoHoy,
   canReserveNow,
+  loadingRotacion,
+  rotacionBloqueada,
+  rotationMessage,
   reserveWindowMessage,
   fechaSeleccionada,
 }) => {
@@ -325,12 +345,16 @@ const BookingCard = ({
   const todoBloqueado = bloq.size >= 3;
   const tieneMonitor  = CON_MONITOR.includes(escritorioId);
   const horarioSelObj = horarios.find(h => h.id === horarioSelId);
-  const puedeReservar = canReserveNow && !yaReservoHoy && !todoBloqueado && !!horarioSelId && !reservaOk;
+  const puedeReservar = canReserveNow && !loadingRotacion && !yaReservoHoy && !rotacionBloqueada && !todoBloqueado && !!horarioSelId && !reservaOk;
 
   const aviso = !canReserveNow
     ? reserveWindowMessage
+    : loadingRotacion
+    ? 'Validando regla de rotación...'
     : yaReservoHoy
     ? '⚠ Ya tienes una reserva para este día'
+    : rotacionBloqueada
+    ? rotationMessage
     : todoBloqueado
     ? 'Este escritorio no tiene turnos disponibles'
     : null;
@@ -470,6 +494,9 @@ export default function Reservas() {
   const [reservando,  setReservando]  = useState(false);
   const [reservaOk,   setReservaOk]   = useState(false);
   const [reservaErr,  setReservaErr]  = useState(null);
+  const [ultimaSync,  setUltimaSync]  = useState(null);
+  const [loadingRotacion, setLoadingRotacion] = useState(false);
+  const [ultimaReservaPrevia, setUltimaReservaPrevia] = useState(null);
 
   const fechaActual = FECHAS[fechaIndex];
   const fechaISO    = fechaActual.iso;
@@ -492,12 +519,58 @@ export default function Reservas() {
     ? 'No puede reservar para pasado mañana (o fechas posteriores) entre 12:00 am y 5:00 am.'
     : '';
 
+  const ultimoPuestoReservado = ultimaReservaPrevia?.puestoId ?? null;
+
+  const getRotationMessage = useCallback(
+    (puestoId = ultimoPuestoReservado) => {
+      if (!puestoId) return 'Debes elegir un escritorio distinto al de tu última reserva.';
+      const fechaUltima = formatFechaIso(ultimaReservaPrevia?.fecha);
+      return fechaUltima
+        ? `Tu última reserva fue el ${fechaUltima} en el escritorio ${puestoId}. Debes hacer rotación y elegir otro escritorio.`
+        : 'Debes elegir un escritorio distinto al de tu última reserva.';
+    },
+    [ultimoPuestoReservado, ultimaReservaPrevia?.fecha]
+  );
+
   useEffect(() => {
     fetch(API_HORARIOS)
       .then(r => r.json())
       .then(json => setHorarios((json.data ?? []).sort((a, b) => a.id - b.id)))
       .catch(() => setHorarios([]));
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const documento = String(usuario?.document_number ?? '').trim();
+
+    if (!documento) {
+      setUltimaReservaPrevia(null);
+      setLoadingRotacion(false);
+      return;
+    }
+
+    setLoadingRotacion(true);
+    fetch(buildUserHistoryUrl(documento, fechaISO))
+      .then(r => r.json())
+      .then(json => {
+        if (cancelled) return;
+        const data = Array.isArray(json.data) ? json.data : [];
+        const ultimaActiva = data.find(esReservaActiva);
+        const puestoId = getPuestoId(ultimaActiva);
+        const fecha = ultimaActiva?.attributes?.fecha_reserva ?? ultimaActiva?.fecha_reserva ?? null;
+        setUltimaReservaPrevia(puestoId ? { puestoId, fecha } : null);
+      })
+      .catch(() => {
+        if (!cancelled) setUltimaReservaPrevia(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRotacion(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [usuario?.document_number, fechaISO]);
 
   const cargarReservas = useCallback(() => {
     setLoadingR(true);
@@ -528,6 +601,14 @@ export default function Reservas() {
     }
   }, [reservas, selectedId]);
 
+  useEffect(() => {
+    if (!selectedId || loadingRotacion) return;
+    if (ultimoPuestoReservado && selectedId === ultimoPuestoReservado) {
+      setSelectedId(null);
+      setReservaErr(getRotationMessage(selectedId));
+    }
+  }, [selectedId, ultimoPuestoReservado, loadingRotacion, getRotationMessage]);
+
   const yaReservoHoy = reservas.some(
     r => String(r.attributes?.documento ?? r.documento) === String(usuario?.document_number) && esReservaActiva(r)
   );
@@ -535,7 +616,12 @@ export default function Reservas() {
   const handleReservar = async (horarioObj) => {
     if (!usuario || !selectedId || !horarioObj) return;
     if (!canReserveNow) { setReservaErr(reserveWindowMessage); return; }
+    if (loadingRotacion) { setReservaErr('Aún estamos validando la rotación de puestos. Intenta de nuevo en unos segundos.'); return; }
     if (yaReservoHoy) { setReservaErr('Ya tienes una reserva para este día.'); return; }
+    if (ultimoPuestoReservado && selectedId === ultimoPuestoReservado) {
+      setReservaErr(getRotationMessage(selectedId));
+      return;
+    }
     if (turnosBloqueados(reservas, selectedId).has(horarioObj.id)) {
       setReservaErr('Este turno ya no está disponible. Elige otro.');
       return;
@@ -580,6 +666,9 @@ export default function Reservas() {
     return sillaDis;
   };
   const getTooltip = (id) => {
+    if (!loadingRotacion && ultimoPuestoReservado && id === ultimoPuestoReservado) {
+      return `Rotación activa: elige un escritorio distinto al ${id}`;
+    }
     const e = calcEstado(reservas, id);
     if (e === 'ocupado')  return 'Escritorio lleno — sin turnos disponibles';
     if (e === 'limitado') return 'Clic para ver turnos disponibles';
@@ -651,7 +740,8 @@ export default function Reservas() {
               <img src={mesaImg} alt="Mesa" className="reservas-mesa-img" />
               {SILLAS.map(s => {
                 const estado   = calcEstado(reservas, s.id);
-                const isAvail  = estado !== 'ocupado';
+                const bloqueadoPorRotacion = !loadingRotacion && ultimoPuestoReservado === s.id;
+                const isAvail  = estado !== 'ocupado' && !bloqueadoPorRotacion;
                 const isHover  = hoverId    === s.id;
                 const isSelect = selectedId === s.id;
                 return (
@@ -660,6 +750,10 @@ export default function Reservas() {
                     src={getSilla(s.id)}
                     alt={`Escritorio ${s.id}`}
                     onClick={() => {
+                      if (bloqueadoPorRotacion) {
+                        setReservaErr(getRotationMessage(s.id));
+                        return;
+                      }
                       if (!isAvail) return;
                       setSelectedId(isSelect ? null : s.id);
                       setReservaErr(null);
@@ -679,6 +773,8 @@ export default function Reservas() {
                         ? 'drop-shadow(0 0 10px rgba(127,58,20,0.75)) brightness(1.1)'
                         : isHover && isAvail
                         ? 'brightness(1.15) drop-shadow(0 4px 10px rgba(0,0,0,0.2))'
+                        : bloqueadoPorRotacion
+                        ? 'grayscale(0.55) brightness(0.9)'
                         : 'none',
                       zIndex: isHover || isSelect ? 10 : 1,
                     }}
@@ -723,6 +819,9 @@ export default function Reservas() {
         reservaErr={reservaErr}
         yaReservoHoy={yaReservoHoy}
         canReserveNow={canReserveNow}
+        loadingRotacion={loadingRotacion}
+        rotacionBloqueada={!loadingRotacion && !!selectedId && selectedId === ultimoPuestoReservado}
+        rotationMessage={getRotationMessage(selectedId)}
         reserveWindowMessage={reserveWindowMessage}
         fechaSeleccionada={fechaActual}
       />

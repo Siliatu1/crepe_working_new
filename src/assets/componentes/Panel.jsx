@@ -50,6 +50,13 @@ const getNombreCorto = (nombre = '') => {
 
 const getNombreCompleto = (nombre = '') => String(nombre ?? '').trim();
 
+const getLocalDateString = (referenceDate = new Date()) => {
+  const year = referenceDate.getFullYear();
+  const month = String(referenceDate.getMonth() + 1).padStart(2, '0');
+  const day = String(referenceDate.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const extractId = (rel) => {
   if (rel == null) return null;
   if (typeof rel === 'number') return rel;
@@ -102,14 +109,18 @@ const getHorarioLabel = (r, horarioId) => {
 
 const getEstadoReserva = (attrs = {}) => {
   const estadoRaw = attrs?.estado;
+
+  // Regla canónica de backend: null => Pendiente, true => Confirmada, false => Cancelada
+  if (estadoRaw === true) return 'Confirmada';
+  if (estadoRaw === false) return 'Cancelada';
+  if (estadoRaw === null) return 'Pendiente';
+
   const motivo = String(attrs?.motivo_cancelacion ?? attrs?.motivoCancelacion ?? '').trim();
   const tipoVerificacion = String(attrs?.verificacionAsistencia?.tipo ?? '').toLowerCase();
   const fueCanceladaManualmente = motivo.length > 0 || tipoVerificacion.includes('cancelacion');
 
   if (fueCanceladaManualmente) return 'Cancelada';
 
-  if (estadoRaw === true) return 'Confirmada';
-  if (estadoRaw === false) return 'Cancelada';
   if (estadoRaw == null) return 'Pendiente';
 
   const estadoTexto = String(estadoRaw)
@@ -135,8 +146,10 @@ const ReservaCard = ({
   r,
   cancelando,
   confirmando,
+  reactivando,
   onCancelar,
   onConfirmar,
+  onReactivar,
   canConfirm,
   confirmLabel,
   helperMessage,
@@ -152,6 +165,7 @@ const ReservaCard = ({
   const confirmDisabled =
     confirmando === r.id ||
     cancelando === r.id ||
+    reactivando === r.id ||
     !esPendiente ||
     !canConfirm;
 
@@ -253,7 +267,7 @@ const ReservaCard = ({
             </button>
             <button
               onClick={() => onCancelar(r.id)}
-              disabled={cancelando === r.id || esCancelada}
+              disabled={cancelando === r.id || esCancelada || reactivando === r.id}
               style={{
                 width: "100%",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
@@ -261,14 +275,33 @@ const ReservaCard = ({
                 border: "1px solid rgba(220,53,69,0.3)",
                 background: "rgba(220,53,69,0.06)",
                 color: "#c0392b", fontSize: "0.8rem", fontWeight: 600,
-                cursor: cancelando === r.id || esCancelada ? "not-allowed" : "pointer",
-                opacity: cancelando === r.id || esCancelada ? 0.6 : 1,
+                cursor: cancelando === r.id || esCancelada || reactivando === r.id ? "not-allowed" : "pointer",
+                opacity: cancelando === r.id || esCancelada || reactivando === r.id ? 0.6 : 1,
                 fontFamily: "inherit",
               }}
             >
               <Trash2 size={13} strokeWidth={2} />
               {esCancelada ? "Ya cancelada" : cancelando === r.id ? "Cancelando…" : "Cancelar"}
             </button>
+            {showOwner && esCancelada && (
+              <button
+                onClick={() => onReactivar(r.id)}
+                disabled={reactivando === r.id || cancelando === r.id || confirmando === r.id}
+                style={{
+                  width: "100%",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+                  padding: "8px", borderRadius: "8px",
+                  border: "1px solid rgba(204,138,34,0.35)",
+                  background: "rgba(204,138,34,0.1)",
+                  color: "#8A6D3B", fontSize: "0.8rem", fontWeight: 700,
+                  cursor: reactivando === r.id || cancelando === r.id || confirmando === r.id ? "not-allowed" : "pointer",
+                  opacity: reactivando === r.id || cancelando === r.id || confirmando === r.id ? 0.6 : 1,
+                  fontFamily: "inherit",
+                }}
+              >
+                {reactivando === r.id ? "Reactivando…" : "Reactivar"}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -293,17 +326,16 @@ const Panel = () => {
   const [error,        setError]        = useState("");
   const [cancelando,   setCancelando]   = useState(null);
   const [confirmando,  setConfirmando]  = useState(null);
+  const [reactivando,  setReactivando]  = useState(null);
   const [cancelConfirmId, setCancelConfirmId] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelReasonError, setCancelReasonError] = useState('');
-  const [confirmConfirmId, setConfirmConfirmId] = useState(null);
-  const [confirmReason, setConfirmReason] = useState('');
-  const [confirmReasonError, setConfirmReasonError] = useState('');
   const [isNearPoint,  setIsNearPoint]  = useState(false);
   const [distanceMeters, setDistanceMeters] = useState(null);
   const [locationChecking, setLocationChecking] = useState(false);
   const [locationError, setLocationError] = useState("");
   const [nowMs, setNowMs] = useState(Date.now());
+  const [showAllReservations, setShowAllReservations] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -397,11 +429,15 @@ const Panel = () => {
       const filtroDocumento = esAdmin
         ? ''
         : `&filters[documento][$eq]=${encodeURIComponent(documentoUsuario)}`;
+      const filtroFecha = showAllReservations
+        ? ''
+        : `&filters[fecha_reserva][$eq]=${getLocalDateString()}`;
 
       const url =
         `${API_RESERVAS}` +
         `?sort[0]=fecha_reserva:desc&sort[1]=id:desc` +
         filtroDocumento +
+        filtroFecha +
         `&populate[working_puestos][fields][0]=id&populate[working_puestos][fields][1]=nombre` +
         `&populate[working_horarios][fields][0]=id&populate[working_horarios][fields][1]=nombre` +
         `&pagination[pageSize]=40000`;
@@ -451,7 +487,7 @@ const Panel = () => {
     } finally {
       setLoading(false);
     }
-  }, [documentoUsuario, esAdmin]);
+  }, [documentoUsuario, esAdmin, showAllReservations]);
 
   useEffect(() => { 
     if (datosEmpleado?.documento || datosEmpleado?.document_number) {
@@ -465,22 +501,16 @@ const Panel = () => {
     void refreshLocationStatus(true);
   }, [refreshLocationStatus]);
 
-  const handleConfirmar = async (id, motivoAdmin = '') => {
+  const handleConfirmar = async (id) => {
     const reservaAux = reservations.find(r => r.id === id);
     if (!reservaAux || reservaAux.estado !== 'Pendiente') {
       return;
     }
 
     if (esAdmin) {
-      const motivoLimpio = String(motivoAdmin || '').trim();
-      if (!motivoLimpio) {
-        alert('Debes ingresar el motivo de confirmación.');
-        return;
-      }
-
       setConfirmando(id);
       try {
-        const mensaje = motivoLimpio;
+        const mensaje = 'Reserva confirmada por administrador.';
 
         await updateReservaWithVerification(id, {
           estado: 'Confirmada',
@@ -594,6 +624,60 @@ const Panel = () => {
     }
   };
 
+  const handleReactivar = async (id) => {
+    if (!esAdmin) return;
+
+    const reservaAux = reservations.find(r => r.id === id);
+    if (!reservaAux || reservaAux.estado !== 'Cancelada') {
+      return;
+    }
+
+    setReactivando(id);
+    try {
+      await updateReservaWithVerification(id, {
+        estado: 'Pendiente',
+        confirmada: null,
+        motivoCancelacion: null,
+        motivo_cancelacion: null,
+        verificacionAsistencia: {
+          fecha: new Date().toISOString(),
+          mensaje: 'Reserva reactivada por administrador.',
+          tipo: 'reactivacion-admin',
+          autorizadaPor: documentoUsuario,
+          nombreAutorizador: datosEmpleado?.nombre ?? 'Administrador',
+        },
+      }, reservaAux);
+
+      setReservations((prev) =>
+        prev.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                estado: 'Pendiente',
+                confirmada: null,
+                motivoCancelacion: null,
+                verificacionAsistencia: {
+                  ...(r.verificacionAsistencia || {}),
+                  fecha: new Date().toISOString(),
+                  mensaje: 'Reserva reactivada por administrador.',
+                  tipo: 'reactivacion-admin',
+                  autorizadaPor: documentoUsuario,
+                  nombreAutorizador: datosEmpleado?.nombre ?? 'Administrador',
+                },
+              }
+            : r
+        )
+      );
+
+      alert('Reserva reactivada.');
+    } catch (err) {
+      console.error(err);
+      alert(err?.message || 'Error al reactivar la reserva.');
+    } finally {
+      setReactivando(null);
+    }
+  };
+
   // Cancelar = usar la función del servicio que construye correctamente el payload
   const handleCancelar = async (id, motivoCancelacion) => {
     setCancelando(id);
@@ -654,45 +738,11 @@ const Panel = () => {
     await handleCancelar(id, motivo);
   };
 
-  const solicitarConfirmacionAdmin = (id) => {
-    if (!esAdmin) {
-      void handleConfirmar(id);
-      return;
-    }
-
-    setConfirmConfirmId(id);
-    setConfirmReason('');
-    setConfirmReasonError('');
-  };
-
-  const cerrarConfirmacionConfirmar = () => {
-    setConfirmConfirmId(null);
-    setConfirmReason('');
-    setConfirmReasonError('');
-  };
-
-  const confirmarConfirmacionAdmin = async () => {
-    if (!confirmConfirmId) return;
-
-    const motivo = confirmReason.trim();
-    if (!motivo) {
-      setConfirmReasonError('Debes ingresar el motivo de confirmación.');
-      return;
-    }
-
-    const id = confirmConfirmId;
-    setConfirmConfirmId(null);
-    setConfirmReason('');
-    setConfirmReasonError('');
-    await handleConfirmar(id, motivo);
-  };
-
   // Estado mostrado en panel: Pendiente / Confirmada / Cancelada
   const pendientes = reservations.filter(r => r.estado === 'Pendiente');
   const confirmadas = reservations.filter(r => r.estado === 'Confirmada');
   const canceladas = reservations.filter(r => r.estado === 'Cancelada');
   const reservaEnConfirmacion = reservations.find(r => r.id === cancelConfirmId) || null;
-  const reservaEnConfirmacionAdmin = reservations.find(r => r.id === confirmConfirmId) || null;
 
   if (loading) return (
     <div className="page-wrapper">
@@ -898,20 +948,42 @@ const Panel = () => {
               justifyContent: "space-between", marginBottom: "16px",
             }}>
               <h2 className="bienvenida-saludo" style={{ margin: 0, fontSize: "1.05rem" }}>
-                {esAdmin ? 'Todas las ' : 'Mis '}<span className="text-accent">reservas</span>
+                {showAllReservations
+                  ? (esAdmin ? 'Todas las ' : 'Mis ')
+                  : 'Reservas de '}<span className="text-accent">{showAllReservations ? 'reservas' : 'hoy'}</span>
               </h2>
-              <span style={{
-                padding: "3px 12px", borderRadius: 20,
-                background: "rgba(80,54,41,0.08)", color: "#503629",
-                fontSize: "0.75rem", fontWeight: 700,
-              }}>
-                {reservations.length}
-              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button
+                  onClick={() => setShowAllReservations((prev) => !prev)}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: 8,
+                    border: "1px solid rgba(80,54,41,0.25)",
+                    background: "rgba(80,54,41,0.06)",
+                    color: "#503629",
+                    fontSize: "0.75rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {showAllReservations
+                    ? 'Ver reservas de hoy'
+                    : (esAdmin ? 'Ver todas las reservas' : 'Ver todas mis reservas')}
+                </button>
+                <span style={{
+                  padding: "3px 12px", borderRadius: 20,
+                  background: "rgba(80,54,41,0.08)", color: "#503629",
+                  fontSize: "0.75rem", fontWeight: 700,
+                }}>
+                  {reservations.length}
+                </span>
+              </div>
             </div>
 
             {reservations.length === 0 && (
               <p className="text-muted" style={{ fontSize: "0.85rem", textAlign: "center", padding: "24px 0" }}>
-                No hay reservas registradas.
+                {showAllReservations ? 'No hay reservas registradas.' : 'No hay reservas para hoy.'}
               </p>
             )}
 
@@ -927,8 +999,10 @@ const Panel = () => {
                       r={r}
                       cancelando={cancelando}
                       confirmando={confirmando}
+                      reactivando={reactivando}
                       onCancelar={solicitarCancelacion}
-                      onConfirmar={solicitarConfirmacionAdmin}
+                      onConfirmar={handleConfirmar}
+                      onReactivar={handleReactivar}
                       canConfirm={canAdminConfirm || (isNearPoint && confirmMeta.canByTime)}
                       confirmLabel={esAdmin ? 'Confirmar' : 'Confirmar'}
                       helperMessage={esAdmin && r.estado === 'Pendiente'
@@ -1062,16 +1136,16 @@ const Panel = () => {
                           <td style={{ padding: "12px 12px", textAlign: "right" }}>
                             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
                               <button
-                                onClick={() => solicitarConfirmacionAdmin(r.id)}
-                                disabled={confirmando === r.id || cancelando === r.id || !esPendiente || (!esAdmin && (!isNearPoint || !confirmMeta.canByTime))}
+                                onClick={() => handleConfirmar(r.id)}
+                                disabled={confirmando === r.id || cancelando === r.id || reactivando === r.id || !esPendiente || (!esAdmin && (!isNearPoint || !confirmMeta.canByTime))}
                                 style={{
                                   display: "inline-flex", alignItems: "center", gap: 5,
                                   padding: "4px 10px", borderRadius: 8,
                                   border: "1px solid rgba(21,87,36,0.35)",
                                   background: "rgba(21,87,36,0.08)",
                                   color: "#155724", fontSize: "0.75rem", fontWeight: 600,
-                                  cursor: confirmando === r.id || cancelando === r.id || !esPendiente || (!esAdmin && (!isNearPoint || !confirmMeta.canByTime)) ? "not-allowed" : "pointer",
-                                  opacity: confirmando === r.id || cancelando === r.id || !esPendiente || (!esAdmin && (!isNearPoint || !confirmMeta.canByTime)) ? 0.6 : 1,
+                                  cursor: confirmando === r.id || cancelando === r.id || reactivando === r.id || !esPendiente || (!esAdmin && (!isNearPoint || !confirmMeta.canByTime)) ? "not-allowed" : "pointer",
+                                  opacity: confirmando === r.id || cancelando === r.id || reactivando === r.id || !esPendiente || (!esAdmin && (!isNearPoint || !confirmMeta.canByTime)) ? 0.6 : 1,
                                   transition: "all 0.15s", fontFamily: "inherit",
                                 }}
                               >
@@ -1079,23 +1153,41 @@ const Panel = () => {
                               </button>
                               <button
                                 onClick={() => solicitarCancelacion(r.id)}
-                                disabled={cancelando === r.id || esCancelada || cancelConfirmId === r.id}
+                                disabled={cancelando === r.id || esCancelada || cancelConfirmId === r.id || reactivando === r.id}
                                 style={{
                                   display: "inline-flex", alignItems: "center", gap: 5,
                                   padding: "4px 10px", borderRadius: 8,
                                   border: "1px solid rgba(220,53,69,0.35)",
                                   background: "rgba(220,53,69,0.06)",
                                   color: "#c0392b", fontSize: "0.75rem", fontWeight: 600,
-                                  cursor: cancelando === r.id || esCancelada || cancelConfirmId === r.id ? "not-allowed" : "pointer",
-                                  opacity: cancelando === r.id || esCancelada || cancelConfirmId === r.id ? 0.6 : 1,
+                                  cursor: cancelando === r.id || esCancelada || cancelConfirmId === r.id || reactivando === r.id ? "not-allowed" : "pointer",
+                                  opacity: cancelando === r.id || esCancelada || cancelConfirmId === r.id || reactivando === r.id ? 0.6 : 1,
                                   transition: "all 0.15s", fontFamily: "inherit",
                                 }}
-                                onMouseEnter={e => { if (cancelando !== r.id && !esCancelada && cancelConfirmId !== r.id) e.currentTarget.style.background = "rgba(220,53,69,0.12)"; }}
+                                onMouseEnter={e => { if (cancelando !== r.id && !esCancelada && cancelConfirmId !== r.id && reactivando !== r.id) e.currentTarget.style.background = "rgba(220,53,69,0.12)"; }}
                                 onMouseLeave={e => { e.currentTarget.style.background = "rgba(220,53,69,0.06)"; }}
                               >
                                 <Trash2 size={13} strokeWidth={2} />
                                 {esCancelada ? "Cancelada" : cancelando === r.id ? "Cancelando…" : "Cancelar"}
                               </button>
+                              {esAdmin && esCancelada && (
+                                <button
+                                  onClick={() => handleReactivar(r.id)}
+                                  disabled={reactivando === r.id || cancelando === r.id || confirmando === r.id}
+                                  style={{
+                                    display: "inline-flex", alignItems: "center", gap: 5,
+                                    padding: "4px 10px", borderRadius: 8,
+                                    border: "1px solid rgba(204,138,34,0.35)",
+                                    background: "rgba(204,138,34,0.1)",
+                                    color: "#8A6D3B", fontSize: "0.75rem", fontWeight: 700,
+                                    cursor: reactivando === r.id || cancelando === r.id || confirmando === r.id ? "not-allowed" : "pointer",
+                                    opacity: reactivando === r.id || cancelando === r.id || confirmando === r.id ? 0.6 : 1,
+                                    transition: "all 0.15s", fontFamily: "inherit",
+                                  }}
+                                >
+                                  {reactivando === r.id ? "Reactivando…" : "Reactivar"}
+                                </button>
+                              )}
                             </div>
                             {esPendiente && (
                               <div style={{ marginTop: 6, fontSize: "0.7rem", color: "#8A6D3B", textAlign: "right" }}>
@@ -1228,114 +1320,6 @@ const Panel = () => {
         </div>
       )}
 
-      {confirmConfirmId != null && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: "16px",
-          }}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "420px",
-              background: "#fff",
-              borderRadius: "12px",
-              border: "1px solid rgba(80,54,41,0.15)",
-              boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
-              padding: "18px",
-            }}
-          >
-            <h3 style={{ margin: 0, color: "#503629", fontSize: "1rem", fontWeight: 700 }}>
-              Confirmar reserva
-            </h3>
-            <p style={{ margin: "10px 0 0", color: "#6B4A3A", fontSize: "0.88rem" }}>
-              Ingresa el motivo de confirmación.
-            </p>
-            {reservaEnConfirmacionAdmin && (
-              <p style={{ margin: "8px 0 0", color: "#92614F", fontSize: "0.8rem" }}>
-                Escritorio {reservaEnConfirmacionAdmin.puestoId ?? '—'} · {reservaEnConfirmacionAdmin.fecha || '—'}
-              </p>
-            )}
-
-            <div style={{ marginTop: "12px" }}>
-              <label
-                htmlFor="confirm-reason"
-                style={{ display: "block", marginBottom: "6px", color: "#503629", fontSize: "0.78rem", fontWeight: 600 }}
-              >
-                Motivo de confirmación
-              </label>
-              <textarea
-                id="confirm-reason"
-                value={confirmReason}
-                onChange={(e) => {
-                  setConfirmReason(e.target.value);
-                  if (confirmReasonError) setConfirmReasonError('');
-                }}
-                placeholder="Escribe el motivo"
-                rows={3}
-                style={{
-                  width: "100%",
-                  resize: "vertical",
-                  borderRadius: "8px",
-                  border: `1px solid ${confirmReasonError ? 'rgba(192,57,43,0.6)' : 'rgba(80,54,41,0.25)'}`,
-                  padding: "8px 10px",
-                  fontSize: "0.82rem",
-                  fontFamily: "inherit",
-                  color: "#503629",
-                  boxSizing: "border-box",
-                }}
-              />
-              {confirmReasonError && (
-                <div style={{ marginTop: "6px", fontSize: "0.74rem", color: "#c0392b" }}>
-                  {confirmReasonError}
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "16px" }}>
-              <button
-                onClick={cerrarConfirmacionConfirmar}
-                style={{
-                  padding: "7px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(80,54,41,0.25)",
-                  background: "#fff",
-                  color: "#503629",
-                  fontSize: "0.82rem",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                Cerrar
-              </button>
-              <button
-                onClick={confirmarConfirmacionAdmin}
-                style={{
-                  padding: "7px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(21,87,36,0.35)",
-                  background: "rgba(21,87,36,0.12)",
-                  color: "#155724",
-                  fontSize: "0.82rem",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                Aceptar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
