@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { IdCard } from "lucide-react";
 
 const ValidarCedula = () => {
   const navigate = useNavigate();
@@ -56,6 +57,18 @@ const ValidarCedula = () => {
         <div className="bienvenida-info">
           <form onSubmit={handleUsuario} style={{ width: "100%" }}>
             <div style={{ marginBottom: "12px" }}>
+              <div style={{ position: "relative" }}>
+                <IdCard
+                  size={18}
+                  style={{
+                    position: "absolute",
+                    left: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "rgba(80, 54, 41, 0.55)",
+                    pointerEvents: "none",
+                  }}
+                />
               <input
                 type="text"
                 className="form-input"
@@ -64,7 +77,9 @@ const ValidarCedula = () => {
                 onChange={handleCedulaChange}
                 disabled={loading}
                 maxLength="10"
+                style={{ paddingLeft: "40px" }}
               />
+              </div>
             </div>
 
             {error && (
