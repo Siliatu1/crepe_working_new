@@ -391,7 +391,7 @@ const BookingCard = ({
     : loadingRotacion
     ? 'Validando regla de rotación...'
     : yaReservoHoy
-    ? '⚠ Ya tienes una reserva para este día'
+    ? 'Ya tienes una reserva para este día'
     : rotacionBloqueada
     ? rotationMessage
     : todoBloqueado
