@@ -263,12 +263,14 @@ export const getReservasPendientesHoy = async () => {
 export const cancelarReservasVencidas = async () => {
   const horarios = await fetchWorkingHorarios();
   const reservasPendientes = await getReservasPendientesHoy();
+  const motivoAutoCancelacion = 'Reserva cancelada por falta de confirmacion';
 
   let canceladas = 0;
 
   for (const reserva of reservasPendientes) {
     const evaluation = evaluateReservationStatus(reserva, horarios);
 
+    // No cancelar durante la ventana activa de 25 minutos desde el inicio del turno.
     if (!evaluation.shouldUpdate || evaluation.newStatus !== 'Cancelada') {
       continue;
     }
@@ -276,11 +278,11 @@ export const cancelarReservasVencidas = async () => {
     await updateReservaWithVerification(reserva.id, {
       estado: 'Cancelada',
       confirmada: false,
-      motivoCancelacion: evaluation.message,
-      motivo_cancelacion: evaluation.message,
+      motivoCancelacion: motivoAutoCancelacion,
+      motivo_cancelacion: motivoAutoCancelacion,
       verificacionAsistencia: {
         fecha: new Date().toISOString(),
-        mensaje: evaluation.message,
+        mensaje: motivoAutoCancelacion,
         tipo: 'auto-cancelacion',
       },
     }, reserva);

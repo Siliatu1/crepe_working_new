@@ -1,6 +1,13 @@
 import { useEffect } from 'react';
 import { cancelarReservasVencidas } from '../utils/reservasService';
 
+const WORK_START_HOUR = 5;
+const WORK_END_HOUR = 17;
+
+const isWithinWorkingHours = (referenceDate = new Date()) => {
+  const hour = referenceDate.getHours();
+  return hour >= WORK_START_HOUR && hour < WORK_END_HOUR;
+};
 
 const useAutoCancelarReservas = (enabled = true) => {
   useEffect(() => {
@@ -10,6 +17,10 @@ const useAutoCancelarReservas = (enabled = true) => {
 
     // Función para verificar y cancelar
     const verificarYCancelar = async () => {
+      if (!isWithinWorkingHours()) {
+        return;
+      }
+
       try {
         const result = await cancelarReservasVencidas();
 
@@ -29,7 +40,7 @@ const useAutoCancelarReservas = (enabled = true) => {
 
     const interval = setInterval(() => {
       void verificarYCancelar();
-    }, 60000);
+    }, 60 * 60 * 1000);
 
 
     return () => {

@@ -280,7 +280,7 @@ const VerificacionAsistencia = ({
         ...(updatedReserva ?? {}),
         estado: estadoTexto,
         confirmada,
-      };
+      };           
 
       onStatusChange?.(reservaActualizada, finalResult);
       onVerified?.(reservaActualizada);
@@ -303,7 +303,7 @@ const VerificacionAsistencia = ({
     } finally {
       setLoading(false);
     }
-  }, [emitAlert, geoSupport, onStatusChange, onVerified, reserva]);
+  }, [emitAlert, geoSupport, onStatusChange, onVerified, reserva, workplaceInfo]);
 
   const controller = useMemo(() => ({
     verify,

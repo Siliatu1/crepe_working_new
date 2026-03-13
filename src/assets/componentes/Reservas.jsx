@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, ArrowLeft, Shield, Calendar, RefreshCw, Monitor, Ticket, User, X, LogOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, Armchair, Calendar, Monitor, Ticket, User, X, LogOut } from 'lucide-react';
 import sillaDis from '../../assets/sillaDis.png';
 import sillaLim from '../../assets/sillaLim.png';
 import sillaOcu from '../../assets/sillaOcu.png';
 import mesaImg  from '../../assets/mesa.png';
-import useRealtimeSync from '../../hooks/useRealtimeSync';
 
 // ─── URLs ─────────────────────────────────────────────────────────────────────
 const BASE         = 'https://macfer.crepesywaffles.com';
@@ -63,26 +62,20 @@ const generarFechasHabiles = (n = 2) => {
   return fechas;
 };
 
-const getReservationWindowForDate = (selectedDate) => {
-  const start = new Date(selectedDate);
-  start.setHours(5, 0, 0, 0);
-  const end = new Date(selectedDate);
-  end.setHours(17, 0, 0, 0);
-  return { start, end };
-};
-
 const buildGetUrl = (fecha) =>
   `${API_RESERVAS}?filters[fecha_reserva][$eq]=${fecha}&populate=*`;
 
-// ─── Diagnóstico ──────────────────────────────────────────────────────────────
-const logEstructura = (reservas) => {
-  if (!reservas.length) return;
-  const r = reservas[0];
-  console.group('🔍 [DEBUG] Estructura de reserva de la API');
-  console.log('Reserva completa:', JSON.stringify(r, null, 2));
-  console.groupEnd();
+const buildUserHistoryUrl = (documento, fecha) => {
+  const params = new URLSearchParams();
+  params.set('filters[documento][$eq]', documento);
+  params.set('filters[fecha_reserva][$lt]', fecha);
+  params.set('sort[0]', 'fecha_reserva:desc');
+  params.set('pagination[pageSize]', '50');
+  params.set('populate', '*');
+  return `${API_RESERVAS}?${params.toString()}`;
 };
 
+// ─── Diagnóstico ──────────────────────────────────────────────────────────────
 // ─── Extracción de IDs ────────────────────────────────────────────────────────
 const extractId = (rel) => {
   if (rel === null || rel === undefined) return null;
@@ -99,7 +92,39 @@ const extractId = (rel) => {
 
 const getPuestoId  = (r) => extractId(r.attributes?.working_puestos)  ?? extractId(r.working_puestos)  ?? null;
 const getHorarioId = (r) => extractId(r.attributes?.working_horarios) ?? extractId(r.working_horarios) ?? null;
-const getNombre    = (r) => r.attributes?.Nombre ?? r.attributes?.documento ?? r.Nombre ?? r.documento ?? '—';
+const getNombre = (r) => {
+  const attrs = r?.attributes ?? r ?? {};
+  const nombreCompleto = [
+    attrs.Nombre,
+    attrs.nombreCompleto,
+    attrs.nombre_completo,
+    attrs.fullName,
+    attrs.full_name,
+  ].find((value) => typeof value === 'string' && value.trim());
+
+  if (nombreCompleto) return nombreCompleto;
+
+  const nombres = [
+    attrs.nombre,
+    attrs.nombres,
+    attrs.firstName,
+    attrs.first_name,
+  ].find((value) => typeof value === 'string' && value.trim());
+
+  const apellidos = [
+    attrs.apellidos,
+    attrs.apellido,
+    attrs.lastName,
+    attrs.last_name,
+    attrs.primer_apellido,
+    attrs.segundo_apellido,
+    attrs.apellido_paterno,
+    attrs.apellido_materno,
+  ].find((value) => typeof value === 'string' && value.trim());
+
+  const combinado = [nombres, apellidos].filter(Boolean).join(' ').trim();
+  return combinado || attrs.documento || '—';
+};
 const getPrimerNombre = (r) => getNombre(r).split(' ')[0];
 const getFoto      = (r) => r.attributes?.foto ?? r.foto ?? null;
 
@@ -117,8 +142,24 @@ const getEstado = (r) => {
 const esReservaActiva = (r) => getEstado(r) !== 'Cancelada';
 
 const getNombreCorto = (nombre = '') => {
-  const partes = nombre.trim().split(/\s+/);
-  return partes.length >= 2 ? `${partes[0]} ${partes[1]}` : partes[0] ?? '';
+  const partes = String(nombre).trim().split(/\s+/).filter(Boolean);
+
+  if (partes.length >= 3) {
+    return `${partes[0]} ${partes[partes.length - 2]}`;
+  }
+
+  if (partes.length === 2) {
+    return `${partes[0]} ${partes[1]}`;
+  }
+
+  return partes[0] ?? '';
+};
+
+const formatFechaIso = (isoDate) => {
+  if (!isoDate) return '';
+  const [y, m, d] = String(isoDate).split('-').map(Number);
+  if (!y || !m || !d) return String(isoDate);
+  return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
 };
 
 // ─── Lógica de disponibilidad ─────────────────────────────────────────────────
@@ -193,55 +234,70 @@ const OcupantesPanelContent = ({ reservas, asCard = false }) => {
           <div
             key={id}
             className="op-fila"
-            style={{ gridTemplateColumns: '1fr 18px' }}
+            style={{ gridTemplateColumns: '1fr' }}
           >
-            {/* Ocupantes */}
             <div className="op-fila__personas">
-              <span className="text-muted" style={{ fontSize: '0.66rem', fontWeight: 700 }}>
-                Escritorio {id}
-              </span>
               {rp.length > 0 ? (
-                rp.map((r, i) => {
-                  const hId    = getHorarioId(r);
-                  const meta   = HORARIO_META[hId];
-                  const foto   = getFoto(r);
-                  const nombre = getPrimerNombre(r);
-                  return (
-                    <div key={i} className="op-fila__persona">
-                      {foto && foto !== 'null' ? (
-                        <img
-                          src={foto}
-                          alt={nombre}
-                          className="op-fila__foto"
-                        />
-                      ) : (
-                        <div className="op-fila__avatar">
-                          <User size={10} strokeWidth={2.5} />
+                <>
+                  <div className="op-fila__persona-top">
+                    <span className="op-fila__escritorio-label">Escritorio {id}</span>
+                    {hasM && (
+                      <div className="op-fila__monitor-inline" title="Con monitor de apoyo">
+                        <Monitor size={12} strokeWidth={2} />
+                      </div>
+                    )}
+                  </div>
+                  {rp.map((r, i) => {
+                    const hId    = getHorarioId(r);
+                    const meta   = HORARIO_META[hId];
+                    const foto   = getFoto(r);
+                    const nombre = getPrimerNombre(r);
+                    return (
+                      <div key={i} className="op-fila__persona-card">
+                        <div className="op-fila__persona">
+                          {foto && foto !== 'null' ? (
+                            <img
+                              src={foto}
+                              alt={nombre}
+                              className="op-fila__foto"
+                            />
+                          ) : (
+                            <div className="op-fila__avatar">
+                              <User size={10} strokeWidth={2.5} />
+                            </div>
+                          )}
+                          <div className="op-fila__persona-main">
+                            <span className="op-fila__nombre">
+                              {nombre}
+                            </span>
+                            {meta && <TimeBadge time={meta.badgeKey} />}
+                          </div>
                         </div>
-                      )}
-                      <span className="op-fila__nombre">
-                        {nombre}
-                      </span>
-                      {meta && <TimeBadge time={meta.badgeKey} />}
-                    </div>
-                  );
-                })
+                      </div>
+                    );
+                  })}
+                </>
               ) : (
-                <span className="text-muted" style={{ fontSize: '0.68rem', fontWeight: 600 }}>
-                  Disponible
-                </span>
+                <div className="op-fila__persona-card">
+                  <div className="op-fila__persona-top">
+                    <span className="op-fila__escritorio-label">Escritorio {id}</span>
+                    {hasM && (
+                      <div className="op-fila__monitor-inline" title="Con monitor de apoyo">
+                        <Monitor size={12} strokeWidth={2} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="op-fila__persona">
+                    <div className="op-fila__avatar op-fila__avatar--empty">
+                      <User size={10} strokeWidth={2.5} />
+                    </div>
+                    <span className="text-muted" style={{ fontSize: '0.68rem', fontWeight: 600 }}>
+                      Disponible
+                    </span>
+                  </div>
+                </div>
               )}
             </div>
-
-            {/* Icono monitor */}
-            {hasM && (
-              <div className="op-fila__monitor">
-                <Monitor
-                  size={13}
-                  strokeWidth={2}
-                />
-              </div>
-            )}
           </div>
         );
       })}
@@ -272,19 +328,7 @@ const OcupantesPanel = ({ reservas }) => {
       {/* Drawer móvil */}
       {drawerOpen && (
         <div className="ocupantes-drawer-backdrop" onClick={() => setDrawerOpen(false)}>
-          <div className="ocupantes-drawer" onClick={e => e.stopPropagation()}>
-            <div className="ocupantes-drawer__header">
-              <button
-                className="ocupantes-drawer__close btn-outline"
-                onClick={() => setDrawerOpen(false)}
-                aria-label="Cerrar"
-              >
-                <X size={14} strokeWidth={2.5} />
-              </button>
-            </div>
-            <div className="ocupantes-drawer__body">
-              <OcupantesPanelContent reservas={reservas} asCard />
-            </div>
+            <div className="ocupantes-drawer__body"><OcupantesPanelContent reservas={reservas} asCard />
           </div>
         </div>
       )}
@@ -320,8 +364,10 @@ const BookingCard = ({
   reservando, reservaOk, reservaErr,
   yaReservoHoy,
   canReserveNow,
+  loadingRotacion,
+  rotacionBloqueada,
+  rotationMessage,
   reserveWindowMessage,
-  fechaSeleccionada,
 }) => {
   const [horarioSelId, setHorarioSelId] = React.useState(null);
 
@@ -338,12 +384,16 @@ const BookingCard = ({
   const todoBloqueado = bloq.size >= 3;
   const tieneMonitor  = CON_MONITOR.includes(escritorioId);
   const horarioSelObj = horarios.find(h => h.id === horarioSelId);
-  const puedeReservar = canReserveNow && !yaReservoHoy && !todoBloqueado && !!horarioSelId && !reservaOk;
+  const puedeReservar = canReserveNow && !loadingRotacion && !yaReservoHoy && !rotacionBloqueada && !todoBloqueado && !!horarioSelId && !reservaOk;
 
   const aviso = !canReserveNow
     ? reserveWindowMessage
+    : loadingRotacion
+    ? 'Validando regla de rotación...'
     : yaReservoHoy
     ? '⚠ Ya tienes una reserva para este día'
+    : rotacionBloqueada
+    ? rotationMessage
     : todoBloqueado
     ? 'Este escritorio no tiene turnos disponibles'
     : null;
@@ -382,9 +432,6 @@ const BookingCard = ({
             <span className="booking-escritorio-nombre">Escritorio {escritorioId}</span>
             {tieneMonitor && <span className="booking-badge-monitor">Con monitor</span>}
           </div>
-          <div style={{ marginTop: 6 }}>
-            <EstadoLinea estado={calcEstado(reservas, escritorioId)} />
-          </div>
         </div>
         <div className="booking-divider" />
 
@@ -396,7 +443,7 @@ const BookingCard = ({
               const esBloq        = bloq.has(h.id);
               const esSel         = horarioSelId === h.id;
               const meta          = HORARIO_META[h.id];
-              const deshabilitado = esBloq || yaReservoHoy;
+              const deshabilitado = esBloq;
               return (
                 <button
                   key={h.id}
@@ -414,11 +461,6 @@ const BookingCard = ({
                 >
                   <span className="booking-horario-label">{meta?.label}</span>
                   <span className="booking-horario-hora">{meta?.hora}</span>
-                  {esBloq && (
-                    <span style={{ fontSize: '0.63rem', color: '#c0392b', marginTop: 2 }}>
-                      No disponible
-                    </span>
-                  )}
                 </button>
               );
             })}
@@ -430,7 +472,7 @@ const BookingCard = ({
           <>
             <div className="booking-divider" />
             <div className="booking-section booking-section--compact">
-              {reservaOk  && <div className="booking-feedback booking-feedback--ok">✓ ¡Reservado con éxito!</div>}
+              {reservaOk  && <div className="booking-feedback booking-feedback--ok">Reservado!</div>}
               {reservaErr && <div className="booking-feedback booking-feedback--error">{reservaErr}</div>}
               {!reservaOk && !reservaErr && aviso && (
                 <div className="booking-feedback booking-feedback--error" style={{ background: 'rgba(192,57,43,0.08)' }}>
@@ -453,9 +495,9 @@ const BookingCard = ({
             onClick={() => puedeReservar && onConfirm(horarioSelObj)}
             disabled={reservando || !puedeReservar}
           >
-            {reservaOk      ? '¡Listo!'       :
-             reservando     ? 'Reservando…'    :
-             !puedeReservar ? 'No disponible'  :
+            {reservaOk      ? 'Reservar'       :
+             reservando     ? 'Reservar'    :
+             !puedeReservar ? 'Reservar'  :
                               'Reservar'}
           </button>
         </div>
@@ -483,7 +525,8 @@ export default function Reservas() {
   const [reservando,  setReservando]  = useState(false);
   const [reservaOk,   setReservaOk]   = useState(false);
   const [reservaErr,  setReservaErr]  = useState(null);
-  const [ultimaSync,  setUltimaSync]  = useState(null);
+  const [loadingRotacion, setLoadingRotacion] = useState(false);
+  const [ultimaReservaPrevia, setUltimaReservaPrevia] = useState(null);
 
   const fechaActual = FECHAS[fechaIndex];
   const fechaISO    = fechaActual.iso;
@@ -506,6 +549,19 @@ export default function Reservas() {
     ? 'No puede reservar para pasado mañana (o fechas posteriores) entre 12:00 am y 5:00 am.'
     : '';
 
+  const ultimoPuestoReservado = ultimaReservaPrevia?.puestoId ?? null;
+
+  const getRotationMessage = useCallback(
+    (puestoId = ultimoPuestoReservado) => {
+      if (!puestoId) return 'Debes elegir un escritorio distinto al de tu última reserva.';
+      const fechaUltima = formatFechaIso(ultimaReservaPrevia?.fecha);
+      return fechaUltima
+        ? `Tu última reserva fue el ${fechaUltima} en el escritorio ${puestoId}. Debes hacer rotación y elegir otro escritorio.`
+        : 'Debes elegir un escritorio distinto al de tu última reserva.';
+    },
+    [ultimoPuestoReservado, ultimaReservaPrevia?.fecha]
+  );
+
   useEffect(() => {
     fetch(API_HORARIOS)
       .then(r => r.json())
@@ -513,17 +569,46 @@ export default function Reservas() {
       .catch(() => setHorarios([]));
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    const documento = String(usuario?.document_number ?? '').trim();
+
+    if (!documento) {
+      setUltimaReservaPrevia(null);
+      setLoadingRotacion(false);
+      return;
+    }
+
+    setLoadingRotacion(true);
+    fetch(buildUserHistoryUrl(documento, fechaISO))
+      .then(r => r.json())
+      .then(json => {
+        if (cancelled) return;
+        const data = Array.isArray(json.data) ? json.data : [];
+        const ultimaActiva = data.find(esReservaActiva);
+        const puestoId = getPuestoId(ultimaActiva);
+        const fecha = ultimaActiva?.attributes?.fecha_reserva ?? ultimaActiva?.fecha_reserva ?? null;
+        setUltimaReservaPrevia(puestoId ? { puestoId, fecha } : null);
+      })
+      .catch(() => {
+        if (!cancelled) setUltimaReservaPrevia(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRotacion(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [usuario?.document_number, fechaISO]);
+
   const cargarReservas = useCallback(() => {
     setLoadingR(true);
     fetch(buildGetUrl(fechaISO))
       .then(r => r.json())
       .then(json => {
         const data = Array.isArray(json.data) ? json.data : [];
-        console.group(`📦 [API] Reservas para ${fechaISO} — total: ${data.length}`);
-        logEstructura(data);
-        console.groupEnd();
         setReservas(data);
-        setUltimaSync(new Date());
       })
       .catch(err => { console.error('[Reservas] error:', err); setReservas([]); })
       .finally(() => setLoadingR(false));
@@ -534,9 +619,7 @@ export default function Reservas() {
     setSelectedId(null);
     setReservaErr(null);
     setReservaOk(false);
-  }, [fechaISO]);
-
-  useRealtimeSync(cargarReservas);
+  }, [fechaISO, cargarReservas]);
 
   useEffect(() => {
     if (selectedId && calcEstado(reservas, selectedId) === 'ocupado') {
@@ -545,6 +628,14 @@ export default function Reservas() {
     }
   }, [reservas, selectedId]);
 
+  useEffect(() => {
+    if (!selectedId || loadingRotacion) return;
+    if (ultimoPuestoReservado && selectedId === ultimoPuestoReservado) {
+      setSelectedId(null);
+      setReservaErr(getRotationMessage(selectedId));
+    }
+  }, [selectedId, ultimoPuestoReservado, loadingRotacion, getRotationMessage]);
+
   const yaReservoHoy = reservas.some(
     r => String(r.attributes?.documento ?? r.documento) === String(usuario?.document_number) && esReservaActiva(r)
   );
@@ -552,7 +643,12 @@ export default function Reservas() {
   const handleReservar = async (horarioObj) => {
     if (!usuario || !selectedId || !horarioObj) return;
     if (!canReserveNow) { setReservaErr(reserveWindowMessage); return; }
+    if (loadingRotacion) { setReservaErr('Aún estamos validando la rotación de puestos. Intenta de nuevo en unos segundos.'); return; }
     if (yaReservoHoy) { setReservaErr('Ya tienes una reserva para este día.'); return; }
+    if (ultimoPuestoReservado && selectedId === ultimoPuestoReservado) {
+      setReservaErr(getRotationMessage(selectedId));
+      return;
+    }
     if (turnosBloqueados(reservas, selectedId).has(horarioObj.id)) {
       setReservaErr('Este turno ya no está disponible. Elige otro.');
       return;
@@ -597,6 +693,9 @@ export default function Reservas() {
     return sillaDis;
   };
   const getTooltip = (id) => {
+    if (!loadingRotacion && ultimoPuestoReservado && id === ultimoPuestoReservado) {
+      return `Rotación activa: elige un escritorio distinto al ${id}`;
+    }
     const e = calcEstado(reservas, id);
     if (e === 'ocupado')  return 'Escritorio lleno — sin turnos disponibles';
     if (e === 'limitado') return 'Clic para ver turnos disponibles';
@@ -606,64 +705,43 @@ export default function Reservas() {
   return (
     <div className="reservas-wrapper">
       <div className="reservas-inner">
+        <div className="top-right-nav-actions reservas-top-right-nav-actions">
+          <DateSelector
+            fechas={FECHAS}
+            fechaIndex={fechaIndex}
+            setFechaIndex={setFechaIndex}
+          />
 
-        {/* ── Header ── */}
-        <header className="reservas-header">
-          <div className="reservas-header-left">
-            <div className="reservas-titulo">
-              Crepe-Working <span className="text-accent">1</span>
-            </div>
-            {ultimaSync && (
-              <div style={{ fontSize: '0.65rem', color: 'rgba(80,54,41,0.45)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                <RefreshCw size={13} strokeWidth={2.5} />
-                Actualizado {ultimaSync.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
-              </div>
-            )}
+          <div className="top-nav-btn-group">
+          <button
+            className="btn-outline top-nav-icon-btn"
+            onClick={() => navigate('/panel', { state: { datosEmpleado: usuario } })}
+            title={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
+          >
+            <Armchair size={14} strokeWidth={2.5} />
+          </button>
+
+          <button
+            className="btn-outline top-nav-icon-btn"
+            style={{
+              borderColor: 'rgba(192,57,43,0.35)',
+              color: '#c0392b',
+            }}
+            onClick={() => navigate('/')}
+            title="Cerrar sesión"
+          >
+            <LogOut size={14} strokeWidth={2} />
+          </button>
+
+          <button
+            className="btn-outline reservas-btn-atras top-nav-icon-btn"
+            onClick={() => navigate(-1)}
+            title="Volver"
+          >
+            <ArrowLeft size={14} strokeWidth={2.5} />
+          </button>
           </div>
-
-          <div className="reservas-header-right" style={{ flexWrap: 'nowrap' }}>
-            <DateSelector
-              fechas={FECHAS}
-              fechaIndex={fechaIndex}
-              setFechaIndex={setFechaIndex}
-            />
-
-            <div style={{ width: 1, height: 26, background: 'rgba(80,54,41,0.15)', flexShrink: 0 }} />
-
-            <button
-              className="btn-outline"
-              style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
-              onClick={() => navigate('/panel', { state: { datosEmpleado: usuario } })}
-              title={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
-            >
-              {esAdmin ? <Shield size={14} strokeWidth={2.5} /> : <Ticket size={16} strokeWidth={2.5} color="#503629" />}
-            </button>
-
-            <button
-              className="btn-outline"
-              style={{
-                width: 34, height: 34, padding: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                borderRadius: '999px', flexShrink: 0,
-                borderColor: 'rgba(192,57,43,0.35)',
-                color: '#c0392b',
-              }}
-              onClick={() => navigate('/')}
-              title="Cerrar sesión"
-            >
-              <LogOut size={14} strokeWidth={2} />
-            </button>
-
-            <button
-              className="btn-outline reservas-btn-atras"
-              style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
-              onClick={() => navigate(-1)}
-              title="Volver"
-            >
-              <ArrowLeft size={14} strokeWidth={2.5} />
-            </button>
-          </div>
-        </header>
+        </div>
 
         {/* ── Mapa ── */}
         <div className="reservas-mapa reservas-mapa--con-panel">
@@ -676,7 +754,8 @@ export default function Reservas() {
               <img src={mesaImg} alt="Mesa" className="reservas-mesa-img" />
               {SILLAS.map(s => {
                 const estado   = calcEstado(reservas, s.id);
-                const isAvail  = estado !== 'ocupado';
+                const bloqueadoPorRotacion = !loadingRotacion && ultimoPuestoReservado === s.id;
+                const isAvail  = estado !== 'ocupado' && !bloqueadoPorRotacion;
                 const isHover  = hoverId    === s.id;
                 const isSelect = selectedId === s.id;
                 return (
@@ -685,6 +764,10 @@ export default function Reservas() {
                     src={getSilla(s.id)}
                     alt={`Escritorio ${s.id}`}
                     onClick={() => {
+                      if (bloqueadoPorRotacion) {
+                        setReservaErr(getRotationMessage(s.id));
+                        return;
+                      }
                       if (!isAvail) return;
                       setSelectedId(isSelect ? null : s.id);
                       setReservaErr(null);
@@ -704,6 +787,8 @@ export default function Reservas() {
                         ? 'drop-shadow(0 0 10px rgba(127,58,20,0.75)) brightness(1.1)'
                         : isHover && isAvail
                         ? 'brightness(1.15) drop-shadow(0 4px 10px rgba(0,0,0,0.2))'
+                        : bloqueadoPorRotacion
+                        ? 'grayscale(0.55) brightness(0.9)'
                         : 'none',
                       zIndex: isHover || isSelect ? 10 : 1,
                     }}
@@ -723,7 +808,7 @@ export default function Reservas() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
             {[
               { img: sillaDis, label: 'Disponible'              },
-              { img: sillaLim, label: 'Disponibilidad limitada'  },
+              { img: sillaLim, label: 'Limitado'  },
               { img: sillaOcu, label: 'Ocupado'                  },
             ].map(({ img, label }) => (
               <div key={label} className="reservas-leyenda-item">
@@ -748,8 +833,10 @@ export default function Reservas() {
         reservaErr={reservaErr}
         yaReservoHoy={yaReservoHoy}
         canReserveNow={canReserveNow}
+        loadingRotacion={loadingRotacion}
+        rotacionBloqueada={!loadingRotacion && !!selectedId && selectedId === ultimoPuestoReservado}
+        rotationMessage={getRotationMessage(selectedId)}
         reserveWindowMessage={reserveWindowMessage}
-        fechaSeleccionada={fechaActual}
       />
     </div>
   );

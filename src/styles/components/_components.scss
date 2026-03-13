@@ -377,8 +377,14 @@
 
 .bienvenida-card {
   @extend .card;
-  width: 340px;
+  width: 400px;
+  max-width: calc(100vw - 24px);
   text-align: center;
+}
+
+.bienvenida-card--politicas {
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
 }
 
 .bienvenida-avatar    { display: flex; justify-content: center; margin-bottom: $spacing-xl; }
@@ -517,24 +523,20 @@
 // ── Header ────────────────────────────────────────────────
 .reservas-header {
   padding: $spacing-md $spacing-3xl;
-  border-bottom: 1px solid rgba(80, 54, 41, 0.1);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: $spacing-md;
-  background-color: #fff;
+  justify-content: flex-start;
+  gap: $spacing-sm;
+  background-color: transparent;
   flex-shrink: 0;
 
   @include respond-to('sm') {
     padding: $spacing-sm $spacing-lg;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: $spacing-xs;
   }
-}
-
-.reservas-header-left {
-  display: flex;
-  align-items: center;
-  gap: $spacing-md;
 }
 
 .reservas-titulo {
@@ -543,22 +545,26 @@
   color: $color-dark-primary;
   letter-spacing: -0.3px;
   font-family: $font-family-display;
-}
-
-.reservas-header-right {
-  display: flex;
-  align-items: center;
-  gap: $spacing-md;
 
   @include respond-to('sm') {
-    gap: $spacing-sm;
+    text-align: center;
+  }
+}
+
+.reservas-header-date {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  @include respond-to('sm') {
+    width: 100%;
   }
 }
 
 .reservas-dia-nav {
   display: flex;
   align-items: center;
-  background-color: $color-accent-soft;
+  background-color: transparent;
   border-radius: $radius-full;
   border: 1px solid rgba(80, 54, 41, 0.18);
   padding: 3px;
@@ -701,12 +707,12 @@
   z-index: 50;
 
   @include respond-to('sm') {
-    // En móvil: ocupa casi todo el ancho y se posiciona abajo centrado
-    bottom: 0;
-    right: 0;
-    left: 0;
-    width: 100%;
-    border-radius: 0;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    width: min(calc(100vw - 24px), 340px);
+    transform: translate(-50%, -50%);
   }
 }
 
@@ -718,8 +724,8 @@
   box-shadow: 0 6px 24px rgba(80, 54, 41, 0.18);
 
   @include respond-to('sm') {
-    border-radius: $radius-md $radius-md 0 0;
-    max-height: 85dvh;
+    border-radius: $radius-lg;
+    max-height: 68dvh;
     overflow-y: auto;
   }
 }
@@ -979,7 +985,7 @@
 
   &:disabled { cursor: not-allowed; opacity: 0.55; }
 
-  &--ocupado { background-color: $color-accent-muted; color: $color-light-primary; }
+  &--ocupado { background-color: $color-accent-muted; color: $color-light-secondary; }
   &--ok      { background-color: #4caf50; }
 }
 
@@ -1011,7 +1017,7 @@
 
 .salas-layout {
   width: 100%;
-  max-width: 340px;
+  max-width: 400px;
   margin: auto 0;
   display: flex;
   flex-direction: column;
@@ -1026,6 +1032,56 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.top-right-nav-actions {
+  position: fixed;
+  top: $spacing-md;
+  right: $spacing-lg;
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  z-index: 120;
+
+  @include respond-to('sm') {
+    top: $spacing-sm;
+    right: $spacing-sm;
+  }
+}
+
+.top-nav-btn-group {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.top-nav-icon-btn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.reservas-top-right-nav-actions {
+  gap: $spacing-sm;
+
+  .reservas-dia-nav {
+    margin-right: $spacing-xs;
+  }
+
+  @include respond-to('sm') {
+    gap: $spacing-xs;
+
+    .reservas-dia-nav {
+      margin-right: 2px;
+      transform: scale(0.95);
+      transform-origin: right center;
+    }
+  }
 }
 
 .salas-container {
@@ -1067,7 +1123,7 @@
 .salas-header-actions {
   display: flex;
   align-items: center;
-  gap: $spacing-sm;
+  gap: 0;
   flex-shrink: 0;
 
   @include respond-to('sm') {
@@ -1305,7 +1361,7 @@ $footer-h: 52px;
 // ── Panel fijo desktop/tablet ─────────────────────────────
 .ocupantes-panel {
   position: fixed;
-  top: $header-h;
+  top: 0;
   left: 0;
   bottom: $footer-h;
   width: $panel-w;
@@ -1388,9 +1444,28 @@ $footer-h: 52px;
 .op-fila__personas {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   padding: 0 4px;
   min-width: 0;
+}
+
+.op-fila__persona-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.op-fila__persona-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.op-fila__escritorio-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: $color-accent-muted;
 }
 
 .op-fila__persona {
@@ -1398,6 +1473,15 @@ $footer-h: 52px;
   align-items: center;
   gap: 5px;
   min-width: 0;
+}
+
+.op-fila__persona-main {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
 }
 
 .op-fila__foto {
@@ -1422,14 +1506,18 @@ $footer-h: 52px;
   color: $color-accent-muted;
 }
 
+.op-fila__avatar--empty {
+  opacity: 0.5;
+}
+
 .op-fila__nombre {
   font-size: 0.74rem;
   font-weight: $font-weight-semibold;
   color: $color-dark-primary;
-  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: left;
 }
 
 .op-fila__turno {
@@ -1455,6 +1543,15 @@ $footer-h: 52px;
   flex-shrink: 0;
 
   .op-fila:has(.op-fila__persona) & { align-self: flex-start; margin-top: 5px; }
+}
+
+.op-fila__monitor-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: $color-accent-muted;
+  opacity: 0.8;
+  flex-shrink: 0;
 }
 
 // ── FAB móvil ─────────────────────────────────────────────
@@ -1492,8 +1589,6 @@ $footer-h: 52px;
 .ocupantes-drawer-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(40, 25, 15, 0.4);
-  backdrop-filter: blur(2px);
   z-index: 300;
   display: flex;
   align-items: center;

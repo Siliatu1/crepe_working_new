@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import mesaImg from "../mesa.png";
-import { Monitor, LogOut, Shield, Ticket, ArrowLeft, ArrowRight, Users } from "lucide-react";
+import { Monitor, LogOut, Armchair, Ticket, ArrowLeft, ArrowRight, Users } from "lucide-react";
 
 // ── Constantes ────────────────────────────────────────────
 const BASE      = 'https://macfer.crepesywaffles.com';
@@ -111,42 +111,45 @@ export default function Salas() {
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
 
-  const cargarSalas = () => {
+  const cargarSalas = useCallback(async () => {
     setLoading(true);
     setError(null);
-    fetch(`${API_SALAS}?populate=foto&sort=id:asc`)
-      .then(r => r.json())
-      .then(json => {
-        const data = Array.isArray(json.data) ? json.data : [];
-        setSalas(data.map(normalizeSala));
-      })
-      .catch(() => setError('No se pudieron cargar las salas.'))
-      .finally(() => setLoading(false));
-  };
+    try {
+      const response = await fetch(`${API_SALAS}?populate=foto&sort=id:asc`);
+      const json = await response.json();
+      const data = Array.isArray(json.data) ? json.data : [];
+      setSalas(data.map(normalizeSala));
+    } catch {
+      setError('No se pudieron cargar las salas.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  useEffect(() => { cargarSalas(); }, []);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void cargarSalas();
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [cargarSalas]);
 
   return (
     <div className="salas-page-wrapper">
         <div className="salas-layout">
-          <div className="salas-top-actions-row">
-            <div />
-            <div className="salas-header-actions" style={{ flexWrap: 'nowrap' }}>
+            <div className="top-right-nav-actions salas-header-actions" style={{ flexWrap: 'nowrap' }}>
+              <div className="top-nav-btn-group">
               <button
-                className="btn-outline"
-                style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
+                className="btn-outline top-nav-icon-btn"
                 onClick={() => navigate('/panel', { state: { datosEmpleado: usuario } })}
                 title={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
                 aria-label={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
               >
-                {esAdmin ? <Shield size={14} strokeWidth={2.5} /> : <Ticket size={16} color="#503629" strokeWidth={2.5} />}
+                <Armchair size={14} strokeWidth={2.5} />
               </button>
               <button
-                className="btn-outline"
+                className="btn-outline top-nav-icon-btn"
                 style={{
-                  width: 34, height: 34, padding: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  borderRadius: '999px', flexShrink: 0,
                   borderColor: 'rgba(192,57,43,0.35)',
                   color: '#c0392b',
                 }}
@@ -157,27 +160,29 @@ export default function Salas() {
                 <LogOut size={14} strokeWidth={2} />
               </button>
               <button
-                className="btn-outline reservas-btn-atras"
-                style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '999px', flexShrink: 0 }}
+                className="btn-outline reservas-btn-atras top-nav-icon-btn"
                 onClick={() => navigate(-1)}
                 title="Volver"
                 aria-label="Volver"
               >
                 <ArrowLeft size={14} strokeWidth={2.5} />
               </button>
+              </div>
             </div>
-          </div>
 
           <div className="salas-container">
 
             {/* Header */}
             <div className="salas-header">
-              <div>
-                <h1 className="bienvenida-saludo salas-title">Elige la sala que deseas reservar</h1>
+              <div style={{ width: '100%', textAlign: 'center' }}>
+                <h1 className="bienvenida-saludo">
+                  Elige la sala
+                </h1>
+                <p className="text-muted bienvenida-sub">
+                  Selecciona la sala para continuar con tu reserva
+                </p>
               </div>
             </div>
-
-            <div className="bienvenida-divider" style={{ margin: '16px 0' }} />
 
             {/* Cargando */}
             {loading && (

@@ -1,38 +1,41 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { User, Calendar, Clock } from "lucide-react";
 
 const Bienvenida = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const datosEmpleado = location.state?.datosEmpleado || {};
+  const datosEmpleado = useMemo(() => location.state?.datosEmpleado ?? {}, [location.state?.datosEmpleado]);
   const fechaHoraIngreso = location.state?.fechaHoraIngreso;
 
-  const [horaIngreso, setHoraIngreso] = useState("");
-  const [fechaFormateada, setFechaFormateada] = useState("");
-
-  useEffect(() => {
-    if (fechaHoraIngreso) {
-      const fecha = new Date(fechaHoraIngreso);
-      setFechaFormateada(fecha.toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" }));
-      setHoraIngreso(fecha.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" }));
-    } else {
-      setFechaFormateada("No disponible");
-      setHoraIngreso("No disponible");
+  const { horaIngreso, fechaFormateada } = useMemo(() => {
+    if (!fechaHoraIngreso) {
+      return {
+        fechaFormateada: "No disponible",
+        horaIngreso: "No disponible",
+      };
     }
 
+    const fecha = new Date(fechaHoraIngreso);
+    return {
+      fechaFormateada: fecha.toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" }),
+      horaIngreso: fecha.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" }),
+    };
+  }, [fechaHoraIngreso]);
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       navigate("/politicas", { state: { datosEmpleado } });
     }, 3500);
 
     return () => clearTimeout(timer);
-  }, [navigate, datosEmpleado, fechaHoraIngreso]);
+  }, [navigate, datosEmpleado]);
 
   return (
     <div className="page-wrapper">
       <div className="bienvenida-card">
 
-        {/* Avatar */}
+        {/* Foto */}
         <div className="bienvenida-avatar">
           {datosEmpleado.foto && datosEmpleado.foto !== "null" ? (
             <img src={datosEmpleado.foto} alt="Foto" className="bienvenida-foto" />
@@ -44,12 +47,10 @@ const Bienvenida = () => {
         </div>
 
         {/* Saludo */}
-        <h1 className="bienvenida-saludo">
-          ¡Hola, <span className="text-accent">{datosEmpleado.nombre?.split(" ")[0]}</span>!
-        </h1>
+        <h1 className="bienvenida-saludo">¡Hola, {datosEmpleado.nombre?.split(" ")[0]}!</h1>
         <p className="text-muted bienvenida-sub">Bienvenido a tu espacio de trabajo</p>
 
-        {/* Info */}
+        {/* Información */}
         <div className="bienvenida-info">
           <div>
             <div className="text-label">Cargo y Área</div>

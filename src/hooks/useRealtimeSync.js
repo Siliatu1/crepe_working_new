@@ -25,7 +25,7 @@ const shouldSyncFromSocketPayload = (payload) => {
 
 
 const useRealtimeSync = (onSync) => {
-  const lastSyncRef = useRef(Date.now());
+  const lastSyncRef = useRef(0);
   const syncIntervalRef = useRef(null);
   const wsRef = useRef(null);
   const reconnectTimerRef = useRef(null);

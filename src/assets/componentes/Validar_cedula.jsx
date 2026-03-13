@@ -50,9 +50,7 @@ const ValidarCedula = () => {
     <div className="page-wrapper">
       <div className="bienvenida-card">
 
-        <h1 className="bienvenida-saludo">
-          <span className="text-accent">Crepe</span>-Working #1
-        </h1>
+        <h1 className="bienvenida-saludo">¡Bienvenido a nuestro espacio de <strong>Co-Working</strong>!</h1>
         <p className="text-muted bienvenida-sub">Ingresa tu cédula para continuar</p>
 
         <div className="bienvenida-info">
