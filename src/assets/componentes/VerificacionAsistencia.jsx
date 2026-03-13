@@ -280,7 +280,7 @@ const VerificacionAsistencia = ({
         ...(updatedReserva ?? {}),
         estado: estadoTexto,
         confirmada,
-      };
+      };           
 
       onStatusChange?.(reservaActualizada, finalResult);
       onVerified?.(reservaActualizada);

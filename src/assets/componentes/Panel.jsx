@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { User, Calendar, Monitor, Clock, Shield, Ticket, ArrowLeft, Trash2, LogOut, ChevronDown } from 'lucide-react';
 import { cancelReserva, updateReservaWithVerification } from "../../utils/reservasService";
+import useRealtimeSync from '../../hooks/useRealtimeSync';
 import {
   calculateDistance,
   checkGeolocationSupport,
@@ -215,13 +216,13 @@ const ReservaCard = ({
               <span className="text-body" style={{ fontSize: "0.82rem" }}>{r.nombre}</span>
             </div>
           </div>
-            {esCancelada && r.motivoCancelacion && (
+            {(esCancelada || r.estado === 'Confirmada') && (r.motivoCancelacion || r.motivoGestion) && (
               <div style={{ marginTop: "8px", display: "flex", flexDirection: "column", gap: "4px" }}>
                 <span style={{ fontSize: "0.74rem", color: "#92614F", fontWeight: 700 }}>
-                  Motivo cancelación
+                  Motivo
                 </span>
                 <span className="text-body" style={{ fontSize: "0.78rem", color: "#6B4A3A" }}>
-                  {r.motivoCancelacion}
+                  {r.motivoCancelacion || r.motivoGestion}
                 </span>
               </div>
             )}
@@ -295,6 +296,9 @@ const Panel = () => {
   const [cancelConfirmId, setCancelConfirmId] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelReasonError, setCancelReasonError] = useState('');
+  const [confirmConfirmId, setConfirmConfirmId] = useState(null);
+  const [confirmReason, setConfirmReason] = useState('');
+  const [confirmReasonError, setConfirmReasonError] = useState('');
   const [isNearPoint,  setIsNearPoint]  = useState(false);
   const [distanceMeters, setDistanceMeters] = useState(null);
   const [locationChecking, setLocationChecking] = useState(false);
@@ -381,7 +385,7 @@ const Panel = () => {
   }, [geoSupport.supported, workplaceInfo.latitude, workplaceInfo.longitude, workplaceInfo.radius]);
 
   // Carga las reservas del usuario actual y las normaliza en un formato simple
-  const cargarReservas = async () => {
+  const cargarReservas = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -428,6 +432,7 @@ const Panel = () => {
           pendiente: r.attributes?.estado === null,
           cancelada: r.attributes?.estado === false,
           motivoCancelacion: r.attributes?.motivo_cancelacion ?? r.attributes?.motivoCancelacion ?? null,
+          motivoGestion: r.attributes?.verificacionAsistencia?.mensaje ?? null,
           verificacionAsistencia: r.attributes?.verificacionAsistencia ?? null,
           puestoId: puestoId ?? (escritorioMatch ? Number(escritorioMatch) : null),
           horarioId,
@@ -446,30 +451,36 @@ const Panel = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [documentoUsuario, esAdmin]);
 
   useEffect(() => { 
     if (datosEmpleado?.documento || datosEmpleado?.document_number) {
       cargarReservas();
     }
-  }, [datosEmpleado?.documento, datosEmpleado?.document_number, esAdmin]);
+  }, [datosEmpleado?.documento, datosEmpleado?.document_number, cargarReservas]);
+
+  useRealtimeSync(cargarReservas);
 
   useEffect(() => {
     void refreshLocationStatus(true);
   }, [refreshLocationStatus]);
 
-  const handleConfirmar = async (id) => {
+  const handleConfirmar = async (id, motivoAdmin = '') => {
     const reservaAux = reservations.find(r => r.id === id);
     if (!reservaAux || reservaAux.estado !== 'Pendiente') {
       return;
     }
 
     if (esAdmin) {
+      const motivoLimpio = String(motivoAdmin || '').trim();
+      if (!motivoLimpio) {
+        alert('Debes ingresar el motivo de confirmación.');
+        return;
+      }
+
       setConfirmando(id);
       try {
-        const mensaje = reservaAux.documento === documentoUsuario
-          ? 'Reserva confirmada manualmente por el administrador.'
-          : 'Reserva confirmada por un administrador fuera de la validación estándar.';
+        const mensaje = motivoLimpio;
 
         await updateReservaWithVerification(id, {
           estado: 'Confirmada',
@@ -643,11 +654,45 @@ const Panel = () => {
     await handleCancelar(id, motivo);
   };
 
+  const solicitarConfirmacionAdmin = (id) => {
+    if (!esAdmin) {
+      void handleConfirmar(id);
+      return;
+    }
+
+    setConfirmConfirmId(id);
+    setConfirmReason('');
+    setConfirmReasonError('');
+  };
+
+  const cerrarConfirmacionConfirmar = () => {
+    setConfirmConfirmId(null);
+    setConfirmReason('');
+    setConfirmReasonError('');
+  };
+
+  const confirmarConfirmacionAdmin = async () => {
+    if (!confirmConfirmId) return;
+
+    const motivo = confirmReason.trim();
+    if (!motivo) {
+      setConfirmReasonError('Debes ingresar el motivo de confirmación.');
+      return;
+    }
+
+    const id = confirmConfirmId;
+    setConfirmConfirmId(null);
+    setConfirmReason('');
+    setConfirmReasonError('');
+    await handleConfirmar(id, motivo);
+  };
+
   // Estado mostrado en panel: Pendiente / Confirmada / Cancelada
   const pendientes = reservations.filter(r => r.estado === 'Pendiente');
   const confirmadas = reservations.filter(r => r.estado === 'Confirmada');
   const canceladas = reservations.filter(r => r.estado === 'Cancelada');
   const reservaEnConfirmacion = reservations.find(r => r.id === cancelConfirmId) || null;
+  const reservaEnConfirmacionAdmin = reservations.find(r => r.id === confirmConfirmId) || null;
 
   if (loading) return (
     <div className="page-wrapper">
@@ -889,7 +934,7 @@ const Panel = () => {
                       cancelando={cancelando}
                       confirmando={confirmando}
                       onCancelar={solicitarCancelacion}
-                      onConfirmar={handleConfirmar}
+                      onConfirmar={solicitarConfirmacionAdmin}
                       canConfirm={canAdminConfirm || (isNearPoint && confirmMeta.canByTime)}
                       confirmLabel={esAdmin ? 'Confirmar' : 'Confirmar'}
                       helperMessage={esAdmin && r.estado === 'Pendiente'
@@ -912,7 +957,15 @@ const Panel = () => {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ borderBottom: "2px solid rgba(80,54,41,0.12)" }}>
-                      {["Fecha", "Escritorio", "Turno", "Estado", "Acción"].map(h => (
+                      {[
+                        ...(esAdmin ? ['Usuario'] : []),
+                        'Fecha',
+                        'Escritorio',
+                        'Turno',
+                        'Estado',
+                        'Motivo',
+                        'Acción',
+                      ].map(h => (
                         <th key={h} style={{
                           padding: "8px 12px", textAlign: "left",
                           fontSize: "0.7rem", fontWeight: 700,
@@ -1002,16 +1055,20 @@ const Panel = () => {
                                 verticalAlign: "middle",
                                 maxWidth: "240px",
                               }}
-                              title={r.motivoCancelacion || ''}
+                              title={r.motivoCancelacion || r.motivoGestion || ''}
                             >
-                              {r.estado === 'Cancelada' ? (r.motivoCancelacion || '—') : '—'}
+                              {r.estado === 'Cancelada'
+                                ? (r.motivoCancelacion || r.motivoGestion || '—')
+                                : r.estado === 'Confirmada'
+                                  ? (r.motivoGestion || '—')
+                                  : '—'}
                             </span>
                           </td>
                           {/* Acciones */}
                           <td style={{ padding: "12px 12px", textAlign: "right" }}>
                             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
                               <button
-                                onClick={() => handleConfirmar(r.id)}
+                                onClick={() => solicitarConfirmacionAdmin(r.id)}
                                 disabled={confirmando === r.id || cancelando === r.id || !esPendiente || (!esAdmin && (!isNearPoint || !confirmMeta.canByTime))}
                                 style={{
                                   display: "inline-flex", alignItems: "center", gap: 5,
@@ -1164,6 +1221,115 @@ const Panel = () => {
                   border: "1px solid rgba(220,53,69,0.35)",
                   background: "rgba(220,53,69,0.1)",
                   color: "#c0392b",
+                  fontSize: "0.82rem",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Aceptar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmConfirmId != null && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: "16px",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "420px",
+              background: "#fff",
+              borderRadius: "12px",
+              border: "1px solid rgba(80,54,41,0.15)",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+              padding: "18px",
+            }}
+          >
+            <h3 style={{ margin: 0, color: "#503629", fontSize: "1rem", fontWeight: 700 }}>
+              Confirmar reserva
+            </h3>
+            <p style={{ margin: "10px 0 0", color: "#6B4A3A", fontSize: "0.88rem" }}>
+              Ingresa el motivo de confirmación.
+            </p>
+            {reservaEnConfirmacionAdmin && (
+              <p style={{ margin: "8px 0 0", color: "#92614F", fontSize: "0.8rem" }}>
+                Escritorio {reservaEnConfirmacionAdmin.puestoId ?? '—'} · {reservaEnConfirmacionAdmin.fecha || '—'}
+              </p>
+            )}
+
+            <div style={{ marginTop: "12px" }}>
+              <label
+                htmlFor="confirm-reason"
+                style={{ display: "block", marginBottom: "6px", color: "#503629", fontSize: "0.78rem", fontWeight: 600 }}
+              >
+                Motivo de confirmación
+              </label>
+              <textarea
+                id="confirm-reason"
+                value={confirmReason}
+                onChange={(e) => {
+                  setConfirmReason(e.target.value);
+                  if (confirmReasonError) setConfirmReasonError('');
+                }}
+                placeholder="Escribe el motivo"
+                rows={3}
+                style={{
+                  width: "100%",
+                  resize: "vertical",
+                  borderRadius: "8px",
+                  border: `1px solid ${confirmReasonError ? 'rgba(192,57,43,0.6)' : 'rgba(80,54,41,0.25)'}`,
+                  padding: "8px 10px",
+                  fontSize: "0.82rem",
+                  fontFamily: "inherit",
+                  color: "#503629",
+                  boxSizing: "border-box",
+                }}
+              />
+              {confirmReasonError && (
+                <div style={{ marginTop: "6px", fontSize: "0.74rem", color: "#c0392b" }}>
+                  {confirmReasonError}
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "16px" }}>
+              <button
+                onClick={cerrarConfirmacionConfirmar}
+                style={{
+                  padding: "7px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(80,54,41,0.25)",
+                  background: "#fff",
+                  color: "#503629",
+                  fontSize: "0.82rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Cerrar
+              </button>
+              <button
+                onClick={confirmarConfirmacionAdmin}
+                style={{
+                  padding: "7px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(21,87,36,0.35)",
+                  background: "rgba(21,87,36,0.12)",
+                  color: "#155724",
                   fontSize: "0.82rem",
                   fontWeight: 700,
                   cursor: "pointer",
