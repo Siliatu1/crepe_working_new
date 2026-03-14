@@ -18,7 +18,7 @@ const Politicas = () => {
     },
     {
       titulo: "Rotación de puesto",
-      descripcion: "Debes rotar de puesto cada día hábil. No puedes elegir el mismo puesto en días consecutivos",
+      descripcion: "Debes rotar de puesto cada día. No puedes elegir el mismo puesto en días consecutivos",
     },
     {
       titulo: "Disponibilidad y fechas",
