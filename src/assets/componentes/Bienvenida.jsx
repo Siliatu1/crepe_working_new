@@ -71,10 +71,6 @@ const Bienvenida = () => {
             </span>
           </div>
         </div>
-
-        <style>{`
-          @keyframes loading { from { width: 0%; } to { width: 100%; } }
-        `}</style>
       </div>
     </div>
   );

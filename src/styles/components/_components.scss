@@ -1,10 +1,5 @@
-// ========================================
-// COMPONENTS — Sistema de Diseño Global (Paleta Tierra)
-// ========================================
-
 @use '../abstracts/variables' as *;
 @use '../abstracts/mixins' as *;
-@use 'adminpanel';
 
 // ══════════════════════════════════════════════════════════
 // 1. LAYOUT BASE
@@ -35,37 +30,9 @@
   padding: $spacing-3xl $spacing-2xl;
 }
 
-.card--accent {
-  background-color: $color-light-primary;
-}
-
 // ══════════════════════════════════════════════════════════
 // 3. TIPOGRAFÍA
 // ══════════════════════════════════════════════════════════
-
-.title-main {
-  font-family: $font-family-display;
-  font-size: $font-size-2xl;
-  font-weight: $font-weight-bold;
-  color: $color-dark-primary;
-  margin: 0 0 $spacing-sm 0;
-  line-height: 1.2;
-}
-
-.title-section {
-  font-family: $font-family-display;
-  font-size: $font-size-xl;
-  font-weight: $font-weight-bold;
-  color: $color-dark-primary;
-  margin: 0 0 $spacing-xs 0;
-}
-
-.subtitle {
-  font-size: $font-size-sm;
-  font-weight: $font-weight-regular;
-  color: $color-accent-muted;
-  margin: 0;
-}
 
 .text-body {
   font-size: $font-size-sm;
@@ -121,7 +88,7 @@
   }
 }
 
-.btn-primary {
+%btn-primary {
   @extend %btn-base;
   background-color: $color-btn-primary;
   color: $color-light-secondary;
@@ -147,63 +114,13 @@
   }
 }
 
-.submit-button  { @extend .btn-primary; width: 100%; max-width: 320px; align-self: center; }
-.btn-continuar  { @extend .btn-primary; }
-.btn-cancelar   { @extend .btn-outline; }
-.btn-volver     { @extend .btn-outline; }
-
-.botones-container {
-  display: flex;
-  gap: $spacing-lg;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-}
+.btn-continuar  { @extend %btn-primary; }
 
 // ══════════════════════════════════════════════════════════
 // 5. FORMULARIOS
 // ══════════════════════════════════════════════════════════
 
-.login-card {
-  @extend .card;
-  width: 340px;
-  max-width: 440px;
-}
-
-.login-title {
-  @extend .title-main;
-  text-align: center;
-  margin-bottom: $spacing-3xl;
-}
-
-.login-form {
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-lg;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-xs;
-}
-
-.form-label {
-  @extend .text-label;
-  display: flex;
-  align-items: center;
-  gap: $spacing-sm;
-  color: $color-dark-primary;
-
-  .icon-label {
-    font-size: $font-size-base;
-    color: $color-accent-deep;
-  }
-}
-
-.form-input,
-.form-select,
-.form-textarea {
+.form-input {
   font-family: $font-family-base;
   font-size: $font-size-base;
   padding: $spacing-md $spacing-lg;
@@ -234,141 +151,13 @@
 }
 
 // ══════════════════════════════════════════════════════════
-// 6. MENSAJES DE ESTADO
-// ══════════════════════════════════════════════════════════
-
-.error-message {
-  font-size: $font-size-sm;
-  padding: $spacing-md;
-  border-radius: $radius-sm;
-  text-align: center;
-  background-color: rgba(244, 67, 54, 0.08);
-  border: 1px solid rgba(244, 67, 54, 0.3);
-  color: darken($color-error, 15%);
-  @include shake;
-}
-
-.success-message {
-  font-size: $font-size-sm;
-  padding: $spacing-md;
-  border-radius: $radius-sm;
-  text-align: center;
-  background-color: rgba(76, 175, 80, 0.08);
-  border: 1px solid rgba(76, 175, 80, 0.3);
-  color: darken($color-success, 15%);
-  @include fade-in;
-}
-
-// ══════════════════════════════════════════════════════════
 // 7. CHECKBOX / RADIO
 // ══════════════════════════════════════════════════════════
-
-.checkbox-container {
-  display: flex;
-  align-items: flex-start;
-  gap: $spacing-md;
-  cursor: pointer;
-  padding: $spacing-md;
-  background-color: $color-accent-soft;
-  border-radius: $radius-sm;
-  border: 1px solid rgba(80, 54, 41, 0.2);
-
-  input[type="checkbox"],
-  input[type="radio"] {
-    width: 18px;
-    height: 18px;
-    flex-shrink: 0;
-    margin-top: 2px;
-    cursor: pointer;
-    accent-color: $color-accent-deep;
-  }
-}
 
 .checkbox-texto {
   font-size: $font-size-xs;
   color: $color-dark-primary;
   line-height: 1.5;
-}
-
-.enlace-politicas {
-  color: $color-accent-medium;
-  text-decoration: underline;
-  font-weight: $font-weight-semibold;
-}
-
-// ══════════════════════════════════════════════════════════
-// 8. SECCIONES DE POLÍTICAS
-// ══════════════════════════════════════════════════════════
-
-.politicas-card {
-  @extend .card;
-  width: 340px;
-  max-width: 560px;
-  max-height: 90vh;
-  overflow-y: auto;
-  text-align: center;
-}
-
-.politicas-header    { margin-bottom: $spacing-xl; }
-.politicas-titulo    { @extend .title-section; }
-.politicas-subtitulo { @extend .subtitle; margin-top: $spacing-xs; }
-.politicas-content   { margin-bottom: $spacing-xl; }
-.politicas-footer    { border-top: 1px solid rgba(80, 54, 41, 0.12); padding-top: $spacing-xl; }
-
-.seccion { margin-bottom: $spacing-xl; }
-
-.seccion-header {
-  display: flex;
-  align-items: center;
-  gap: $spacing-sm;
-  margin-bottom: $spacing-md;
-
-  h2 {
-    font-size: $font-size-sm;
-    font-weight: $font-weight-bold;
-    color: $color-dark-primary;
-    margin: 0;
-  }
-
-  .icono { font-size: $font-size-base; }
-}
-
-.seccion-contenido {
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-sm;
-  padding-left: $spacing-md;
-}
-
-.item-disponibilidad,
-.item-turno,
-.item-limite,
-.item-compartido {
-  display: flex;
-  align-items: flex-start;
-  gap: $spacing-md;
-}
-
-.indicador {
-  font-size: 1.1rem;
-  line-height: 1.4;
-  flex-shrink: 0;
-  &.verde    { color: $color-success; }
-  &.amarillo { color: $color-warning; }
-  &.rojo     { color: $color-error; }
-}
-
-.punto { color: $color-accent-muted; font-size: $font-size-base; flex-shrink: 0; }
-
-.texto-disponibilidad,
-.texto-turno,
-.texto-limite,
-.texto-compartido {
-  font-size: $font-size-xs;
-  color: $color-dark-primary;
-  line-height: 1.6;
-
-  strong { font-weight: $font-weight-semibold; }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -454,47 +243,6 @@
 }
 
 // ══════════════════════════════════════════════════════════
-// 10. PANEL
-// ══════════════════════════════════════════════════════════
-
-.panel-wrapper {
-  padding: $spacing-2xl;
-  background-color: $color-light-secondary;
-  min-height: 100vh;
-  font-family: $font-family-base;
-}
-
-.panel-card {
-  border-radius: $radius-md !important;
-  box-shadow: $shadow-card !important;
-  margin-bottom: $spacing-2xl;
-  background-color: #fff !important;
-
-  .ant-card-head {
-    border-bottom: 1px solid rgba(80, 54, 41, 0.1);
-    font-family: $font-family-base;
-  }
-}
-
-.panel-profile-row    { display: flex; align-items: center; gap: $spacing-xl; }
-.panel-profile-info   { flex: 1; h2 { margin-bottom: $spacing-sm; } }
-.panel-profile-details p { margin: 4px 0; }
-
-.panel-loading {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  background-color: $color-light-secondary;
-}
-
-.panel-error {
-  padding: $spacing-xl;
-  background-color: $color-light-secondary;
-  min-height: 100vh;
-}
-
-// ══════════════════════════════════════════════════════════
 // 11. RESERVAS — pantalla mapa
 // ══════════════════════════════════════════════════════════
 
@@ -521,46 +269,6 @@
 }
 
 // ── Header ────────────────────────────────────────────────
-.reservas-header {
-  padding: $spacing-md $spacing-3xl;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: $spacing-sm;
-  background-color: transparent;
-  flex-shrink: 0;
-
-  @include respond-to('sm') {
-    padding: $spacing-sm $spacing-lg;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: $spacing-xs;
-  }
-}
-
-.reservas-titulo {
-  font-size: $font-size-lg;
-  font-weight: $font-weight-bold;
-  color: $color-dark-primary;
-  letter-spacing: -0.3px;
-  font-family: $font-family-display;
-
-  @include respond-to('sm') {
-    text-align: center;
-  }
-}
-
-.reservas-header-date {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  @include respond-to('sm') {
-    width: 100%;
-  }
-}
-
 .reservas-dia-nav {
   display: flex;
   align-items: center;
@@ -598,33 +306,6 @@
   font-size: $font-size-sm;
   padding: $spacing-sm $spacing-lg;
   border-radius: $radius-full;
-}
-
-// ── Botón "Mis reservas" en header ────────────────────────
-.reservas-btn-mis-reservas {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 $spacing-lg;
-  border-radius: $radius-full;
-  font-size: 0.8rem;
-  white-space: nowrap;
-  flex-shrink: 0;
-
-  &__label {
-    @include respond-to('sm') {
-      // En móvil ocultamos el texto y solo mostramos el icono
-      display: none;
-    }
-  }
-
-  // En móvil: igualar a botón icono
-  @include respond-to('sm') {
-    width: 34px;
-    padding: 0;
-    justify-content: center;
-  }
 }
 
 // ── Mapa ──────────────────────────────────────────────────
@@ -860,26 +541,6 @@
   color: $color-dark-primary;
 }
 
-.booking-ocupantes {
-  margin-top: $spacing-xs;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  max-height: 44px;
-  overflow-y: auto;
-}
-
-.booking-ocupante-item {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.65rem;
-  color: $color-accent-muted;
-}
-
-.booking-ocupante-nombre { font-weight: $font-weight-semibold; color: $color-dark-primary; }
-.booking-ocupante-hora   { color: $color-accent-muted; }
-
 // ── Horarios ─────────────────────────────────────────────
 .booking-horarios {
   display: flex;
@@ -1028,12 +689,6 @@
   }
 }
 
-.salas-top-actions-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
 .top-right-nav-actions {
   position: fixed;
   top: $spacing-md;
@@ -1115,11 +770,6 @@
   }
 }
 
-.salas-title {
-  text-align: left !important;
-  margin-bottom: 4px !important;
-}
-
 .salas-header-actions {
   display: flex;
   align-items: center;
@@ -1139,8 +789,6 @@
 }
 
 // ── Grid de cards ─────────────────────────────────────────
-.salas-card-container { width: 340px; max-width: 340px; }
-
 .salas-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -1237,125 +885,11 @@
   &--hover { background-color: $color-accent-deep; color: $color-light-secondary; }
 }
 
-// ── Modal: nueva sala ─────────────────────────────────────
-.salas-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(40, 20, 10, 0.45);
-  backdrop-filter: blur(3px);
-  z-index: 200;
-  @include flex-center;
-  padding: $spacing-lg;
-  box-sizing: border-box;
-}
-
-.salas-modal {
-  background-color: $color-light-secondary;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-md;
-  width: 100%;
-  max-width: 420px;
-  padding: $spacing-2xl;
-  box-sizing: border-box;
-  @include fade-in-scale;
-
-  @include respond-to('sm') {
-    padding: $spacing-lg $spacing-md;
-  }
-}
-
-.salas-modal-header {
-  @include flex-between;
-  margin-bottom: $spacing-xl;
-}
-
-.salas-modal-title {
-  font-family: $font-family-display;
-  font-weight: $font-weight-bold;
-  font-size: $font-size-lg;
-  color: $color-dark-primary;
-}
-
-.salas-modal-close {
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: $color-accent-muted;
-  cursor: pointer;
-  @include flex-center;
-  border-radius: $radius-full;
-  transition: background-color $transition-fast, color $transition-fast;
-
-  &:hover {
-    background-color: rgba(80, 54, 41, 0.08);
-    color: $color-dark-primary;
-  }
-}
-
-.salas-modal-form {
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-lg;
-}
-
-.salas-modal-field {
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-xs;
-}
-
-.salas-modal-label {
-  font-size: $font-size-xs;
-  font-weight: $font-weight-semibold;
-  color: $color-dark-primary;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.salas-modal-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: $spacing-md;
-
-  @include respond-to('sm') {
-    grid-template-columns: 1fr;
-  }
-}
-
-.salas-modal-error {
-  font-size: $font-size-xs;
-  color: #c0392b;
-  margin: 0;
-  padding: $spacing-sm $spacing-md;
-  background-color: rgba(192, 57, 43, 0.06);
-  border-radius: $radius-sm;
-  border: 1px solid rgba(192, 57, 43, 0.18);
-}
-
-.salas-modal-actions {
-  display: flex;
-  gap: $spacing-md;
-  justify-content: flex-end;
-  padding-top: $spacing-sm;
-
-  @include respond-to('sm') {
-    flex-direction: column-reverse;
-
-    .btn-primary,
-    .btn-outline {
-      width: 100%;
-    }
-  }
-}
-
 // ══════════════════════════════════════════════════════════
 // 14. OCUPANTES PANEL — fijo izquierda + drawer móvil
 // ══════════════════════════════════════════════════════════
 
 $panel-w:  220px;
-$header-h: 61px;
 $footer-h: 52px;
 
 // ── Panel fijo desktop/tablet ─────────────────────────────
@@ -1380,11 +914,6 @@ $footer-h: 52px;
   @include respond-to('sm') { display: none; }
 }
 
-.ocupantes-panel__titulo {
-  margin-bottom: 4px;
-  padding-left: 2px;
-}
-
 // ── Tabla ─────────────────────────────────────────────────
 .op-tabla {
   display: flex;
@@ -1395,17 +924,6 @@ $footer-h: 52px;
   overflow: hidden;
   box-shadow: 0 2px 10px rgba(80, 54, 41, 0.07);
 }
-
-.op-tabla__head {
-  display: grid;
-  grid-template-columns: 32px 1fr 18px;
-  padding: 6px 8px 6px 10px;
-  background: rgba(80, 54, 41, 0.04);
-  border-bottom: 1px solid rgba(80, 54, 41, 0.09);
-}
-
-.op-tabla__head-esc  { font-size: 0.56rem; color: $color-accent-muted; text-align: center; }
-.op-tabla__head-info { font-size: 0.56rem; color: $color-accent-muted; padding-left: 4px; }
 
 // ── Fila ──────────────────────────────────────────────────
 .op-fila {
@@ -1430,15 +948,6 @@ $footer-h: 52px;
     padding-top: 7px;
     padding-bottom: 7px;
   }
-}
-
-.op-fila__num {
-  font-family: $font-family-display;
-  font-size: 0.9rem;
-  font-weight: $font-weight-bold;
-  color: $color-dark-primary;
-  text-align: center;
-  line-height: 1;
 }
 
 .op-fila__personas {
@@ -1534,17 +1043,6 @@ $footer-h: 52px;
   &--full { color: #7c3aed; background: rgba(124, 58, 237, 0.09); }
 }
 
-.op-fila__monitor {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: $color-accent-muted;
-  opacity: 0.65;
-  flex-shrink: 0;
-
-  .op-fila:has(.op-fila__persona) & { align-self: flex-start; margin-top: 5px; }
-}
-
 .op-fila__monitor-inline {
   display: inline-flex;
   align-items: center;
@@ -1597,51 +1095,6 @@ $footer-h: 52px;
   animation: fadeIn 0.15s ease;
 }
 
-.ocupantes-drawer {
-  width: min(420px, 92vw);
-  background: $color-light-secondary;
-  border-radius: $radius-xl;
-  box-shadow: 0 10px 34px rgba(40, 25, 15, 0.24);
-  max-height: 80dvh;
-  display: flex;
-  flex-direction: column;
-  animation: slideUp 0.22s ease;
-  overflow: hidden;
-}
-
-.ocupantes-drawer__header {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: $spacing-lg $spacing-xl $spacing-md;
-  border-bottom: 1px solid rgba(80, 54, 41, 0.1);
-  background: #fff;
-  flex-shrink: 0;
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: 8px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 36px;
-    height: 4px;
-    background: rgba(80, 54, 41, 0.15);
-    border-radius: 2px;
-  }
-}
-
-.ocupantes-drawer__close {
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border-radius: $radius-full;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .ocupantes-drawer__body {
   flex: 1;
   overflow-y: auto;
@@ -1681,166 +1134,7 @@ $footer-h: 52px;
 // 15. MODAL MIS RESERVAS
 // ══════════════════════════════════════════════════════════
 
-.mis-reservas-backdrop {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(40, 25, 15, 0.45);
-  backdrop-filter: blur(3px);
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: $spacing-lg;
-  animation: fadeIn 0.18s ease;
-}
-
 @keyframes fadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
-
-.mis-reservas-modal {
-  background: $color-light-secondary;
-  border: 1px solid rgba(80, 54, 41, 0.15);
-  border-radius: $radius-xl;
-  box-shadow: 0 20px 60px rgba(40, 25, 15, 0.3);
-  width: 100%;
-  max-width: 420px;
-  max-height: 88dvh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  animation: slideUp 0.2s ease;
-
-  @include respond-to('sm') {
-    max-height: 92dvh;
-    border-radius: $radius-md;
-  }
-}
-
-@keyframes slideUp {
-  from { transform: translateY(16px); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
-}
-
-.mis-reservas-header {
-  padding: $spacing-xl $spacing-xl $spacing-lg;
-  border-bottom: 1px solid rgba(80, 54, 41, 0.1);
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: $spacing-md;
-  flex-shrink: 0;
-  background: #fff;
-
-  &__titulo {
-    margin: 0 0 4px;
-    display: block;
-  }
-}
-
-.mis-reservas-close {
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border-radius: $radius-full;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.mis-reservas-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: $spacing-md $spacing-xl;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-
-  // Scrollbar discreta
-  scrollbar-width: thin;
-  scrollbar-color: rgba(80,54,41,0.2) transparent;
-}
-
-// ── Item de reserva ───────────────────────────────────────
-.mis-reservas-item {
-  display: flex;
-  align-items: center;
-  gap: $spacing-md;
-  padding: $spacing-md $spacing-lg;
-  border-radius: $radius-md;
-  border: 1px solid rgba(80, 54, 41, 0.12);
-  background: $color-light-secondary;
-  transition: box-shadow $transition-fast;
-
-  &:hover { box-shadow: $shadow-card; }
-
-  &--pasada { opacity: 0.6; }
-  &--activa { border-left: 3px solid $color-accent-warm; }
-}
-
-.mis-reservas-item__fecha-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  min-width: 64px;
-}
-
-.mis-reservas-item__fecha {
-  font-family: $font-family-display;
-  font-size: 0.72rem;
-  font-weight: $font-weight-bold;
-  color: $color-dark-primary;
-  letter-spacing: -0.2px;
-}
-
-.mis-reservas-item__chip {
-  font-size: 0.58rem;
-  font-weight: $font-weight-bold;
-  border-radius: $radius-full;
-  padding: 1px 7px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.chip--activa {
-  background: rgba(204, 138, 34, 0.12);
-  color: darken(#cc8a22, 10%);
-}
-
-.chip--pasada {
-  background: rgba(80, 54, 41, 0.08);
-  color: $color-accent-muted;
-}
-
-.mis-reservas-item__info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-.mis-reservas-item__escritorio { display: block; }
-
-.mis-reservas-item__horario {
-  font-size: 0.68rem;
-  display: block;
-}
-
-// Badge turno en lista
-.mis-reservas-item__badge {
-  font-size: 0.62rem;
-  font-weight: $font-weight-bold;
-  border-radius: $radius-sm;
-  padding: 3px 7px;
-  flex-shrink: 0;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-}
-
-.badge--am   { color: #b45309; background: rgba(180, 83,  9, 0.1); }
-.badge--pm   { color: #1d4ed8; background: rgba(29, 78,  216, 0.09); }
-.badge--full { color: #7c3aed; background: rgba(124, 58, 237, 0.09); }

@@ -166,7 +166,6 @@ const ReservaCard = ({
   onConfirmar,
   onReactivar,
   canConfirm,
-  confirmLabel,
   helperMessage,
   showOwner,
   confirmBlockedMessage,
@@ -177,12 +176,13 @@ const ReservaCard = ({
   const turnoTexto = r.turnoLabel || hMeta?.label || '—';
   const esCancelada = r.estado === 'Cancelada';
   const esPendiente = r.estado === 'Pendiente';
+  const actionBusy = confirmando === r.id || cancelando === r.id || reactivando === r.id;
   const confirmDisabled =
-    confirmando === r.id ||
-    cancelando === r.id ||
-    reactivando === r.id ||
+    actionBusy ||
     !esPendiente ||
     !canConfirm;
+  const cancelDisabled = cancelando === r.id || esCancelada || reactivando === r.id;
+  const reactivateDisabled = actionBusy;
 
   return (
     <div style={{
@@ -301,11 +301,11 @@ const ReservaCard = ({
                 fontFamily: "inherit",
               }}
             >
-              {confirmando === r.id ? "Confirmando…" : confirmLabel}
+              {confirmando === r.id ? "Confirmando…" : "Confirmar"}
             </button>
             <button
               onClick={() => onCancelar(r.id)}
-              disabled={cancelando === r.id || esCancelada || reactivando === r.id}
+              disabled={cancelDisabled}
               style={{
                 width: "100%",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
@@ -313,8 +313,8 @@ const ReservaCard = ({
                 border: "1px solid rgba(220,53,69,0.3)",
                 background: "rgba(220,53,69,0.06)",
                 color: "#c0392b", fontSize: "0.8rem", fontWeight: 600,
-                cursor: cancelando === r.id || esCancelada || reactivando === r.id ? "not-allowed" : "pointer",
-                opacity: cancelando === r.id || esCancelada || reactivando === r.id ? 0.6 : 1,
+                cursor: cancelDisabled ? "not-allowed" : "pointer",
+                opacity: cancelDisabled ? 0.6 : 1,
                 fontFamily: "inherit",
               }}
             >
@@ -324,7 +324,7 @@ const ReservaCard = ({
             {showOwner && esCancelada && (
               <button
                 onClick={() => onReactivar(r.id)}
-                disabled={reactivando === r.id || cancelando === r.id || confirmando === r.id}
+                disabled={reactivateDisabled}
                 style={{
                   width: "100%",
                   display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
@@ -332,8 +332,8 @@ const ReservaCard = ({
                   border: "1px solid rgba(204,138,34,0.35)",
                   background: "rgba(204,138,34,0.1)",
                   color: "#8A6D3B", fontSize: "0.8rem", fontWeight: 700,
-                  cursor: reactivando === r.id || cancelando === r.id || confirmando === r.id ? "not-allowed" : "pointer",
-                  opacity: reactivando === r.id || cancelando === r.id || confirmando === r.id ? 0.6 : 1,
+                  cursor: reactivateDisabled ? "not-allowed" : "pointer",
+                  opacity: reactivateDisabled ? 0.6 : 1,
                   fontFamily: "inherit",
                 }}
               >
@@ -356,7 +356,6 @@ const Panel = () => {
   const workplaceInfo = getWorkplaceInfo();
   const geoSupport = checkGeolocationSupport();
 
-  const profileData = datosEmpleado;
   const documentoUsuario = String(datosEmpleado?.documento || datosEmpleado?.document_number || '');
   const esAdmin = ADMINS.includes(documentoUsuario);
   const [reservations, setReservations] = useState([]);
@@ -901,20 +900,20 @@ const Panel = () => {
             flexShrink: 0, boxSizing: "border-box",
           }}>
             <div className="bienvenida-avatar">
-              {profileData?.foto && profileData.foto !== "null" ? (
-                <img src={profileData.foto} alt="Foto" className="bienvenida-foto" />
+              {datosEmpleado?.foto && datosEmpleado.foto !== "null" ? (
+                <img src={datosEmpleado?.foto} alt="Foto" className="bienvenida-foto" />
               ) : (
                 <div className="bienvenida-foto-placeholder"><User size={32} color="#92614F" strokeWidth={2} /></div>
               )}
             </div>
             <h1 className="bienvenida-saludo">
-              ¡Hola, {profileData?.nombre?.split(" ")[0]}!
+              ¡Hola, {datosEmpleado?.nombre?.split(" ")[0]}!
             </h1>
             <div className="bienvenida-info">
               <div>
                 <div className="text-label">Cargo y Área</div>
-                <div className="bienvenida-cargo">{profileData?.cargo}</div>
-                <div className="text-muted">{profileData?.area_nombre}</div>
+                <div className="bienvenida-cargo">{datosEmpleado?.cargo}</div>
+                <div className="text-muted">{datosEmpleado?.area_nombre}</div>
               </div>
             </div>
             <div style={{ marginTop: 10, fontSize: "0.78rem", color: esAdmin ? "#CC8A22" : "#92614F", fontWeight: 700 }}>
@@ -1152,7 +1151,6 @@ const Panel = () => {
                       onConfirmar={handleConfirmar}
                       onReactivar={handleReactivar}
                       canConfirm={canAdminConfirm || (isNearPoint && confirmMeta.canByTime)}
-                      confirmLabel={esAdmin ? 'Confirmar' : 'Confirmar'}
                       helperMessage={esAdmin && r.estado === 'Pendiente'
                         ? (r.documento === documentoUsuario
                             ? 'Puedes confirmar esta reserva como administrador.'
@@ -1199,6 +1197,10 @@ const Panel = () => {
                       const esCancelada = r.estado === 'Cancelada';
                       const esPendiente = r.estado === 'Pendiente';
                       const confirmMeta = getConfirmMeta(r);
+                      const actionBusy = confirmando === r.id || cancelando === r.id || reactivando === r.id;
+                      const confirmDisabled = actionBusy || !esPendiente || (!esAdmin && (!isNearPoint || !confirmMeta.canByTime));
+                      const cancelDisabled = cancelando === r.id || esCancelada || cancelConfirmId === r.id || reactivando === r.id;
+                      const reactivateDisabled = actionBusy;
                       return (
                         <tr key={r.id}
                           style={{ borderBottom: i < filteredReservations.length - 1 ? "1px solid rgba(80,54,41,0.08)" : "none", transition: "background 0.15s" }}
@@ -1305,15 +1307,15 @@ const Panel = () => {
                             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
                               <button
                                 onClick={() => handleConfirmar(r.id)}
-                                disabled={confirmando === r.id || cancelando === r.id || reactivando === r.id || !esPendiente || (!esAdmin && (!isNearPoint || !confirmMeta.canByTime))}
+                                disabled={confirmDisabled}
                                 style={{
                                   display: "inline-flex", alignItems: "center", gap: 5,
                                   padding: "4px 10px", borderRadius: 8,
                                   border: "1px solid rgba(21,87,36,0.35)",
                                   background: "rgba(21,87,36,0.08)",
                                   color: "#155724", fontSize: "0.75rem", fontWeight: 600,
-                                  cursor: confirmando === r.id || cancelando === r.id || reactivando === r.id || !esPendiente || (!esAdmin && (!isNearPoint || !confirmMeta.canByTime)) ? "not-allowed" : "pointer",
-                                  opacity: confirmando === r.id || cancelando === r.id || reactivando === r.id || !esPendiente || (!esAdmin && (!isNearPoint || !confirmMeta.canByTime)) ? 0.6 : 1,
+                                  cursor: confirmDisabled ? "not-allowed" : "pointer",
+                                  opacity: confirmDisabled ? 0.6 : 1,
                                   transition: "all 0.15s", fontFamily: "inherit",
                                 }}
                               >
@@ -1321,18 +1323,18 @@ const Panel = () => {
                               </button>
                               <button
                                 onClick={() => solicitarCancelacion(r.id)}
-                                disabled={cancelando === r.id || esCancelada || cancelConfirmId === r.id || reactivando === r.id}
+                                disabled={cancelDisabled}
                                 style={{
                                   display: "inline-flex", alignItems: "center", gap: 5,
                                   padding: "4px 10px", borderRadius: 8,
                                   border: "1px solid rgba(220,53,69,0.35)",
                                   background: "rgba(220,53,69,0.06)",
                                   color: "#c0392b", fontSize: "0.75rem", fontWeight: 600,
-                                  cursor: cancelando === r.id || esCancelada || cancelConfirmId === r.id || reactivando === r.id ? "not-allowed" : "pointer",
-                                  opacity: cancelando === r.id || esCancelada || cancelConfirmId === r.id || reactivando === r.id ? 0.6 : 1,
+                                  cursor: cancelDisabled ? "not-allowed" : "pointer",
+                                  opacity: cancelDisabled ? 0.6 : 1,
                                   transition: "all 0.15s", fontFamily: "inherit",
                                 }}
-                                onMouseEnter={e => { if (cancelando !== r.id && !esCancelada && cancelConfirmId !== r.id && reactivando !== r.id) e.currentTarget.style.background = "rgba(220,53,69,0.12)"; }}
+                                onMouseEnter={e => { if (!cancelDisabled) e.currentTarget.style.background = "rgba(220,53,69,0.12)"; }}
                                 onMouseLeave={e => { e.currentTarget.style.background = "rgba(220,53,69,0.06)"; }}
                               >
                                 <Trash2 size={13} strokeWidth={2} />
@@ -1341,15 +1343,15 @@ const Panel = () => {
                               {esAdmin && esCancelada && (
                                 <button
                                   onClick={() => handleReactivar(r.id)}
-                                  disabled={reactivando === r.id || cancelando === r.id || confirmando === r.id}
+                                  disabled={reactivateDisabled}
                                   style={{
                                     display: "inline-flex", alignItems: "center", gap: 5,
                                     padding: "4px 10px", borderRadius: 8,
                                     border: "1px solid rgba(204,138,34,0.35)",
                                     background: "rgba(204,138,34,0.1)",
                                     color: "#8A6D3B", fontSize: "0.75rem", fontWeight: 700,
-                                    cursor: reactivando === r.id || cancelando === r.id || confirmando === r.id ? "not-allowed" : "pointer",
-                                    opacity: reactivando === r.id || cancelando === r.id || confirmando === r.id ? 0.6 : 1,
+                                    cursor: reactivateDisabled ? "not-allowed" : "pointer",
+                                    opacity: reactivateDisabled ? 0.6 : 1,
                                     transition: "all 0.15s", fontFamily: "inherit",
                                   }}
                                 >

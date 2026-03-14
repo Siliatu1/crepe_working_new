@@ -140,7 +140,6 @@ const VerificacionAsistencia = ({
   onVerified,
   onStatusChange,
   onAlert,
-  autoSync = true,
   children,
 }) => {
   const [messageApi, contextHolder] = message.useMessage();
@@ -163,8 +162,6 @@ const VerificacionAsistencia = ({
 
     messageApi.open({ type, content });
   }, [messageApi, onAlert, reserva]);
-
-  void autoSync;
 
   const verify = useCallback(async () => {
     if (!reserva) {

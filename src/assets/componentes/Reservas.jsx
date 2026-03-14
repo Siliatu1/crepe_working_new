@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, ArrowLeft, Armchair, Calendar, Monitor, Ticket, User, X, LogOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, Armchair, Calendar, Monitor, Ticket, User, LogOut } from 'lucide-react';
 import sillaDis from '../../assets/sillaDis.png';
 import sillaLim from '../../assets/sillaLim.png';
 import sillaOcu from '../../assets/sillaOcu.png';
@@ -333,27 +333,6 @@ const OcupantesPanel = ({ reservas }) => {
         </div>
       )}
     </>
-  );
-};
-
-// ─── EstadoLinea ──────────────────────────────────────────────────────────────
-const EstadoLinea = ({ estado }) => {
-  const config = {
-    disponible: { color: '#27ae60', label: 'Libre',   bg: 'rgba(39,174,96,0.1)'  },
-    limitado:   { color: '#f0a500', label: 'Parcial', bg: 'rgba(240,165,0,0.1)'  },
-    ocupado:    { color: '#e74c3c', label: 'Ocupado', bg: 'rgba(231,76,60,0.1)'  },
-  }[estado] ?? { color: '#92614F', label: '—', bg: 'transparent' };
-
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 4,
-      fontSize: '0.58rem', fontWeight: 700,
-      padding: '2px 6px', borderRadius: '999px',
-      background: config.bg, color: config.color,
-    }}>
-      <span style={{ width: 5, height: 5, borderRadius: '50%', background: config.color, flexShrink: 0 }} />
-      {config.label}
-    </span>
   );
 };
 
