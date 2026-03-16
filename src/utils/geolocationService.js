@@ -1,4 +1,5 @@
 import axiosInstance from '../api/axiosInstance';
+import { normalizeCollection } from './collections';
 
 const WORKPLACE_COORDS = {
   latitude: 4.74488,
@@ -62,18 +63,6 @@ const getTodayString = (referenceDate = new Date()) => {
 };
 
 const extractAttributes = (item) => item?.attributes ?? item ?? {};
-
-const normalizeCollection = (payload) => {
-  if (Array.isArray(payload?.data)) {
-    return payload.data;
-  }
-
-  if (Array.isArray(payload)) {
-    return payload;
-  }
-
-  return [];
-};
 
 const buildDateFromMinutes = (dateString, totalMinutes) => {
   const [year, month, day] = String(dateString ?? '').split('-').map(Number);
@@ -404,25 +393,6 @@ export const calculateDistance = (lat1, lon1, lat2, lon2) => {
 };
 
 /**
- * Verifica si una coordenada está dentro del radio permitido
- * @param {number} userLat - Latitud del usuario
- * @param {number} userLon - Longitud del usuario
- * @returns {boolean} true si está dentro del radio
- */
-export const isWithinRadius = (userLat, userLon) => {
-  const distance = calculateDistance(
-    userLat,
-    userLon,
-    WORKPLACE_COORDS.latitude,
-    WORKPLACE_COORDS.longitude
-  );
-  
-  console.log(` Distancia al lugar de trabajo: ${distance.toFixed(2)} metros`);
-  
-  return distance <= ALLOWED_RADIUS_METERS;
-};
-
-/**
  * Verifica el estado de los permisos de geolocalización
  * @returns {Promise<string>} Estado del permiso: 'granted', 'denied', 'prompt', 'unsupported'
  */
@@ -645,32 +615,6 @@ export const getVerificationTimeInfo = (reserva, horarios = [], referenceDate = 
     horario,
     message
   };
-};
-
-/**
- * Verifica si la hora actual está dentro del rango de verificación
- * @returns {boolean} true si está dentro del horario de verificación
- */
-export const isWithinVerificationTime = (reserva, horarios = [], referenceDate = new Date()) => {
-  if (!reserva) {
-    const currentMinutes = referenceDate.getHours() * 60 + referenceDate.getMinutes();
-    return currentMinutes >= 480 && currentMinutes <= 505;
-  }
-
-  return getVerificationTimeInfo(reserva, horarios, referenceDate).isActive;
-};
-
-/**
- * Verifica si ya pasó el tiempo límite de verificación
- * @returns {boolean} true si ya pasó el tiempo límite
- */
-export const isPastVerificationDeadline = (reserva, horarios = [], referenceDate = new Date()) => {
-  if (!reserva) {
-    const currentMinutes = referenceDate.getHours() * 60 + referenceDate.getMinutes();
-    return currentMinutes > 505;
-  }
-
-  return getVerificationTimeInfo(reserva, horarios, referenceDate).isPast;
 };
 
 /**

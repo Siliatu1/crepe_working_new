@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import mesaImg from "../mesa.png";
 import { Monitor, LogOut, Armchair, ArrowLeft, ArrowRight } from "lucide-react";
+import axios from 'axios';
+import { ADMIN_DOCUMENTS } from '../../utils/reservaCommon';
 
 // ── Constantes ────────────────────────────────────────────
 const BASE      = 'https://macfer.crepesywaffles.com';
 const API_SALAS = `${BASE}/api/working-salas`;
-const ADMINS    = ["1028783377"];
 
 // ── Normaliza una sala desde la API ───────────────────────
 // El campo de imagen en Strapi es "foto" (array de medios)
@@ -105,7 +106,7 @@ export default function Salas() {
   const navigate = useNavigate();
   const location = useLocation();
   const usuario  = location.state?.datosEmpleado || null;
-  const esAdmin  = ADMINS.includes(usuario?.documento ?? usuario?.document_number ?? '');
+  const esAdmin  = ADMIN_DOCUMENTS.includes(usuario?.documento ?? usuario?.document_number ?? '');
 
   const [salas,      setSalas]      = useState([]);
   const [loading,    setLoading]    = useState(true);
@@ -115,8 +116,7 @@ export default function Salas() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_SALAS}?populate=foto&sort=id:asc`);
-      const json = await response.json();
+      const { data: json } = await axios.get(`${API_SALAS}?populate=foto&sort=id:asc`);
       const data = Array.isArray(json.data) ? json.data : [];
       setSalas(data.map(normalizeSala));
     } catch {

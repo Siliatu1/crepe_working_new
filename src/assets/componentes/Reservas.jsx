@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, ArrowLeft, Armchair, Calendar, Monitor, Ticket, User, LogOut } from 'lucide-react';
+import axios from 'axios';
 import sillaDis from '../../assets/sillaDis.png';
 import sillaLim from '../../assets/sillaLim.png';
 import sillaOcu from '../../assets/sillaOcu.png';
 import mesaImg  from '../../assets/mesa.png';
+import { ADMIN_DOCUMENTS, HORARIO_META, getPuestoId, getHorarioId } from '../../utils/reservaCommon';
 
 // ─── URLs ─────────────────────────────────────────────────────────────────────
 const BASE         = 'https://macfer.crepesywaffles.com';
@@ -13,16 +15,9 @@ const API_RESERVAS = `${BASE}/api/working-reservas`;
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const CON_MONITOR = [1, 3, 6];
-const ADMINS      = ['1028783377'];
 const H_AM        = 1;
 const H_PM        = 2;
 const H_COMPLETO  = 3;
-
-const HORARIO_META = {
-  [H_AM]:       { label: 'Mañana',      hora: '8:00 am – 12:00 m',  badge: 'AM',          badgeKey: 'am'   },
-  [H_PM]:       { label: 'Tarde',        hora: '1:00 pm – 5:00 pm',  badge: 'PM',          badgeKey: 'pm'   },
-  [H_COMPLETO]: { label: 'Día completo', hora: '8:00 am – 5:00 pm',  badge: 'Todo el día', badgeKey: 'full' },
-};
 
 const SILLAS = [
   { id: 1, top: '-5%',  left: '0%',   rotate: '-15deg' },
@@ -77,21 +72,6 @@ const buildUserHistoryUrl = (documento, fecha) => {
 
 // ─── Diagnóstico ──────────────────────────────────────────────────────────────
 // ─── Extracción de IDs ────────────────────────────────────────────────────────
-const extractId = (rel) => {
-  if (rel === null || rel === undefined) return null;
-  if (typeof rel === 'number') return rel;
-  if (typeof rel === 'object' && rel.id !== undefined) return rel.id;
-  if (rel.data !== null && rel.data !== undefined) {
-    const d = rel.data;
-    if (typeof d === 'number') return d;
-    if (Array.isArray(d) && d.length > 0) return d[0].id ?? null;
-    if (typeof d === 'object' && d.id !== undefined) return d.id;
-  }
-  return null;
-};
-
-const getPuestoId  = (r) => extractId(r.attributes?.working_puestos)  ?? extractId(r.working_puestos)  ?? null;
-const getHorarioId = (r) => extractId(r.attributes?.working_horarios) ?? extractId(r.working_horarios) ?? null;
 const getNombre = (r) => {
   const attrs = r?.attributes ?? r ?? {};
   const nombreCompleto = [
@@ -307,7 +287,7 @@ const OcupantesPanelContent = ({ reservas, asCard = false }) => {
 
 // ─── OcupantesPanel — wrapper desktop + drawer móvil ─────────────────────────
 const OcupantesPanel = ({ reservas }) => {
-  const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   return (
     <>
       {/* Desktop/tablet */}
@@ -348,18 +328,15 @@ const BookingCard = ({
   rotationMessage,
   reserveWindowMessage,
 }) => {
-  const [horarioSelId, setHorarioSelId] = React.useState(null);
-
-  React.useEffect(() => {
-    if (!escritorioId || !horarios.length) return;
-    const bloq    = turnosBloqueados(reservas, escritorioId);
-    const primero = horarios.find(h => !bloq.has(h.id));
-    setHorarioSelId(primero?.id ?? null);
-  }, [escritorioId, reservas, horarios]);
+  const [selectedHorarioId, setSelectedHorarioId] = useState(null);
 
   if (!escritorioId) return null;
 
   const bloq          = turnosBloqueados(reservas, escritorioId);
+  const defaultHorarioId = horarios.find(h => !bloq.has(h.id))?.id ?? null;
+  const horarioSelId = selectedHorarioId && !bloq.has(selectedHorarioId)
+    ? selectedHorarioId
+    : defaultHorarioId;
   const todoBloqueado = bloq.size >= 3;
   const tieneMonitor  = CON_MONITOR.includes(escritorioId);
   const horarioSelObj = horarios.find(h => h.id === horarioSelId);
@@ -426,7 +403,7 @@ const BookingCard = ({
               return (
                 <button
                   key={h.id}
-                  onClick={() => !deshabilitado && setHorarioSelId(h.id)}
+                  onClick={() => !deshabilitado && setSelectedHorarioId(h.id)}
                   disabled={deshabilitado}
                   className={[
                     'booking-horario-btn',
@@ -491,9 +468,9 @@ export default function Reservas() {
   const location = useLocation();
   const navigate = useNavigate();
   const usuario  = location.state?.datosEmpleado ?? null;
-  const esAdmin  = usuario && ADMINS.includes(String(usuario.document_number));
+  const esAdmin  = usuario && ADMIN_DOCUMENTS.includes(String(usuario.document_number));
 
-  const FECHAS = React.useMemo(() => generarFechasHabiles(2), []);
+  const FECHAS = useMemo(() => generarFechasHabiles(2), []);
 
   const [fechaIndex,  setFechaIndex]  = useState(0);
   const [horarios,    setHorarios]    = useState([]);
@@ -542,8 +519,8 @@ export default function Reservas() {
   );
 
   useEffect(() => {
-    fetch(API_HORARIOS)
-      .then(r => r.json())
+    axios.get(API_HORARIOS)
+      .then(({ data: json }) => json)
       .then(json => setHorarios((json.data ?? []).sort((a, b) => a.id - b.id)))
       .catch(() => setHorarios([]));
   }, []);
@@ -559,8 +536,8 @@ export default function Reservas() {
     }
 
     setLoadingRotacion(true);
-    fetch(buildUserHistoryUrl(documento, fechaISO))
-      .then(r => r.json())
+    axios.get(buildUserHistoryUrl(documento, fechaISO))
+      .then(({ data: json }) => json)
       .then(json => {
         if (cancelled) return;
         const data = Array.isArray(json.data) ? json.data : [];
@@ -583,8 +560,8 @@ export default function Reservas() {
 
   const cargarReservas = useCallback(() => {
     setLoadingR(true);
-    fetch(buildGetUrl(fechaISO))
-      .then(r => r.json())
+    axios.get(buildGetUrl(fechaISO))
+      .then(({ data: json }) => json)
       .then(json => {
         const data = Array.isArray(json.data) ? json.data : [];
         setReservas(data);
@@ -647,19 +624,15 @@ export default function Reservas() {
           working_horarios: { id: horarioObj.id },
         },
       };
-      const res = await fetch(API_RESERVAS, {
-        method: 'POST',
+      await axios.post(API_RESERVAS, body, {
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
       });
-      const resJson = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(resJson?.error?.message ?? `Error ${res.status}`);
       setReservaOk(true);
       window.dispatchEvent(new CustomEvent('working-reservas-updated'));
       cargarReservas();
       setTimeout(() => { setSelectedId(null); setReservaOk(false); }, 2500);
     } catch (err) {
-      setReservaErr(err.message || 'Error al reservar. Intenta de nuevo.');
+      setReservaErr(err?.response?.data?.error?.message || err.message || 'Error al reservar. Intenta de nuevo.');
     } finally {
       setReservando(false);
     }

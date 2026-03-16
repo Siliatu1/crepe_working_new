@@ -1,5 +1,6 @@
 @use '../abstracts/variables' as *;
 @use '../abstracts/mixins' as *;
+@use 'sass:color';
 
 // ══════════════════════════════════════════════════════════
 // 1. LAYOUT BASE
@@ -592,12 +593,12 @@
 }
 
 .booking-feedback--error {
-  color: darken(#f44336, 10%);
+  color: color.adjust(#f44336, $lightness: -10%);
   background-color: rgba(244, 67, 54, 0.08);
 }
 
 .booking-feedback--ok {
-  color: darken(#4caf50, 10%);
+  color: color.adjust(#4caf50, $lightness: -10%);
   background-color: rgba(76, 175, 80, 0.08);
   font-weight: $font-weight-bold;
 }

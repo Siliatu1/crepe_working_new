@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { User, Calendar, Monitor, Clock, Armchair, Ticket, ArrowLeft, Trash2, LogOut, ChevronDown } from 'lucide-react';
+import axios from 'axios';
 import { cancelReserva, updateReservaWithVerification } from "../../utils/reservasService";
 import useRealtimeSync from '../../hooks/useRealtimeSync';
+import { ADMIN_DOCUMENTS, HORARIO_META, getPuestoId, getHorarioId } from '../../utils/reservaCommon';
 import {
   calculateDistance,
   checkGeolocationSupport,
@@ -14,14 +16,6 @@ import {
 
 const BASE         = 'https://macfer.crepesywaffles.com';
 const API_RESERVAS = `${BASE}/api/working-reservas`;
-const ADMINS = ['1028783377', '1019096266'];
-
-// Metadatos de horarios por ID (igual que en Reservas.jsx)
-const HORARIO_META = {
-  1: { label: 'Mañana',      hora: '8:00 am – 12:00 m' },
-  2: { label: 'Tarde',        hora: '1:00 pm – 5:00 pm' },
-  3: { label: 'Día completo', hora: '8:00 am – 5:00 pm' },
-};
 
 // Chevron con rotación
 const IconChevron = ({ open }) => (
@@ -55,41 +49,6 @@ const getLocalDateString = (referenceDate = new Date()) => {
   const month = String(referenceDate.getMonth() + 1).padStart(2, '0');
   const day = String(referenceDate.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
-};
-
-const extractId = (rel) => {
-  if (rel == null) return null;
-  if (typeof rel === 'number') return rel;
-  if (typeof rel === 'object' && rel.id != null) return rel.id;
-
-  if (typeof rel === 'object' && rel.data != null) {
-    const d = rel.data;
-    if (typeof d === 'number') return d;
-    if (Array.isArray(d) && d.length > 0) return d[0]?.id ?? null;
-    if (typeof d === 'object' && d.id != null) return d.id;
-  }
-
-  return null;
-};
-
-const getPuestoId = (r) => {
-  return (
-    extractId(r.attributes?.working_puestos) ??
-    extractId(r.working_puestos) ??
-    r.attributes?.escritorioId ??
-    r.escritorioId ??
-    null
-  );
-};
-
-const getHorarioId = (r) => {
-  return (
-    extractId(r.attributes?.working_horarios) ??
-    extractId(r.working_horarios) ??
-    r.attributes?.horarioId ??
-    r.horarioId ??
-    null
-  );
 };
 
 const getHorarioLabel = (r, horarioId) => {
@@ -357,7 +316,7 @@ const Panel = () => {
   const geoSupport = checkGeolocationSupport();
 
   const documentoUsuario = String(datosEmpleado?.documento || datosEmpleado?.document_number || '');
-  const esAdmin = ADMINS.includes(documentoUsuario);
+  const esAdmin = ADMIN_DOCUMENTS.includes(documentoUsuario);
   const [reservations, setReservations] = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState("");
@@ -485,8 +444,7 @@ const Panel = () => {
         `&populate[working_horarios][fields][0]=id&populate[working_horarios][fields][1]=nombre` +
         `&pagination[pageSize]=40000`;
 
-      const res  = await fetch(url);
-      const json = await res.json();
+      const { data: json } = await axios.get(url);
       const data = Array.isArray(json.data) ? json.data : [];
 
       // Normalizar cada reserva a un objeto plano fácil de mostrar

@@ -1,17 +1,12 @@
 import axiosInstance from '../api/axiosInstance';
 import { evaluateReservationStatus, fetchWorkingHorarios } from './geolocationService';
+import { normalizeCollection } from './collections';
 
 const API_RESERVAS_ENDPOINT = 'https://macfer.crepesywaffles.com/api/working-reservas';
 const RESERVAS_UPDATED_EVENT = 'working-reservas-updated';
 const PAGE_SIZE = 40000;
 
 const inMemoryStatusMap = new Map();
-
-const normalizeCollection = (payload) => {
-  if (Array.isArray(payload?.data)) return payload.data;
-  if (Array.isArray(payload)) return payload;
-  return [];
-};
 
 const toEstado = (value) => {
   if (value === true) return 'Confirmada';
@@ -296,34 +291,6 @@ export const cancelarReservasVencidas = async () => {
       ? `${canceladas} reserva(s) cancelada(s) automáticamente`
       : 'No hay reservas vencidas para cancelar',
   };
-};
-
-export const getEscritoriosDisponibles = async (fecha) => {
-  const reservas = await getReservas({ fecha });
-  const activas = reservas.filter((reserva) => reserva.estado === 'Pendiente' || reserva.estado === 'Confirmada');
-  const ocupados = activas.map((reserva) => Number(reserva.escritorioId)).filter((id) => !Number.isNaN(id));
-
-  return [1, 2, 3, 4, 5, 6].filter((id) => !ocupados.includes(id));
-};
-
-export const clearReservasOverlay = () => {
-  inMemoryStatusMap.clear();
-  emitReservationsUpdated({ cleared: true });
-  return true;
-};
-
-export const exportReservasToJSON = async () => {
-  const reservas = await getReservas();
-  const dataStr = JSON.stringify(reservas, null, 2);
-  const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
-  const fileName = `reservas_backup_${new Date().toISOString().split('T')[0]}.json`;
-
-  const link = document.createElement('a');
-  link.setAttribute('href', dataUri);
-  link.setAttribute('download', fileName);
-  link.click();
-
-  return true;
 };
 
 export { RESERVAS_UPDATED_EVENT };
