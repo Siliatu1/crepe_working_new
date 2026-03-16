@@ -4,6 +4,7 @@ import mesaImg from "../mesa.png";
 import { Monitor, LogOut, Armchair, ArrowLeft, ArrowRight } from "lucide-react";
 import axios from 'axios';
 import { ADMIN_DOCUMENTS } from '../../utils/reservaCommon';
+import { clearSession, getSession } from "../../utils/sessionFlow";
 
 // ── Constantes ────────────────────────────────────────────
 const BASE      = 'https://macfer.crepesywaffles.com';
@@ -105,8 +106,14 @@ const SalaCard = ({ sala, onClick }) => {
 export default function Salas() {
   const navigate = useNavigate();
   const location = useLocation();
-  const usuario  = location.state?.datosEmpleado || null;
+  const session = getSession();
+  const usuario  = location.state?.datosEmpleado || session?.datosEmpleado || null;
   const esAdmin  = ADMIN_DOCUMENTS.includes(usuario?.documento ?? usuario?.document_number ?? '');
+
+  const handleLogout = () => {
+    clearSession();
+    navigate('/', { replace: true });
+  };
 
   const [salas,      setSalas]      = useState([]);
   const [loading,    setLoading]    = useState(true);
@@ -153,7 +160,7 @@ export default function Salas() {
                   borderColor: 'rgba(192,57,43,0.35)',
                   color: '#c0392b',
                 }}
-                onClick={() => navigate('/')}
+                onClick={handleLogout}
                 title="Cerrar sesión"
                 aria-label="Cerrar sesión"
               >

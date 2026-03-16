@@ -1,14 +1,19 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { getSession, markPoliciesAccepted } from "../../utils/sessionFlow";
 
 const Politicas = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const datosEmpleado = location.state?.datosEmpleado || {};
+  const session = getSession();
+  const datosEmpleado = location.state?.datosEmpleado || session?.datosEmpleado || {};
   const [aceptado, setAceptado] = useState(false);
 
   const handleAceptar = () => {
-    if (aceptado) navigate("/salas", { state: { datosEmpleado } });
+    if (aceptado) {
+      markPoliciesAccepted();
+      navigate("/salas", { state: { datosEmpleado }, replace: true });
+    }
   };
 
   const politicas = [

@@ -6,7 +6,17 @@ import sillaDis from '../../assets/sillaDis.png';
 import sillaLim from '../../assets/sillaLim.png';
 import sillaOcu from '../../assets/sillaOcu.png';
 import mesaImg  from '../../assets/mesa.png';
-import { ADMIN_DOCUMENTS, HORARIO_META, getPuestoId, getHorarioId } from '../../utils/reservaCommon';
+import {
+  ADMIN_DOCUMENTS,
+  HORARIO_META,
+  esReservaActiva,
+  formatFechaIso,
+  getHorarioId,
+  getNombreCorto,
+  getPrimerNombreReserva,
+  getPuestoId,
+} from '../../utils/reservaCommon';
+import { clearSession, getSession } from '../../utils/sessionFlow';
 
 // ─── URLs ─────────────────────────────────────────────────────────────────────
 const BASE         = 'https://macfer.crepesywaffles.com';
@@ -70,77 +80,7 @@ const buildUserHistoryUrl = (documento, fecha) => {
   return `${API_RESERVAS}?${params.toString()}`;
 };
 
-// ─── Diagnóstico ──────────────────────────────────────────────────────────────
-// ─── Extracción de IDs ────────────────────────────────────────────────────────
-const getNombre = (r) => {
-  const attrs = r?.attributes ?? r ?? {};
-  const nombreCompleto = [
-    attrs.Nombre,
-    attrs.nombreCompleto,
-    attrs.nombre_completo,
-    attrs.fullName,
-    attrs.full_name,
-  ].find((value) => typeof value === 'string' && value.trim());
-
-  if (nombreCompleto) return nombreCompleto;
-
-  const nombres = [
-    attrs.nombre,
-    attrs.nombres,
-    attrs.firstName,
-    attrs.first_name,
-  ].find((value) => typeof value === 'string' && value.trim());
-
-  const apellidos = [
-    attrs.apellidos,
-    attrs.apellido,
-    attrs.lastName,
-    attrs.last_name,
-    attrs.primer_apellido,
-    attrs.segundo_apellido,
-    attrs.apellido_paterno,
-    attrs.apellido_materno,
-  ].find((value) => typeof value === 'string' && value.trim());
-
-  const combinado = [nombres, apellidos].filter(Boolean).join(' ').trim();
-  return combinado || attrs.documento || '—';
-};
-const getPrimerNombre = (r) => getNombre(r).split(' ')[0];
 const getFoto      = (r) => r.attributes?.foto ?? r.foto ?? null;
-
-const getEstado = (r) => {
-  const estadoRaw = r.attributes?.estado ?? r.estado;
-  if (estadoRaw === true || estadoRaw === 'Confirmada' || estadoRaw === 'confirmada' || estadoRaw === 'Completada' || estadoRaw === 'completada') {
-    return 'Confirmada';
-  }
-  if (estadoRaw === false || estadoRaw === 'Cancelada' || estadoRaw === 'cancelada') {
-    return 'Cancelada';
-  }
-  return 'Pendiente';
-};
-
-const esReservaActiva = (r) => getEstado(r) !== 'Cancelada';
-
-const getNombreCorto = (nombre = '') => {
-  const partes = String(nombre).trim().split(/\s+/).filter(Boolean);
-
-  if (partes.length >= 3) {
-    return `${partes[0]} ${partes[partes.length - 2]}`;
-  }
-
-  if (partes.length === 2) {
-    return `${partes[0]} ${partes[1]}`;
-  }
-
-  return partes[0] ?? '';
-};
-
-const formatFechaIso = (isoDate) => {
-  if (!isoDate) return '';
-  const [y, m, d] = String(isoDate).split('-').map(Number);
-  if (!y || !m || !d) return String(isoDate);
-  return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
-};
 
 // ─── Lógica de disponibilidad ─────────────────────────────────────────────────
 const turnosBloqueados = (reservas, puestoId) => {
@@ -231,7 +171,7 @@ const OcupantesPanelContent = ({ reservas, asCard = false }) => {
                     const hId    = getHorarioId(r);
                     const meta   = HORARIO_META[hId];
                     const foto   = getFoto(r);
-                    const nombre = getPrimerNombre(r);
+                    const nombre = getPrimerNombreReserva(r);
                     return (
                       <div key={i} className="op-fila__persona-card">
                         <div className="op-fila__persona">
@@ -467,8 +407,15 @@ const BookingCard = ({
 export default function Reservas() {
   const location = useLocation();
   const navigate = useNavigate();
-  const usuario  = location.state?.datosEmpleado ?? null;
-  const esAdmin  = usuario && ADMIN_DOCUMENTS.includes(String(usuario.document_number));
+  const session = getSession();
+  const usuario  = location.state?.datosEmpleado ?? session?.datosEmpleado ?? null;
+  const documentoUsuario = String(usuario?.document_number ?? usuario?.documento ?? '');
+  const esAdmin  = usuario && ADMIN_DOCUMENTS.includes(documentoUsuario);
+
+  const handleLogout = () => {
+    clearSession();
+    navigate('/', { replace: true });
+  };
 
   const FECHAS = useMemo(() => generarFechasHabiles(2), []);
 
@@ -527,7 +474,7 @@ export default function Reservas() {
 
   useEffect(() => {
     let cancelled = false;
-    const documento = String(usuario?.document_number ?? '').trim();
+    const documento = String(usuario?.document_number ?? usuario?.documento ?? '').trim();
 
     if (!documento) {
       setUltimaReservaPrevia(null);
@@ -556,7 +503,7 @@ export default function Reservas() {
     return () => {
       cancelled = true;
     };
-  }, [usuario?.document_number, fechaISO]);
+  }, [usuario?.document_number, usuario?.documento, fechaISO]);
 
   const cargarReservas = useCallback(() => {
     setLoadingR(true);
@@ -593,7 +540,7 @@ export default function Reservas() {
   }, [selectedId, ultimoPuestoReservado, loadingRotacion, getRotationMessage]);
 
   const yaReservoHoy = reservas.some(
-    r => String(r.attributes?.documento ?? r.documento) === String(usuario?.document_number) && esReservaActiva(r)
+    r => String(r.attributes?.documento ?? r.documento) === documentoUsuario && esReservaActiva(r)
   );
 
   const handleReservar = async (horarioObj) => {
@@ -679,7 +626,7 @@ export default function Reservas() {
               borderColor: 'rgba(192,57,43,0.35)',
               color: '#c0392b',
             }}
-            onClick={() => navigate('/')}
+            onClick={handleLogout}
             title="Cerrar sesión"
           >
             <LogOut size={14} strokeWidth={2} />

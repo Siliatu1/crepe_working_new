@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { User, Calendar, Monitor, Clock, Armchair, Ticket, ArrowLeft, Trash2, LogOut, ChevronDown } from 'lucide-react';
+import { Table, Select, Input, Button, Segmented, Space, Tag } from 'antd';
 import axios from 'axios';
 import { cancelReserva, updateReservaWithVerification } from "../../utils/reservasService";
+import useMobile from '../../hooks/useMobile';
 import useRealtimeSync from '../../hooks/useRealtimeSync';
-import { ADMIN_DOCUMENTS, HORARIO_META, getPuestoId, getHorarioId } from '../../utils/reservaCommon';
+import { ADMIN_DOCUMENTS, HORARIO_META, getPuestoId, getHorarioId, getLocalDateString, toEstado } from '../../utils/reservaCommon';
+import { clearSession, getSession } from '../../utils/sessionFlow';
 import {
   calculateDistance,
   checkGeolocationSupport,
@@ -24,32 +27,8 @@ const IconChevron = ({ open }) => (
   </div>
 );
 
-// ── Hook breakpoint ───────────────────────────────────────────
-const useMobile = () => {
-  const [mobile, setMobile] = useState(() => window.innerWidth < 768);
-  useEffect(() => {
-    const fn = () => setMobile(window.innerWidth < 768);
-    window.addEventListener("resize", fn);
-    return () => window.removeEventListener("resize", fn);
-  }, []);
-  return mobile;
-};
-
 // ── Helpers ───────────────────────────────────────────────────
-/** Primer nombre + primer apellido (dos primeras palabras) */
-const getNombreCorto = (nombre = '') => {
-  const partes = nombre.trim().split(/\s+/);
-  return partes.length >= 2 ? `${partes[0]} ${partes[1]}` : partes[0] ?? '';
-};
-
 const getNombreCompleto = (nombre = '') => String(nombre ?? '').trim();
-
-const getLocalDateString = (referenceDate = new Date()) => {
-  const year = referenceDate.getFullYear();
-  const month = String(referenceDate.getMonth() + 1).padStart(2, '0');
-  const day = String(referenceDate.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 const getHorarioLabel = (r, horarioId) => {
   const fromRelation =
@@ -82,37 +61,12 @@ const getSalaInfo = (r) => {
 };
 
 const getEstadoReserva = (attrs = {}) => {
-  const estadoRaw = attrs?.estado;
-
-  // Regla canónica de backend: null => Pendiente, true => Confirmada, false => Cancelada
-  if (estadoRaw === true) return 'Confirmada';
-  if (estadoRaw === false) return 'Cancelada';
-  if (estadoRaw === null) return 'Pendiente';
-
   const motivo = String(attrs?.motivo_cancelacion ?? attrs?.motivoCancelacion ?? '').trim();
   const tipoVerificacion = String(attrs?.verificacionAsistencia?.tipo ?? '').toLowerCase();
   const fueCanceladaManualmente = motivo.length > 0 || tipoVerificacion.includes('cancelacion');
 
   if (fueCanceladaManualmente) return 'Cancelada';
-
-  if (estadoRaw == null) return 'Pendiente';
-
-  const estadoTexto = String(estadoRaw)
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-
-  if (estadoTexto === 'confirmada' || estadoTexto === 'confirmado' || estadoTexto === 'completada' || estadoTexto === 'completado') {
-    return 'Confirmada';
-  }
-
-  if (estadoTexto === 'cancelada' || estadoTexto === 'cancelado') {
-    return 'Cancelada';
-  }
-
-  if (estadoTexto === 'pendiente') return 'Pendiente';
-  return 'Pendiente';
+  return toEstado(attrs?.estado);
 };
 
 // ── Tarjeta mobile colapsable ─────────────────────────────────
@@ -310,13 +264,19 @@ const ReservaCard = ({
 const Panel = () => {
   const navigate      = useNavigate();
   const location      = useLocation();
-  const datosEmpleado = location.state?.datosEmpleado || null;
+  const session = getSession();
+  const datosEmpleado = location.state?.datosEmpleado || session?.datosEmpleado || null;
   const isMobile      = useMobile();
   const workplaceInfo = getWorkplaceInfo();
   const geoSupport = checkGeolocationSupport();
 
   const documentoUsuario = String(datosEmpleado?.documento || datosEmpleado?.document_number || '');
   const esAdmin = ADMIN_DOCUMENTS.includes(documentoUsuario);
+
+  const handleLogout = () => {
+    clearSession();
+    navigate('/', { replace: true });
+  };
   const [reservations, setReservations] = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState("");
@@ -459,7 +419,7 @@ const Panel = () => {
 
         return {
           id:       r.id,
-          nombre:   getNombreCorto(r.attributes?.Nombre ?? r.attributes?.documento ?? '—'),
+          nombre:   getNombreCompleto(r.attributes?.Nombre ?? r.attributes?.documento ?? '—').split(/\s+/).slice(0, 2).join(' '),
           nombreCompleto: getNombreCompleto(r.attributes?.Nombre ?? r.attributes?.documento ?? '—'),
           foto:     r.attributes?.foto      ?? null,
           documento:r.attributes?.documento ?? '—',
@@ -742,10 +702,6 @@ const Panel = () => {
     await handleCancelar(id, motivo);
   };
 
-  // Estado mostrado en panel: Pendiente / Confirmada / Cancelada
-  const pendientes = reservations.filter(r => r.estado === 'Pendiente');
-  const confirmadas = reservations.filter(r => r.estado === 'Confirmada');
-  const canceladas = reservations.filter(r => r.estado === 'Cancelada');
   const reservaEnConfirmacion = reservations.find(r => r.id === cancelConfirmId) || null;
 
   // Salas únicas disponibles en el conjunto actual de reservas
@@ -783,6 +739,200 @@ const Panel = () => {
     return result;
   }, [reservations, esAdmin, adminTab, filterEstado, filterSala, searchQuery, documentoUsuario]);
 
+  const desktopColumns = useMemo(() => {
+    const columns = [
+      {
+        title: 'ID',
+        key: 'id',
+        width: 80,
+        render: (_, r) => (
+          <span style={{
+            display: "inline-block",
+            padding: "2px 8px", borderRadius: 20,
+            background: "rgba(80,54,41,0.08)",
+            color: "#92614F", fontSize: "0.72rem", fontWeight: 700,
+            fontFamily: "monospace", letterSpacing: "0.02em",
+          }}>
+            #{r.id}
+          </span>
+        ),
+      },
+      ...(esAdmin ? [{
+        title: 'Usuario',
+        key: 'usuario',
+        ellipsis: true,
+        width: 180,
+        render: (_, r) => (
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span className="text-body" style={{ fontSize: "0.82rem", fontWeight: 700 }}>
+              {r.nombreCompleto || r.nombre}
+            </span>
+            <span style={{ fontSize: "0.72rem", color: "#92614F" }}>
+              {r.documento || 'Sin documento'}
+            </span>
+          </div>
+        ),
+      }] : []),
+      {
+        title: 'Fecha',
+        key: 'fecha',
+        width: 110,
+        render: (_, r) => (
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Calendar size={13} color="#CC8A22" strokeWidth={2} />
+            <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
+              {r.fecha !== '—'
+                ? new Date(r.fecha + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short" })
+                : '—'}
+            </span>
+          </div>
+        ),
+      },
+      {
+        title: 'Sala / Escritorio',
+        key: 'salaEscritorio',
+        ellipsis: true,
+        width: 170,
+        render: (_, r) => (
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Monitor size={13} color="#CC8A22" strokeWidth={2} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              {r.salaNombre && (
+                <span style={{ fontSize: "0.72rem", color: "#CC8A22", fontWeight: 600 }}>
+                  {r.salaNombre}
+                </span>
+              )}
+              <span className="text-body" style={{ fontSize: "0.82rem" }}>
+                {r.puestoId ? `Escritorio ${r.puestoId}` : '—'}
+              </span>
+            </div>
+          </div>
+        ),
+      },
+      {
+        title: 'Turno',
+        key: 'turno',
+        ellipsis: true,
+        width: 130,
+        render: (_, r) => {
+          const hMeta = HORARIO_META[r.horarioId];
+          const turnoTexto = r.turnoLabel || hMeta?.label || '—';
+          return (
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Clock size={13} color="#CC8A22" strokeWidth={2} />
+              <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
+                {turnoTexto}
+              </span>
+            </div>
+          );
+        },
+      },
+      {
+        title: 'Estado',
+        key: 'estado',
+        width: 105,
+        render: (_, r) => {
+          const esCancelada = r.estado === 'Cancelada';
+          const esPendiente = r.estado === 'Pendiente';
+          return (
+            <Tag
+              style={{ marginInlineEnd: 0, borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, paddingInline: 10 }}
+              color={esCancelada ? 'error' : esPendiente ? 'warning' : 'success'}
+            >
+              {r.estado}
+            </Tag>
+          );
+        },
+      },
+      {
+        title: 'Motivo',
+        key: 'motivo',
+        ellipsis: true,
+        width: 180,
+        render: (_, r) => {
+          const valor = r.estado === 'Cancelada'
+            ? (r.motivoCancelacion || r.motivoGestion || '—')
+            : r.estado === 'Confirmada'
+              ? (r.motivoGestion || '—')
+              : '—';
+          return (
+            <span className="text-body" style={{ fontSize: "0.78rem", color: "#6B4A3A" }} title={valor}>
+              {valor}
+            </span>
+          );
+        },
+      },
+      {
+        title: 'Acción',
+        key: 'accion',
+        width: 230,
+        render: (_, r) => {
+          const esCancelada = r.estado === 'Cancelada';
+          const esPendiente = r.estado === 'Pendiente';
+          const confirmMeta = getConfirmMeta(r);
+          const actionBusy = confirmando === r.id || cancelando === r.id || reactivando === r.id;
+          const confirmDisabled = actionBusy || !esPendiente || (!esAdmin && (!isNearPoint || !confirmMeta.canByTime));
+          const cancelDisabled = cancelando === r.id || esCancelada || cancelConfirmId === r.id || reactivando === r.id;
+          const reactivateDisabled = actionBusy;
+
+          return (
+            <div>
+              <Space size={8} wrap>
+                <Button
+                  size="small"
+                  onClick={() => handleConfirmar(r.id)}
+                  disabled={confirmDisabled}
+                  loading={confirmando === r.id}
+                >
+                  Confirmar
+                </Button>
+                <Button
+                  size="small"
+                  danger
+                  onClick={() => solicitarCancelacion(r.id)}
+                  disabled={cancelDisabled}
+                  loading={cancelando === r.id}
+                  icon={<Trash2 size={13} strokeWidth={2} />}
+                >
+                  {esCancelada ? "Cancelada" : "Cancelar"}
+                </Button>
+                {esAdmin && esCancelada && (
+                  <Button
+                    size="small"
+                    onClick={() => handleReactivar(r.id)}
+                    disabled={reactivateDisabled}
+                    loading={reactivando === r.id}
+                  >
+                    Reactivar
+                  </Button>
+                )}
+              </Space>
+              {esPendiente && (
+                <div style={{ marginTop: 6, fontSize: "0.68rem", color: "#8A6D3B", lineHeight: 1.2 }}>
+                  {esAdmin
+                    ? 'Confirmación manual disponible para administrador.'
+                    : (confirmMeta.remainingMinutes != null && confirmMeta.remainingMinutes > 0
+                        ? `Quedan ${confirmMeta.remainingMinutes} min para confirmar`
+                        : (confirmMeta.blockedMessage || 'Pendiente de confirmación'))}
+                </div>
+              )}
+            </div>
+          );
+        },
+      },
+    ];
+
+    return columns;
+  }, [
+    esAdmin,
+    getConfirmMeta,
+    confirmando,
+    cancelando,
+    reactivando,
+    isNearPoint,
+    cancelConfirmId,
+  ]);
+
   if (loading) return (
     <div className="page-wrapper">
       <div className="bienvenida-card">
@@ -804,40 +954,150 @@ const Panel = () => {
 
   return (
     <div className="page-wrapper" style={{
+      display: "flex",
+      flexDirection: "column",
       alignItems: "flex-start",
+      justifyContent: "flex-start",
       overflowY: "auto",
-      padding: isMobile ? "16px" : "28px 24px",
+      padding: isMobile ? "64px 16px 16px" : "76px 24px 28px",
     }}>
-      <div className="top-right-nav-actions">
-        <div className="top-nav-btn-group">
-        <button
-          className="btn-outline top-nav-icon-btn"
-          onClick={() => navigate('/panel', { state: { datosEmpleado } })}
-          title={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
-          aria-label={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
-        >
-          <Armchair size={14} strokeWidth={2.5} />
-        </button>
-        <button
-          className="btn-outline top-nav-icon-btn"
-          onClick={() => navigate('/')}
-          title="Cerrar sesión"
-          style={{
-            borderColor: "rgba(192,57,43,0.35)",
-            color: "#c0392b",
-          }}
-        >
-          <LogOut size={14} strokeWidth={2} />
-        </button>
-        <button
-          className="btn-outline reservas-btn-atras top-nav-icon-btn"
-          onClick={() => navigate(-1)}
-          title="Volver"
-        >
-          <ArrowLeft size={14} strokeWidth={2.5} />
-        </button>
+      <div style={{
+        position: "fixed",
+        top: isMobile ? "8px" : "16px",
+        left: isMobile ? "8px" : "24px",
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+        maxHeight: "34px",
+        zIndex: 120,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0, maxHeight: "34px" }}>
+          {(() => {
+            const nombre = String(datosEmpleado?.nombre || '').trim();
+            const primerNombre = nombre ? nombre.split(/\s+/)[0] : 'Usuario';
+            return (
+              <>
+          {datosEmpleado?.foto && datosEmpleado.foto !== "null" ? (
+            <img
+              src={datosEmpleado?.foto}
+              alt="Foto"
+              style={{
+                width: "34px",
+                height: "34px",
+                borderRadius: "8px",
+                objectFit: "cover",
+                border: "1px solid rgba(80,54,41,0.2)",
+                flexShrink: 0,
+              }}
+            />
+          ) : (
+            <div style={{
+              width: "34px",
+              height: "34px",
+              borderRadius: "8px",
+              border: "1px solid rgba(80,54,41,0.2)",
+              background: "rgba(80,54,41,0.06)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}>
+              <User size={15} color="#92614F" strokeWidth={2} />
+            </div>
+          )}
+          <div style={{ minWidth: 0, display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "center", lineHeight: 1, maxHeight: "34px", overflow: "hidden" }}>
+            <div style={{ fontSize: "0.8rem", lineHeight: 1, fontWeight: 700, color: "#503629", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {primerNombre}
+            </div>
+            <div style={{ fontSize: "0.66rem", lineHeight: 1.05, marginTop: "2px", color: esAdmin ? "#CC8A22" : "#92614F", fontWeight: 700 }}>
+              {esAdmin ? 'admin' : 'user'}
+            </div>
+          </div>
+              </>
+            );
+          })()}
         </div>
       </div>
+
+      <div
+        className="top-right-nav-actions"
+        style={{
+          top: isMobile ? "8px" : "16px",
+          right: isMobile ? "8px" : "24px",
+        }}
+      >
+        <div className="top-nav-btn-group">
+          <button
+            className="btn-outline top-nav-icon-btn"
+            onClick={() => navigate('/panel', { state: { datosEmpleado } })}
+            title={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
+            aria-label={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
+          >
+            <Armchair size={14} strokeWidth={2.5} />
+          </button>
+          <button
+            className="btn-outline top-nav-icon-btn"
+            onClick={handleLogout}
+            title="Cerrar sesión"
+            style={{
+              borderColor: "rgba(192,57,43,0.35)",
+              color: "#c0392b",
+            }}
+          >
+            <LogOut size={14} strokeWidth={2} />
+          </button>
+          <button
+            className="btn-outline reservas-btn-atras top-nav-icon-btn"
+            onClick={() => navigate(-1)}
+            title="Volver"
+          >
+            <ArrowLeft size={14} strokeWidth={2.5} />
+          </button>
+        </div>
+      </div>
+
+      {!esAdmin && (
+        <div style={{
+          padding: "10px 12px",
+          background: "rgba(80,54,41,0.05)",
+          borderRadius: 10,
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          width: "100%",
+          maxWidth: isMobile ? "100%" : "420px",
+          marginBottom: "12px",
+        }}>
+          <div style={{ fontSize: "0.75rem", color: "#503629", fontWeight: 700 }}>
+            Confirmación por ubicación
+          </div>
+          <div style={{ fontSize: "0.74rem", color: isNearPoint ? "#155724" : "#8A6D3B" }}>
+            {isNearPoint
+              ? `Estás dentro del perímetro (${Math.round(distanceMeters || 0)} m).`
+              : `Para confirmar, debes estar dentro del perímetro de ${workplaceInfo.radius} m.`}
+          </div>
+          {!!locationError && (
+            <div style={{ fontSize: "0.72rem", color: "#c0392b" }}>{locationError}</div>
+          )}
+          <button
+            onClick={() => void refreshLocationStatus()}
+            disabled={locationChecking}
+            style={{
+              padding: "8px 10px",
+              borderRadius: 8,
+              border: "1px solid rgba(80,54,41,0.25)",
+              background: "rgba(80,54,41,0.08)",
+              color: "#503629",
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              cursor: locationChecking ? "not-allowed" : "pointer",
+              opacity: locationChecking ? 0.7 : 1,
+            }}
+          >
+            {locationChecking ? "Verificando ubicación…" : "Actualizar ubicación"}
+          </button>
+        </div>
+      )}
 
       <div style={{
         width: "100%", maxWidth: "none",
@@ -848,115 +1108,16 @@ const Panel = () => {
         {/* Layout */}
         <div style={{
           display: "flex",
-          flexDirection: isMobile ? "column" : "row",
+          flexDirection: "column",
           gap: "16px", alignItems: "flex-start",
         }}>
-
-          {/* Perfil */}
-          <div className="bienvenida-card" style={{
-            width: isMobile ? "100%" : "250px",
-            flexShrink: 0, boxSizing: "border-box",
-          }}>
-            <div className="bienvenida-avatar">
-              {datosEmpleado?.foto && datosEmpleado.foto !== "null" ? (
-                <img src={datosEmpleado?.foto} alt="Foto" className="bienvenida-foto" />
-              ) : (
-                <div className="bienvenida-foto-placeholder"><User size={32} color="#92614F" strokeWidth={2} /></div>
-              )}
-            </div>
-            <h1 className="bienvenida-saludo">
-              ¡Hola, {datosEmpleado?.nombre?.split(" ")[0]}!
-            </h1>
-            <div className="bienvenida-info">
-              <div>
-                <div className="text-label">Cargo y Área</div>
-                <div className="bienvenida-cargo">{datosEmpleado?.cargo}</div>
-                <div className="text-muted">{datosEmpleado?.area_nombre}</div>
-              </div>
-            </div>
-            <div style={{ marginTop: 10, fontSize: "0.78rem", color: esAdmin ? "#CC8A22" : "#92614F", fontWeight: 700 }}>
-              {esAdmin ? 'Administrador' : 'Usuario'}
-            </div>
-
-            {/* Resumen rápido */}
-            <div style={{
-              marginTop: 16, padding: "10px 14px",
-              background: "rgba(80,54,41,0.05)", borderRadius: 10,
-              display: "flex", flexDirection: "column", gap: 6,
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
-                <span className="text-muted">Pendientes</span>
-                <span style={{ fontWeight: 700, color: "#8A6D3B" }}>{pendientes.length}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
-                <span className="text-muted">Confirmadas</span>
-                <span style={{ fontWeight: 700, color: "#155724" }}>{confirmadas.length}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
-                <span className="text-muted">Canceladas</span>
-                <span style={{ fontWeight: 700, color: "#721C24" }}>{canceladas.length}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
-                <span className="text-muted">Total</span>
-                <span style={{ fontWeight: 700, color: "#503629" }}>{reservations.length}</span>
-              </div>
-            </div>
-
-            {esAdmin ? (
-              <div style={{
-                marginTop: 12, padding: "10px 12px",
-                background: "rgba(204,138,34,0.08)", borderRadius: 10,
-                display: "flex", flexDirection: "column", gap: 8,
-              }}>
-                <div style={{ fontSize: "0.75rem", color: "#8A6D3B", fontWeight: 700 }}>
-                  Permisos de administrador
-                </div>
-                <div style={{ fontSize: "0.74rem", color: "#8A6D3B" }}>
-                  Puedes ver todas las reservas y confirmar manualmente cualquier reserva pendiente, incluso fuera de la ventana de 25 minutos.
-                </div>
-              </div>
-            ) : (
-              <div style={{
-                marginTop: 12, padding: "10px 12px",
-                background: "rgba(80,54,41,0.05)", borderRadius: 10,
-                display: "flex", flexDirection: "column", gap: 8,
-              }}>
-                <div style={{ fontSize: "0.75rem", color: "#503629", fontWeight: 700 }}>
-                  Confirmación por ubicación
-                </div>
-                <div style={{ fontSize: "0.74rem", color: isNearPoint ? "#155724" : "#8A6D3B" }}>
-                  {isNearPoint
-                    ? `Estás dentro del perímetro (${Math.round(distanceMeters || 0)} m).`
-                    : `Para confirmar, debes estar dentro del perímetro de  ${workplaceInfo.radius} m.`}
-                </div>
-                {!!locationError && (
-                  <div style={{ fontSize: "0.72rem", color: "#c0392b" }}>{locationError}</div>
-                )}
-                <button
-                  onClick={() => void refreshLocationStatus()}
-                  disabled={locationChecking}
-                  style={{
-                    padding: "8px 10px", borderRadius: 8,
-                    border: "1px solid rgba(80,54,41,0.25)",
-                    background: "rgba(80,54,41,0.08)",
-                    color: "#503629", fontSize: "0.75rem", fontWeight: 600,
-                    cursor: locationChecking ? "not-allowed" : "pointer",
-                    opacity: locationChecking ? 0.7 : 1,
-                  }}
-                >
-                  {locationChecking ? "Verificando ubicación…" : "Actualizar ubicación"}
-                </button>
-              </div>
-            )}
-
-
-          </div>
-
           {/* Tabla de reservas */}
           <div className="bienvenida-card" style={{
             flex: 1, padding: isMobile ? "16px" : "20px 24px",
-            minWidth: isMobile ? 0 : "500px", boxSizing: "border-box",
-            width: isMobile ? "100%" : "auto",
+            minWidth: 0, boxSizing: "border-box",
+            width: "100%",
+            maxWidth: "100%",
+            overflowX: "hidden",
           }}>
             {/* ── Cabecera ──────────────────────────────────── */}
             <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
@@ -968,120 +1129,81 @@ const Panel = () => {
                     : 'Reservas de '}<span className="text-accent">{showAllReservations ? 'reservas' : 'hoy'}</span>
                 </h2>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <button
+                  <Button
                     onClick={() => setShowAllReservations((prev) => !prev)}
-                    style={{
-                      padding: "6px 10px", borderRadius: 8,
-                      border: "1px solid rgba(80,54,41,0.25)",
-                      background: "rgba(80,54,41,0.06)",
-                      color: "#503629", fontSize: "0.75rem", fontWeight: 700,
-                      cursor: "pointer", fontFamily: "inherit",
-                    }}
+                    size="small"
                   >
                     {showAllReservations ? 'Ver hoy' : (esAdmin ? 'Ver todas' : 'Ver todas mis')}
-                  </button>
+                  </Button>
                 </div>
               </div>
 
               {/* Fila 2 (admin): tabs Todas / Mis reservas / Otras */}
               {esAdmin && (
-                <div style={{ display: "flex", gap: 6 }}>
-                  {[
-                    { key: 'todos',  label: 'Todas' },
-                    { key: 'mis',    label: 'Mis reservas' },
-                    { key: 'otros',  label: 'Otras' },
-                  ].map(({ key, label }) => (
-                    <button
-                      key={key}
-                      onClick={() => setAdminTab(key)}
-                      style={{
-                        padding: "5px 12px", borderRadius: 20,
-                        border: adminTab === key
-                          ? "1px solid rgba(204,138,34,0.55)"
-                          : "1px solid rgba(80,54,41,0.2)",
-                        background: adminTab === key
-                          ? "rgba(204,138,34,0.14)"
-                          : "rgba(80,54,41,0.04)",
-                        color: adminTab === key ? "#8A6D3B" : "#503629",
-                        fontSize: "0.73rem", fontWeight: adminTab === key ? 700 : 500,
-                        cursor: "pointer", fontFamily: "inherit",
-                        transition: "all 0.15s",
-                      }}
-                    >{label}</button>
-                  ))}
-                </div>
+                <Segmented
+                  block={isMobile}
+                  value={adminTab}
+                  onChange={(value) => setAdminTab(String(value))}
+                  options={[
+                    { value: 'todos', label: 'Todas' },
+                    { value: 'mis', label: 'Mis reservas' },
+                    { value: 'otros', label: 'Otras' },
+                  ]}
+                />
               )}
 
               {/* Fila 3: filtros + buscador */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                {/* Filtro estado */}
-                <select
+              <Space wrap size={8} style={{ width: '100%' }}>
+                <Select
                   value={filterEstado}
-                  onChange={e => setFilterEstado(e.target.value)}
+                  onChange={setFilterEstado}
+                  size="small"
+                  options={[
+                    { value: 'todos', label: 'Todos los estados' },
+                    { value: 'Pendiente', label: 'Pendiente' },
+                    { value: 'Confirmada', label: 'Confirmada' },
+                    { value: 'Cancelada', label: 'Cancelada' },
+                  ]}
                   style={{
-                    padding: "6px 10px", borderRadius: 8,
-                    border: "1px solid rgba(80,54,41,0.22)",
-                    background: "#FDFAF7", color: "#503629",
-                    fontSize: "0.75rem", fontFamily: "inherit",
-                    cursor: "pointer",
+                    minWidth: 170,
                   }}
-                >
-                  <option value="todos">Todos los estados</option>
-                  <option value="Pendiente">Pendiente</option>
-                  <option value="Confirmada">Confirmada</option>
-                  <option value="Cancelada">Cancelada</option>
-                </select>
+                />
 
-                {/* Filtro sala */}
                 {availableSalas.length > 0 && (
-                  <select
+                  <Select
                     value={filterSala}
-                    onChange={e => setFilterSala(e.target.value)}
+                    onChange={setFilterSala}
+                    size="small"
+                    options={[
+                      { value: 'todas', label: 'Todas las salas' },
+                      ...availableSalas.map((s) => ({ value: String(s.id), label: s.nombre })),
+                    ]}
                     style={{
-                      padding: "6px 10px", borderRadius: 8,
-                      border: "1px solid rgba(80,54,41,0.22)",
-                      background: "#FDFAF7", color: "#503629",
-                      fontSize: "0.75rem", fontFamily: "inherit",
-                      cursor: "pointer",
+                      minWidth: 170,
                     }}
-                  >
-                    <option value="todas">Todas las salas</option>
-                    {availableSalas.map(s => (
-                      <option key={s.id} value={String(s.id)}>{s.nombre}</option>
-                    ))}
-                  </select>
+                  />
                 )}
 
-                {/* Buscador */}
-                <input
-                  type="text"
+                <Input
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
+                  allowClear
                   placeholder={esAdmin ? "Buscar por ID, nombre, cédula…" : "Buscar por ID de reserva…"}
+                  size="small"
                   style={{
                     flex: 1, minWidth: 160,
-                    padding: "6px 10px", borderRadius: 8,
-                    border: "1px solid rgba(80,54,41,0.22)",
-                    background: "#FDFAF7", color: "#503629",
-                    fontSize: "0.75rem", fontFamily: "inherit",
-                    outline: "none",
                   }}
                 />
                 {(searchQuery || filterEstado !== 'todos' || filterSala !== 'todas' || (esAdmin && adminTab !== 'todos')) && (
-                  <button
+                  <Button
                     onClick={() => { setSearchQuery(''); setFilterEstado('todos'); setFilterSala('todas'); setAdminTab('todos'); }}
-                    style={{
-                      padding: "6px 10px", borderRadius: 8,
-                      border: "1px solid rgba(192,57,43,0.28)",
-                      background: "rgba(192,57,43,0.06)",
-                      color: "#c0392b", fontSize: "0.73rem", fontWeight: 600,
-                      cursor: "pointer", fontFamily: "inherit",
-                    }}
+                    danger
+                    size="small"
                   >
                     Limpiar filtros
-                  </button>
+                  </Button>
                 )}
-              </div>
+              </Space>
             </div>
 
             {filteredReservations.length === 0 && (
@@ -1125,214 +1247,19 @@ const Panel = () => {
 
             {/* DESKTOP */}
             {!isMobile && filteredReservations.length > 0 && (
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead>
-                    <tr style={{ borderBottom: "2px solid rgba(80,54,41,0.12)" }}>
-                      {[
-                        'ID',
-                        ...(esAdmin ? ['Usuario'] : []),
-                        'Fecha',
-                        'Sala / Escritorio',
-                        'Turno',
-                        'Estado',
-                        'Motivo',
-                        'Acción',
-                      ].map(h => (
-                        <th key={h} style={{
-                          padding: "8px 12px", textAlign: "left",
-                          fontSize: "0.7rem", fontWeight: 700,
-                          color: "#92614F", textTransform: "uppercase",
-                          letterSpacing: "0.06em", whiteSpace: "nowrap",
-                        }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredReservations.map((r, i) => {
-                      const hMeta = HORARIO_META[r.horarioId];
-                      const turnoTexto = r.turnoLabel || hMeta?.label || '—';
-                      const esCancelada = r.estado === 'Cancelada';
-                      const esPendiente = r.estado === 'Pendiente';
-                      const confirmMeta = getConfirmMeta(r);
-                      const actionBusy = confirmando === r.id || cancelando === r.id || reactivando === r.id;
-                      const confirmDisabled = actionBusy || !esPendiente || (!esAdmin && (!isNearPoint || !confirmMeta.canByTime));
-                      const cancelDisabled = cancelando === r.id || esCancelada || cancelConfirmId === r.id || reactivando === r.id;
-                      const reactivateDisabled = actionBusy;
-                      return (
-                        <tr key={r.id}
-                          style={{ borderBottom: i < filteredReservations.length - 1 ? "1px solid rgba(80,54,41,0.08)" : "none", transition: "background 0.15s" }}
-                          onMouseEnter={e => e.currentTarget.style.background = "rgba(146,97,79,0.04)"}
-                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                        >
-                          {/* ID de reserva */}
-                          <td style={{ padding: "12px 12px" }}>
-                            <span style={{
-                              display: "inline-block",
-                              padding: "2px 8px", borderRadius: 20,
-                              background: "rgba(80,54,41,0.08)",
-                              color: "#92614F", fontSize: "0.72rem", fontWeight: 700,
-                              fontFamily: "monospace", letterSpacing: "0.02em",
-                            }}>
-                              #{r.id}
-                            </span>
-                          </td>
-                          {esAdmin && (
-                            <td style={{ padding: "12px 12px" }}>
-                              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                <span className="text-body" style={{ fontSize: "0.82rem", fontWeight: 700 }}>
-                                  {r.nombreCompleto || r.nombre}
-                                </span>
-                                <span style={{ fontSize: "0.72rem", color: "#92614F" }}>
-                                  {r.documento || 'Sin documento'}
-                                </span>
-                              </div>
-                            </td>
-                          )}
-                          {/* Fecha */}
-                          <td style={{ padding: "12px 12px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <Calendar size={13} color="#CC8A22" strokeWidth={2} />
-                              <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
-                                {r.fecha !== '—'
-                                  ? new Date(r.fecha + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short" })
-                                  : '—'}
-                              </span>
-                            </div>
-                          </td>
-                          {/* Sala / Escritorio */}
-                          <td style={{ padding: "12px 12px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <Monitor size={13} color="#CC8A22" strokeWidth={2} />
-                              <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                                {r.salaNombre && (
-                                  <span style={{ fontSize: "0.72rem", color: "#CC8A22", fontWeight: 600 }}>
-                                    {r.salaNombre}
-                                  </span>
-                                )}
-                                <span className="text-body" style={{ fontSize: "0.82rem" }}>
-                                  {r.puestoId ? `Escritorio ${r.puestoId}` : '—'}
-                                </span>
-                              </div>
-                            </div>
-                          </td>
-                          {/* Turno */}
-                          <td style={{ padding: "12px 12px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <Clock size={13} color="#CC8A22" strokeWidth={2} />
-                              <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
-                                {turnoTexto}
-                              </span>
-                            </div>
-                          </td>
-                          {/* Estado */}
-                          <td style={{ padding: "12px 12px" }}>
-                            <span style={{
-                              display: "inline-flex", alignItems: "center",
-                              padding: "3px 10px", borderRadius: "999px",
-                              fontSize: "0.72rem", fontWeight: 700,
-                              background: esCancelada ? "#F8D7DA" : esPendiente ? "#FFF3CD" : "#D4EDDA",
-                              color: esCancelada ? "#721C24" : esPendiente ? "#8A6D3B" : "#155724",
-                            }}>
-                              {r.estado}
-                            </span>
-                          </td>
-                          {/* Motivo */}
-                          <td style={{ padding: "12px 12px", maxWidth: "260px" }}>
-                            <span
-                              className="text-body"
-                              style={{
-                                fontSize: "0.78rem",
-                                color: "#6B4A3A",
-                                display: "inline-block",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                verticalAlign: "middle",
-                                maxWidth: "240px",
-                              }}
-                              title={r.motivoCancelacion || r.motivoGestion || ''}
-                            >
-                              {r.estado === 'Cancelada'
-                                ? (r.motivoCancelacion || r.motivoGestion || '—')
-                                : r.estado === 'Confirmada'
-                                  ? (r.motivoGestion || '—')
-                                  : '—'}
-                            </span>
-                          </td>
-                          {/* Acciones */}
-                          <td style={{ padding: "12px 12px", textAlign: "right" }}>
-                            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-                              <button
-                                onClick={() => handleConfirmar(r.id)}
-                                disabled={confirmDisabled}
-                                style={{
-                                  display: "inline-flex", alignItems: "center", gap: 5,
-                                  padding: "4px 10px", borderRadius: 8,
-                                  border: "1px solid rgba(21,87,36,0.35)",
-                                  background: "rgba(21,87,36,0.08)",
-                                  color: "#155724", fontSize: "0.75rem", fontWeight: 600,
-                                  cursor: confirmDisabled ? "not-allowed" : "pointer",
-                                  opacity: confirmDisabled ? 0.6 : 1,
-                                  transition: "all 0.15s", fontFamily: "inherit",
-                                }}
-                              >
-                                {confirmando === r.id ? "Confirmando…" : "Confirmar"}
-                              </button>
-                              <button
-                                onClick={() => solicitarCancelacion(r.id)}
-                                disabled={cancelDisabled}
-                                style={{
-                                  display: "inline-flex", alignItems: "center", gap: 5,
-                                  padding: "4px 10px", borderRadius: 8,
-                                  border: "1px solid rgba(220,53,69,0.35)",
-                                  background: "rgba(220,53,69,0.06)",
-                                  color: "#c0392b", fontSize: "0.75rem", fontWeight: 600,
-                                  cursor: cancelDisabled ? "not-allowed" : "pointer",
-                                  opacity: cancelDisabled ? 0.6 : 1,
-                                  transition: "all 0.15s", fontFamily: "inherit",
-                                }}
-                                onMouseEnter={e => { if (!cancelDisabled) e.currentTarget.style.background = "rgba(220,53,69,0.12)"; }}
-                                onMouseLeave={e => { e.currentTarget.style.background = "rgba(220,53,69,0.06)"; }}
-                              >
-                                <Trash2 size={13} strokeWidth={2} />
-                                {esCancelada ? "Cancelada" : cancelando === r.id ? "Cancelando…" : "Cancelar"}
-                              </button>
-                              {esAdmin && esCancelada && (
-                                <button
-                                  onClick={() => handleReactivar(r.id)}
-                                  disabled={reactivateDisabled}
-                                  style={{
-                                    display: "inline-flex", alignItems: "center", gap: 5,
-                                    padding: "4px 10px", borderRadius: 8,
-                                    border: "1px solid rgba(204,138,34,0.35)",
-                                    background: "rgba(204,138,34,0.1)",
-                                    color: "#8A6D3B", fontSize: "0.75rem", fontWeight: 700,
-                                    cursor: reactivateDisabled ? "not-allowed" : "pointer",
-                                    opacity: reactivateDisabled ? 0.6 : 1,
-                                    transition: "all 0.15s", fontFamily: "inherit",
-                                  }}
-                                >
-                                  {reactivando === r.id ? "Reactivando…" : "Reactivar"}
-                                </button>
-                              )}
-                            </div>
-                            {esPendiente && (
-                              <div style={{ marginTop: 6, fontSize: "0.7rem", color: "#8A6D3B", textAlign: "right" }}>
-                                {esAdmin
-                                  ? 'Confirmación manual disponible para administrador.'
-                                  : (confirmMeta.remainingMinutes != null && confirmMeta.remainingMinutes > 0
-                                      ? `Quedan ${confirmMeta.remainingMinutes} min para confirmar`
-                                      : (confirmMeta.blockedMessage || 'Pendiente de confirmación'))}
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <Table
+                size="small"
+                columns={desktopColumns}
+                dataSource={filteredReservations}
+                rowKey="id"
+                style={{ width: '100%' }}
+                tableLayout="fixed"
+                pagination={{
+                  pageSize: 8,
+                  showSizeChanger: false,
+                  hideOnSinglePage: true,
+                }}
+              />
             )}
 
           </div>

@@ -1,35 +1,13 @@
 import axiosInstance from '../api/axiosInstance';
 import { evaluateReservationStatus, fetchWorkingHorarios } from './geolocationService';
 import { normalizeCollection } from './collections';
+import { getLocalDateString, toEstado } from './reservaCommon';
 
 const API_RESERVAS_ENDPOINT = 'https://macfer.crepesywaffles.com/api/working-reservas';
 const RESERVAS_UPDATED_EVENT = 'working-reservas-updated';
 const PAGE_SIZE = 40000;
 
 const inMemoryStatusMap = new Map();
-
-const toEstado = (value) => {
-  if (value === true) return 'Confirmada';
-  if (value === false) return 'Cancelada';
-  if (value == null) return 'Pendiente';
-
-  const normalized = String(value)
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-
-  if (normalized === 'confirmada' || normalized === 'confirmado' || normalized === 'completada' || normalized === 'completado') {
-    return 'Confirmada';
-  }
-
-  if (normalized === 'cancelada' || normalized === 'cancelado') {
-    return 'Cancelada';
-  }
-
-  if (normalized === 'pendiente') return 'Pendiente';
-  return 'Pendiente';
-};
 
 const toApiEstado = (merged = {}) => {
   const normalizedEstado = toEstado(merged.estado);
@@ -103,13 +81,6 @@ const buildQueryParams = (filters = {}) => {
   }
 
   return params;
-};
-
-const getLocalDateString = (referenceDate = new Date()) => {
-  const year = referenceDate.getFullYear();
-  const month = String(referenceDate.getMonth() + 1).padStart(2, '0');
-  const day = String(referenceDate.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
 };
 
 const buildRemoteData = (baseReserva = {}, override = {}, options = {}) => {

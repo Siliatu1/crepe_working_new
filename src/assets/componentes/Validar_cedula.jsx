@@ -1,13 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { IdCard } from "lucide-react";
+import { createSession, getNextPathForSession, hasActiveSession } from "../../utils/sessionFlow";
 
 const ValidarCedula = () => {
   const navigate = useNavigate();
   const [cedula, setCedula] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (hasActiveSession()) {
+      navigate(getNextPathForSession(), { replace: true });
+    }
+  }, [navigate]);
 
   const handleUsuario = async (e) => {
     e.preventDefault();
@@ -28,11 +35,17 @@ const ValidarCedula = () => {
       const empleado = response.data.data[0];
       const fechaHoraIngreso = new Date();
 
-      navigate("/bienvenida", {
+      createSession({
+        datosEmpleado: empleado,
+        fechaHoraIngreso: fechaHoraIngreso.toISOString(),
+      });
+
+      navigate(getNextPathForSession(), {
         state: {
           datosEmpleado: empleado,
           fechaHoraIngreso: fechaHoraIngreso.toISOString(),
         },
+        replace: true,
       });
     } catch (error) {
       console.error(error);

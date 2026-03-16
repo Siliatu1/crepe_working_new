@@ -1,12 +1,17 @@
 import { useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { User, Calendar, Clock } from "lucide-react";
+import { getSession, markWelcomeSeen } from "../../utils/sessionFlow";
 
 const Bienvenida = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const datosEmpleado = useMemo(() => location.state?.datosEmpleado ?? {}, [location.state?.datosEmpleado]);
-  const fechaHoraIngreso = location.state?.fechaHoraIngreso;
+  const session = useMemo(() => getSession(), []);
+  const datosEmpleado = useMemo(
+    () => location.state?.datosEmpleado ?? session?.datosEmpleado ?? {},
+    [location.state?.datosEmpleado, session?.datosEmpleado]
+  );
+  const fechaHoraIngreso = location.state?.fechaHoraIngreso ?? session?.fechaHoraIngreso;
 
   const { horaIngreso, fechaFormateada } = useMemo(() => {
     if (!fechaHoraIngreso) {
@@ -25,7 +30,8 @@ const Bienvenida = () => {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      navigate("/politicas", { state: { datosEmpleado } });
+      markWelcomeSeen();
+      navigate("/politicas", { state: { datosEmpleado }, replace: true });
     }, 3500);
 
     return () => clearTimeout(timer);
