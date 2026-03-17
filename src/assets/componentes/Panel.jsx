@@ -680,7 +680,9 @@ const Panel = () => {
         )
       );
 
-      alert('Reserva reactivada.');
+      // Sincroniza con la API para asegurar consistencia
+      await cargarReservas();
+      alert('Reserva reactivada exitosamente.');
     } catch (err) {
       console.error(err);
       alert(err?.message || 'Error al reactivar la reserva.');
