@@ -33,7 +33,7 @@ const normalizeReserva = (item) => {
     area: attrs.area || attrs.area_nombre || '',
     fecha: attrs.fecha_reserva || attrs.fecha || null,
     estado: toEstado(attrs.estado),
-    confirmada: attrs.estado === true ? true : attrs.estado === false ? false : null,
+    confirmada: attrs.confirmada !== undefined ? attrs.confirmada : (attrs.estado === true ? true : attrs.estado === false ? false : null),
     escritorio: attrs.escritorio || null,
     escritorioId: attrs.escritorioId || puestoRel?.id || null,
     horario: attrs.horario || null,
@@ -54,9 +54,9 @@ const normalizeReserva = (item) => {
     ...reserva,
     ...override,
     estado: override.estado || reserva.estado,
-    confirmada: override.confirmada ?? reserva.confirmada,
-    motivoCancelacion: override.motivoCancelacion ?? reserva.motivoCancelacion,
-    verificacionAsistencia: override.verificacionAsistencia ?? reserva.verificacionAsistencia,
+    confirmada: 'confirmada' in override ? override.confirmada : reserva.confirmada,
+    motivoCancelacion: 'motivoCancelacion' in override ? override.motivoCancelacion : reserva.motivoCancelacion,
+    verificacionAsistencia: 'verificacionAsistencia' in override ? override.verificacionAsistencia : reserva.verificacionAsistencia,
   };
 };
 
@@ -107,6 +107,11 @@ const buildRemoteData = (baseReserva = {}, override = {}, options = {}) => {
 
   if (apiEstado !== null || includeNullEstado) {
     remoteData.estado = apiEstado;
+  }
+
+  // Sincronizar explícitamente el campo confirmada si se proporciona en override
+  if ('confirmada' in override) {
+    remoteData.confirmada = override.confirmada;
   }
 
   return remoteData;

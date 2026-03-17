@@ -109,11 +109,26 @@ export default function Salas() {
   const session = getSession();
   const usuario  = location.state?.datosEmpleado || session?.datosEmpleado || null;
   const esAdmin  = ADMIN_DOCUMENTS.includes(usuario?.documento ?? usuario?.document_number ?? '');
+  const [isNavigating, setIsNavigating] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
+    if (isNavigating) return;
+    setIsNavigating(true);
     clearSession();
     navigate('/', { replace: true });
-  };
+  }, [isNavigating, navigate]);
+
+  const handleGoBack = useCallback(() => {
+    if (isNavigating) return;
+    setIsNavigating(true);
+    navigate('/politicas', { state: { datosEmpleado: usuario }, replace: true });
+  }, [isNavigating, navigate, usuario]);
+
+  const handleGoToPanel = useCallback(() => {
+    if (isNavigating) return;
+    setIsNavigating(true);
+    navigate('/panel', { state: { datosEmpleado: usuario }, replace: false });
+  }, [isNavigating, navigate, usuario]);
 
   const [salas,      setSalas]      = useState([]);
   const [loading,    setLoading]    = useState(true);
@@ -148,7 +163,8 @@ export default function Salas() {
               <div className="top-nav-btn-group">
               <button
                 className="btn-outline top-nav-icon-btn"
-                onClick={() => navigate('/panel', { state: { datosEmpleado: usuario } })}
+                onClick={handleGoToPanel}
+                disabled={isNavigating}
                 title={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
                 aria-label={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
               >
@@ -156,7 +172,8 @@ export default function Salas() {
               </button>
               <button
                 className="btn-outline reservas-btn-atras top-nav-icon-btn"
-                onClick={() => navigate('/politicas', { state: { datosEmpleado: usuario }, replace: true })}
+                onClick={handleGoBack}
+                disabled={isNavigating}
                 title="Volver"
                 aria-label="Volver"
               >
@@ -169,6 +186,7 @@ export default function Salas() {
                   color: '#c0392b',
                 }}
                 onClick={handleLogout}
+                disabled={isNavigating}
                 title="Cerrar sesión"
                 aria-label="Cerrar sesión"
               >

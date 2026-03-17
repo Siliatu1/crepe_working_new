@@ -266,11 +266,20 @@ const Panel = () => {
 
   const documentoUsuario = String(datosEmpleado?.documento || datosEmpleado?.document_number || '');
   const esAdmin = ADMIN_DOCUMENTS.includes(documentoUsuario);
+  const [isNavigating, setIsNavigating] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
+    if (isNavigating) return;
+    setIsNavigating(true);
     clearSession();
     navigate('/', { replace: true });
-  };
+  }, [isNavigating, navigate]);
+
+  const handleGoBack = useCallback(() => {
+    if (isNavigating) return;
+    setIsNavigating(true);
+    navigate('/salas', { replace: true, state: { datosEmpleado } });
+  }, [isNavigating, navigate, datosEmpleado]);
   const [reservations, setReservations] = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState("");
@@ -993,7 +1002,8 @@ const Panel = () => {
         <div className="top-nav-btn-group">
           <button
             className="btn-outline top-nav-icon-btn"
-            onClick={() => navigate('/panel', { state: { datosEmpleado } })}
+            onClick={() => navigate('/panel', { state: { datosEmpleado }, replace: true })}
+            disabled={isNavigating}
             title={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
             aria-label={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
           >
@@ -1001,7 +1011,8 @@ const Panel = () => {
           </button>
           <button
             className="btn-outline reservas-btn-atras top-nav-icon-btn"
-            onClick={() => navigate(-1)}
+            onClick={handleGoBack}
+            disabled={isNavigating}
             title="Volver"
           >
             <ArrowLeft size={14} strokeWidth={2.5} />
@@ -1009,6 +1020,7 @@ const Panel = () => {
           <button
             className="btn-outline top-nav-icon-btn"
             onClick={handleLogout}
+            disabled={isNavigating}
             title="Cerrar sesión"
             style={{
               borderColor: "rgba(192,57,43,0.35)",

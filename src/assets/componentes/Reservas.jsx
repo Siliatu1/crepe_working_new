@@ -411,11 +411,26 @@ export default function Reservas() {
   const usuario  = location.state?.datosEmpleado ?? session?.datosEmpleado ?? null;
   const documentoUsuario = String(usuario?.document_number ?? usuario?.documento ?? '');
   const esAdmin  = usuario && ADMIN_DOCUMENTS.includes(documentoUsuario);
+  const [isNavigating, setIsNavigating] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
+    if (isNavigating) return;
+    setIsNavigating(true);
     clearSession();
     navigate('/', { replace: true });
-  };
+  }, [isNavigating, navigate]);
+
+  const handleGoBack = useCallback(() => {
+    if (isNavigating) return;
+    setIsNavigating(true);
+    navigate('/salas', { replace: true, state: { datosEmpleado: usuario } });
+  }, [isNavigating, navigate, usuario]);
+
+  const handleGoToPanel = useCallback(() => {
+    if (isNavigating) return;
+    setIsNavigating(true);
+    navigate('/panel', { state: { datosEmpleado: usuario }, replace: false });
+  }, [isNavigating, navigate, usuario]);
 
   const FECHAS = useMemo(() => generarFechasHabiles(2), []);
 
@@ -614,7 +629,8 @@ export default function Reservas() {
           <div className="top-nav-btn-group">
           <button
             className="btn-outline top-nav-icon-btn"
-            onClick={() => navigate('/panel', { state: { datosEmpleado: usuario } })}
+            onClick={handleGoToPanel}
+            disabled={isNavigating}
             title={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
           >
             <Armchair size={14} strokeWidth={2.5} />
@@ -627,6 +643,7 @@ export default function Reservas() {
               color: '#c0392b',
             }}
             onClick={handleLogout}
+            disabled={isNavigating}
             title="Cerrar sesión"
           >
             <LogOut size={14} strokeWidth={2} />
@@ -634,7 +651,8 @@ export default function Reservas() {
 
           <button
             className="btn-outline reservas-btn-atras top-nav-icon-btn"
-            onClick={() => navigate(-1)}
+            onClick={handleGoBack}
+            disabled={isNavigating}
             title="Volver"
           >
             <ArrowLeft size={14} strokeWidth={2.5} />
