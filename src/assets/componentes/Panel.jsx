@@ -284,6 +284,8 @@ const Panel = () => {
   const [confirmando,  setConfirmando]  = useState(null);
   const [reactivando,  setReactivando]  = useState(null);
   const [cancelConfirmId, setCancelConfirmId] = useState(null);
+  const [conflictoReactivar, setConflictoReactivar] = useState(null);
+  const [confirmadaExitosa, setConfirmadaExitosa] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelReasonError, setCancelReasonError] = useState('');
   const [isNearPoint,  setIsNearPoint]  = useState(false);
@@ -508,7 +510,12 @@ const Panel = () => {
           )
         );
 
-        alert('Reserva confirmada por administrador.');
+        setConfirmadaExitosa({
+          mensaje: 'Reserva confirmada por administrador.',
+          puestoId: reservaAux.puestoId,
+          fecha: reservaAux.fecha,
+          turnoLabel: reservaAux.turnoLabel,
+        });
       } catch (err) {
         console.error(err);
         alert(err?.message || 'Error al confirmar la reserva.');
@@ -578,7 +585,16 @@ const Panel = () => {
         )
       );
 
-      alert(evaluation.message || (estadoNuevo === 'Confirmada' ? 'Reserva confirmada.' : 'Reserva actualizada.'));
+      if (estadoNuevo === 'Confirmada') {
+        setConfirmadaExitosa({
+          mensaje: evaluation.message || 'Reserva confirmada.',
+          puestoId: reservaAux.puestoId,
+          fecha: reservaAux.fecha,
+          turnoLabel: reservaAux.turnoLabel,
+        });
+      } else {
+        alert(evaluation.message || 'Reserva actualizada.');
+      }
     } catch (err) {
       console.error(err);
       alert(err?.message || 'Error al confirmar la reserva.');
@@ -598,6 +614,49 @@ const Panel = () => {
 
     setReactivando(id);
     try {
+      // ── Verificar que el puesto esté libre antes de reactivar ──────────────
+      const { puestoId, fecha, horarioId } = reservaAux;
+      if (puestoId && fecha) {
+        // Traer TODAS las reservas del día y filtrar client-side por puesto.
+        // Evitamos el filtro de relación de Strapi que puede no funcionar bien.
+        const checkUrl =
+          `${API_RESERVAS}?filters[fecha_reserva][$eq]=${fecha}` +
+          `&populate[working_puestos][fields][0]=id` +
+          `&populate[working_horarios][fields][0]=id` +
+          `&pagination[pageSize]=500`;
+        const { data: checkJson } = await axios.get(checkUrl);
+        const existentes = Array.isArray(checkJson.data) ? checkJson.data : [];
+
+        const conflicto = existentes.find((rc) => {
+          if (rc.id === id) return false; // ignorar la propia reserva cancelada
+
+          // Solo considerar reservas del mismo puesto
+          const puestoRc = getPuestoId(rc);
+          if (puestoRc !== puestoId) return false;
+
+          // Ignorar reservas canceladas
+          const estadoRc = getEstadoReserva(rc.attributes);
+          if (estadoRc === 'Cancelada') return false;
+
+          // Si no podemos determinar los horarios, bloqueamos por seguridad
+          const hId = getHorarioId(rc);
+          if (horarioId == null || hId == null) return true;
+
+          // Completo (3) choca con AM, PM y Completo.
+          // AM (1) y PM (2) solo chocan si son iguales entre sí o contra Completo.
+          const horariosConflictivos = horarioId === 3 ? [1, 2, 3] : [horarioId, 3];
+          return horariosConflictivos.includes(hId);
+        });
+
+        if (conflicto) {
+          setConflictoReactivar(
+            `El puesto ${puestoId} ya tiene una reserva activa para esa fecha y turno. Solo puedes reactivarla cuando el puesto esté libre.`
+          );
+          return;
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
       await updateReservaWithVerification(id, {
         estado: 'Pendiente',
         confirmada: null,
@@ -1369,6 +1428,138 @@ const Panel = () => {
                 }}
               >
                 Aceptar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmadaExitosa && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1100,
+            padding: "16px",
+          }}
+          onClick={() => setConfirmadaExitosa(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: "400px",
+              background: "#F0FFF4",
+              borderRadius: "14px",
+              border: "1px solid rgba(34,139,34,0.2)",
+              boxShadow: "0 20px 48px rgba(34,139,34,0.1)",
+              padding: "22px 20px 18px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", marginBottom: "14px" }}>
+              <span style={{ fontSize: "1.4rem", lineHeight: 1, flexShrink: 0 }}>✅</span>
+              <div>
+                <h3 style={{ margin: 0, color: "#1a6b2a", fontSize: "1rem", fontWeight: 700 }}>
+                  Reserva confirmada
+                </h3>
+                <p style={{ margin: "8px 0 0", color: "#2d6a3f", fontSize: "0.86rem", lineHeight: 1.5 }}>
+                  {confirmadaExitosa.mensaje}
+                </p>
+                {(confirmadaExitosa.puestoId || confirmadaExitosa.fecha) && (
+                  <p style={{ margin: "6px 0 0", color: "#4a8c5c", fontSize: "0.78rem" }}>
+                    {confirmadaExitosa.puestoId ? `Escritorio ${confirmadaExitosa.puestoId}` : ''}
+                    {confirmadaExitosa.puestoId && confirmadaExitosa.fecha ? ' · ' : ''}
+                    {confirmadaExitosa.fecha
+                      ? new Date(confirmadaExitosa.fecha + 'T12:00:00').toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' })
+                      : ''}
+                    {confirmadaExitosa.turnoLabel ? ` · ${confirmadaExitosa.turnoLabel}` : ''}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setConfirmadaExitosa(null)}
+                style={{
+                  padding: "8px 20px",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(34,139,34,0.3)",
+                  background: "rgba(34,139,34,0.1)",
+                  color: "#1a6b2a",
+                  fontSize: "0.84rem",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {conflictoReactivar && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1100,
+            padding: "16px",
+          }}
+          onClick={() => setConflictoReactivar(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: "400px",
+              background: "#FFF0F0",
+              borderRadius: "14px",
+              border: "1px solid rgba(220,53,69,0.2)",
+              boxShadow: "0 20px 48px rgba(220,53,69,0.1)",
+              padding: "22px 20px 18px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", marginBottom: "14px" }}>
+              <span style={{
+                fontSize: "1.4rem",
+                lineHeight: 1,
+                flexShrink: 0,
+              }}>⚠️</span>
+              <div>
+                <h3 style={{ margin: 0, color: "#a32020", fontSize: "1rem", fontWeight: 700 }}>
+                  No se puede reactivar
+                </h3>
+                <p style={{ margin: "8px 0 0", color: "#7a2c2c", fontSize: "0.86rem", lineHeight: 1.5 }}>
+                  {conflictoReactivar}
+                </p>
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setConflictoReactivar(null)}
+                style={{
+                  padding: "8px 20px",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(220,53,69,0.35)",
+                  background: "rgba(220,53,69,0.1)",
+                  color: "#a32020",
+                  fontSize: "0.84rem",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Cerrar
               </button>
             </div>
           </div>
