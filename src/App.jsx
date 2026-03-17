@@ -1,12 +1,29 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import Validar_cedula from './assets/componentes/Validar_cedula.jsx'
-import Bienvenida from './assets/componentes/Bienvenida.jsx'
-import Politicas from './assets/componentes/Politicas.jsx'
-import Salas from './assets/componentes/Salas.jsx'
-import Reservas from './assets/componentes/Reservas.jsx'
-import Panel from './assets/componentes/Panel.jsx'
 import useAutoCancelarReservas from './hooks/useAutoCancelarReservas.js'
 import { getSession, hasActiveSession } from './utils/sessionFlow.js'
+
+// Lazy load components for better performance
+const Validar_cedula = lazy(() => import('./assets/componentes/Validar_cedula.jsx'))
+const Bienvenida = lazy(() => import('./assets/componentes/Bienvenida.jsx'))
+const Politicas = lazy(() => import('./assets/componentes/Politicas.jsx'))
+const Salas = lazy(() => import('./assets/componentes/Salas.jsx'))
+const Reservas = lazy(() => import('./assets/componentes/Reservas.jsx'))
+const Panel = lazy(() => import('./assets/componentes/Panel.jsx'))
+
+// Loading fallback component
+const LoadingFallback = () => (
+  <div style={{
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '100vh',
+    fontSize: '18px',
+    color: '#666'
+  }}>
+    Cargando...
+  </div>
+)
 
 const RouteGuard = ({ mode, children }) => {
   const session = getSession();
@@ -18,13 +35,13 @@ const RouteGuard = ({ mode, children }) => {
     if (session?.bienvenidaVista) {
       return <Navigate to={session?.politicasAceptadas ? '/salas' : '/politicas'} replace />;
     }
-    return <Bienvenida />;
+    return children;
   }
 
   if (mode === 'politicas') {
     if (!session?.bienvenidaVista) return <Navigate to="/bienvenida" replace />;
-    if (session?.politicasAceptadas) return <Navigate to="/salas" replace />;
-    return <Politicas />;
+    // Permitir volver a políticas incluso si ya fueron aceptadas
+    return children;
   }
 
   if (mode === 'policies' && !session?.politicasAceptadas) {
@@ -39,14 +56,16 @@ function App() {
 
   return (
     <div className="App">
-      <Routes>
-        <Route path="/" element={<Validar_cedula />} />
-        <Route path="/bienvenida" element={<RouteGuard mode="bienvenida" />} />
-        <Route path="/politicas" element={<RouteGuard mode="politicas" />} />
-        <Route path="/salas" element={<RouteGuard mode="policies"><Salas /></RouteGuard>} />
-        <Route path="/reservas" element={<RouteGuard mode="policies"><Reservas /></RouteGuard>} />
-        <Route path="/panel" element={<RouteGuard><Panel /></RouteGuard>} />
-      </Routes>
+      <Suspense fallback={<LoadingFallback />}>
+        <Routes>
+          <Route path="/" element={<Validar_cedula />} />
+          <Route path="/bienvenida" element={<RouteGuard mode="bienvenida"><Bienvenida /></RouteGuard>} />
+          <Route path="/politicas" element={<RouteGuard mode="politicas"><Politicas /></RouteGuard>} />
+          <Route path="/salas" element={<RouteGuard mode="policies"><Salas /></RouteGuard>} />
+          <Route path="/reservas" element={<RouteGuard mode="policies"><Reservas /></RouteGuard>} />
+          <Route path="/panel" element={<RouteGuard><Panel /></RouteGuard>} />
+        </Routes>
+      </Suspense>
     </div>
   );
 }

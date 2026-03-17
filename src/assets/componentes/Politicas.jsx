@@ -18,24 +18,24 @@ const Politicas = () => {
 
   const politicas = [
     {
-      titulo: "Límite de reservas",
-      descripcion: "Solo puedes tener 1 reserva activa por día (pendiente o confirmada)"
+      titulo: "Una reserva por día",
+      descripcion: "Solo se permite 1 reserva activa por día (pendiente o confirmada)"
     },
     {
       titulo: "Rotación de puesto",
-      descripcion: "Debes rotar de puesto cada día. No puedes elegir el mismo puesto en días consecutivos",
+      descripcion: "No puedes usar el mismo puesto en días consecutivos",
     },
     {
-      titulo: "Disponibilidad y fechas",
-      descripcion: "Las reservas se habilitan en días hábiles y para las fechas permitidas por el sistema. Entre 12:00 a.m. y 5:00 a.m. no se permite reservar para pasado mañana o fechas posteriores",
+      titulo: "Horarios de reserva",
+      descripcion: "Las reservas están habilitadas en días hábiles. Entre 12:00 a.m. y 5:00 a.m. no se puede reservar para pasado mañana o fechas posteriores",
     },
     {
-      titulo: "Confirmación por ubicación",
-      descripcion: "Debes confirmar el mismo día y dentro de los primeros 25 minutos de tu turno, estando dentro del perímetro permitido (1000 m). Si no confirmas en ese tiempo, la reserva se cancela automáticamente",
+      titulo: "Confirmación en 25 minutos",
+      descripcion: "Debes confirmar el mismo día dentro de los primeros 25 minutos de tu turno, desde una ubicación dentro del perímetro permitido (1000 m). De lo contrario, se cancela automáticamente",
     },
     {
-      titulo: "Soporte en recepción",
-      descripcion: "Si tu dispositivo no permite activar la ubicación o no autorizas su uso, debes acercarte a recepción para que confirmen tu reserva",
+      titulo: "Sin GPS disponible",
+      descripcion: "Si tu dispositivo no permite activar la ubicación, acude a recepción para confirmar tu reserva",
     }
   ];
 

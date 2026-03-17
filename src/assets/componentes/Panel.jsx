@@ -6,7 +6,7 @@ import axios from 'axios';
 import { cancelReserva, updateReservaWithVerification } from "../../utils/reservasService";
 import useMobile from '../../hooks/useMobile';
 import useRealtimeSync from '../../hooks/useRealtimeSync';
-import { ADMIN_DOCUMENTS, HORARIO_META, getPuestoId, getHorarioId, getLocalDateString, toEstado } from '../../utils/reservaCommon';
+import { ADMIN_DOCUMENTS, HORARIO_META, getPuestoId, getHorarioId, toEstado } from '../../utils/reservaCommon';
 import { clearSession, getSession } from '../../utils/sessionFlow';
 import {
   calculateDistance,
@@ -291,11 +291,9 @@ const Panel = () => {
   const [locationChecking, setLocationChecking] = useState(false);
   const [locationError, setLocationError] = useState("");
   const [nowMs, setNowMs] = useState(Date.now());
-  const [showAllReservations, setShowAllReservations] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterEstado, setFilterEstado] = useState('todos');
-  const [filterSala, setFilterSala] = useState('todas');
-  const [adminTab, setAdminTab] = useState('todos');
+  const [adminTab, setAdminTab] = useState(esAdmin ? 'mis' : 'todos');
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -389,15 +387,11 @@ const Panel = () => {
       const filtroDocumento = esAdmin
         ? ''
         : `&filters[documento][$eq]=${encodeURIComponent(documentoUsuario)}`;
-      const filtroFecha = showAllReservations
-        ? ''
-        : `&filters[fecha_reserva][$eq]=${getLocalDateString()}`;
 
       const url =
         `${API_RESERVAS}` +
         `?sort[0]=fecha_reserva:desc&sort[1]=id:desc` +
         filtroDocumento +
-        filtroFecha +
         `&populate[working_puestos][fields][0]=id&populate[working_puestos][fields][1]=nombre` +
         `&populate[working_puestos][populate][working_sala][fields][0]=id` +
         `&populate[working_puestos][populate][working_sala][fields][1]=nombre` +
@@ -451,7 +445,7 @@ const Panel = () => {
     } finally {
       setLoading(false);
     }
-  }, [documentoUsuario, esAdmin, showAllReservations]);
+  }, [documentoUsuario, esAdmin]);
 
   useEffect(() => { 
     if (datosEmpleado?.documento || datosEmpleado?.document_number) {
@@ -704,28 +698,20 @@ const Panel = () => {
 
   const reservaEnConfirmacion = reservations.find(r => r.id === cancelConfirmId) || null;
 
-  // Salas únicas disponibles en el conjunto actual de reservas
-  const availableSalas = useMemo(() => {
-    const map = new Map();
-    reservations.forEach(r => {
-      if (r.salaId) map.set(r.salaId, r.salaNombre ?? `Sala ${r.salaId}`);
-    });
-    return [...map.entries()].map(([id, nombre]) => ({ id, nombre }));
-  }, [reservations]);
-
   // Reservas filtradas para el panel
   const filteredReservations = useMemo(() => {
     let result = reservations;
-    // Admin tabs: mis / otros / todos
-    if (esAdmin) {
-      if (adminTab === 'mis') result = result.filter(r => r.documento === documentoUsuario);
-      else if (adminTab === 'otros') result = result.filter(r => r.documento !== documentoUsuario);
+
+    if (!esAdmin) {
+      return result;
     }
+
+    // Admin tabs: mis / otros / todos
+    if (adminTab === 'mis') result = result.filter(r => r.documento === documentoUsuario);
+    else if (adminTab === 'otros') result = result.filter(r => r.documento !== documentoUsuario);
     // Filtro por estado
     if (filterEstado !== 'todos') result = result.filter(r => r.estado === filterEstado);
-    // Filtro por sala
-    if (filterSala !== 'todas') result = result.filter(r => String(r.salaId) === filterSala);
-    // Búsqueda: por ID, nombre, documento, escritorio
+    // Búsqueda global
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       result = result.filter(r =>
@@ -733,11 +719,15 @@ const Panel = () => {
         (r.nombreCompleto ?? '').toLowerCase().includes(q) ||
         (r.nombre ?? '').toLowerCase().includes(q) ||
         (r.documento ?? '').toLowerCase().includes(q) ||
-        String(r.puestoId ?? '').includes(q)
+        String(r.puestoId ?? '').includes(q) ||
+        (r.salaNombre ?? '').toLowerCase().includes(q) ||
+        (r.turnoLabel ?? '').toLowerCase().includes(q) ||
+        (r.estado ?? '').toLowerCase().includes(q) ||
+        (r.fecha ?? '').toLowerCase().includes(q)
       );
     }
     return result;
-  }, [reservations, esAdmin, adminTab, filterEstado, filterSala, searchQuery, documentoUsuario]);
+  }, [reservations, esAdmin, adminTab, filterEstado, searchQuery, documentoUsuario]);
 
   const desktopColumns = useMemo(() => {
     const columns = [
@@ -778,35 +768,22 @@ const Panel = () => {
         key: 'fecha',
         width: 110,
         render: (_, r) => (
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <Calendar size={13} color="#CC8A22" strokeWidth={2} />
-            <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
-              {r.fecha !== '—'
-                ? new Date(r.fecha + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short" })
-                : '—'}
-            </span>
-          </div>
+          <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
+            {r.fecha !== '—'
+              ? new Date(r.fecha + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short" })
+              : '—'}
+          </span>
         ),
       },
       {
-        title: 'Sala / Escritorio',
+        title: 'Escritorio',
         key: 'salaEscritorio',
         ellipsis: true,
         width: 170,
         render: (_, r) => (
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <Monitor size={13} color="#CC8A22" strokeWidth={2} />
-            <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              {r.salaNombre && (
-                <span style={{ fontSize: "0.72rem", color: "#CC8A22", fontWeight: 600 }}>
-                  {r.salaNombre}
-                </span>
-              )}
-              <span className="text-body" style={{ fontSize: "0.82rem" }}>
-                {r.puestoId ? `Escritorio ${r.puestoId}` : '—'}
-              </span>
-            </div>
-          </div>
+          <span className="text-body" style={{ fontSize: "0.82rem" }}>
+            {r.puestoId ? `Escritorio ${r.puestoId}` : '—'}
+          </span>
         ),
       },
       {
@@ -818,12 +795,9 @@ const Panel = () => {
           const hMeta = HORARIO_META[r.horarioId];
           const turnoTexto = r.turnoLabel || hMeta?.label || '—';
           return (
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Clock size={13} color="#CC8A22" strokeWidth={2} />
-              <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
-                {turnoTexto}
-              </span>
-            </div>
+            <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
+              {turnoTexto}
+            </span>
           );
         },
       },
@@ -1036,6 +1010,13 @@ const Panel = () => {
             <Armchair size={14} strokeWidth={2.5} />
           </button>
           <button
+            className="btn-outline reservas-btn-atras top-nav-icon-btn"
+            onClick={() => navigate(-1)}
+            title="Volver"
+          >
+            <ArrowLeft size={14} strokeWidth={2.5} />
+          </button>
+          <button
             className="btn-outline top-nav-icon-btn"
             onClick={handleLogout}
             title="Cerrar sesión"
@@ -1045,13 +1026,6 @@ const Panel = () => {
             }}
           >
             <LogOut size={14} strokeWidth={2} />
-          </button>
-          <button
-            className="btn-outline reservas-btn-atras top-nav-icon-btn"
-            onClick={() => navigate(-1)}
-            title="Volver"
-          >
-            <ArrowLeft size={14} strokeWidth={2.5} />
           </button>
         </div>
       </div>
@@ -1121,21 +1095,10 @@ const Panel = () => {
           }}>
             {/* ── Cabecera ──────────────────────────────────── */}
             <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
-              {/* Fila 1: título + toggle hoy/todas */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <h2 className="bienvenida-saludo" style={{ margin: 0, fontSize: "1.05rem" }}>
-                  {showAllReservations
-                    ? (esAdmin ? 'Todas las ' : 'Mis ')
-                    : 'Reservas de '}<span className="text-accent">{showAllReservations ? 'reservas' : 'hoy'}</span>
+                  Mis <span className="text-accent">reservas</span>
                 </h2>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Button
-                    onClick={() => setShowAllReservations((prev) => !prev)}
-                    size="small"
-                  >
-                    {showAllReservations ? 'Ver hoy' : (esAdmin ? 'Ver todas' : 'Ver todas mis')}
-                  </Button>
-                </div>
               </div>
 
               {/* Fila 2 (admin): tabs Todas / Mis reservas / Otras */}
@@ -1153,64 +1116,51 @@ const Panel = () => {
               )}
 
               {/* Fila 3: filtros + buscador */}
-              <Space wrap size={8} style={{ width: '100%' }}>
-                <Select
-                  value={filterEstado}
-                  onChange={setFilterEstado}
-                  size="small"
-                  options={[
-                    { value: 'todos', label: 'Todos los estados' },
-                    { value: 'Pendiente', label: 'Pendiente' },
-                    { value: 'Confirmada', label: 'Confirmada' },
-                    { value: 'Cancelada', label: 'Cancelada' },
-                  ]}
-                  style={{
-                    minWidth: 170,
-                  }}
-                />
-
-                {availableSalas.length > 0 && (
+              {esAdmin && (
+                <Space wrap size={8} style={{ width: '100%' }}>
                   <Select
-                    value={filterSala}
-                    onChange={setFilterSala}
+                    value={filterEstado}
+                    onChange={setFilterEstado}
                     size="small"
                     options={[
-                      { value: 'todas', label: 'Todas las salas' },
-                      ...availableSalas.map((s) => ({ value: String(s.id), label: s.nombre })),
+                      { value: 'todos', label: 'Todos los estados' },
+                      { value: 'Pendiente', label: 'Pendiente' },
+                      { value: 'Confirmada', label: 'Confirmada' },
+                      { value: 'Cancelada', label: 'Cancelada' },
                     ]}
                     style={{
                       minWidth: 170,
                     }}
                   />
-                )}
 
-                <Input
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  allowClear
-                  placeholder={esAdmin ? "Buscar por ID, nombre, cédula…" : "Buscar por ID de reserva…"}
-                  size="small"
-                  style={{
-                    flex: 1, minWidth: 160,
-                  }}
-                />
-                {(searchQuery || filterEstado !== 'todos' || filterSala !== 'todas' || (esAdmin && adminTab !== 'todos')) && (
-                  <Button
-                    onClick={() => { setSearchQuery(''); setFilterEstado('todos'); setFilterSala('todas'); setAdminTab('todos'); }}
-                    danger
+                  <Input
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    allowClear
+                    placeholder="Búsqueda global"
                     size="small"
-                  >
-                    Limpiar filtros
-                  </Button>
-                )}
-              </Space>
+                    style={{
+                      flex: 1, minWidth: 160,
+                    }}
+                  />
+                  {(searchQuery || filterEstado !== 'todos' || adminTab !== 'todos') && (
+                    <Button
+                      onClick={() => { setSearchQuery(''); setFilterEstado('todos'); setAdminTab('todos'); }}
+                      danger
+                      size="small"
+                    >
+                      Limpiar filtros
+                    </Button>
+                  )}
+                </Space>
+              )}
             </div>
 
             {filteredReservations.length === 0 && (
               <p className="text-muted" style={{ fontSize: "0.85rem", textAlign: "center", padding: "24px 0" }}>
                 {reservations.length === 0
-                  ? (showAllReservations ? 'No hay reservas registradas.' : 'No hay reservas para hoy.')
-                  : 'No hay reservas que coincidan con los filtros.'}
+                  ? 'No hay reservas registradas.'
+                  : 'No hay reservas que coincidan con los filtros aplicados.'}
               </p>
             )}
 

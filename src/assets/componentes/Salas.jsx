@@ -155,6 +155,14 @@ export default function Salas() {
                 <Armchair size={14} strokeWidth={2.5} />
               </button>
               <button
+                className="btn-outline reservas-btn-atras top-nav-icon-btn"
+                onClick={() => navigate('/politicas', { state: { datosEmpleado: usuario }, replace: true })}
+                title="Volver"
+                aria-label="Volver"
+              >
+                <ArrowLeft size={14} strokeWidth={2.5} />
+              </button>
+              <button
                 className="btn-outline top-nav-icon-btn"
                 style={{
                   borderColor: 'rgba(192,57,43,0.35)',
@@ -165,14 +173,6 @@ export default function Salas() {
                 aria-label="Cerrar sesión"
               >
                 <LogOut size={14} strokeWidth={2} />
-              </button>
-              <button
-                className="btn-outline reservas-btn-atras top-nav-icon-btn"
-                onClick={() => navigate(-1)}
-                title="Volver"
-                aria-label="Volver"
-              >
-                <ArrowLeft size={14} strokeWidth={2.5} />
               </button>
               </div>
             </div>
