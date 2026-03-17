@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { User, Calendar, Monitor, Clock, Armchair, Ticket, ArrowLeft, Trash2, LogOut, ChevronDown } from 'lucide-react';
+import { User, Calendar, Monitor, Clock, Armchair, ArrowLeft, Trash2, LogOut, ChevronDown } from 'lucide-react';
 import { Table, Select, Input, Button, Segmented, Space, Tag } from 'antd';
 import axios from 'axios';
 import { cancelReserva, updateReservaWithVerification } from "../../utils/reservasService";
@@ -162,12 +162,6 @@ const ReservaCard = ({
               </div>
             )}
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <Ticket size={13} color="#92614F" strokeWidth={2} />
-              <span style={{ fontSize: "0.75rem", color: "#92614F", fontFamily: "monospace", fontWeight: 700 }}>
-                Reserva #{r.id}
-              </span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <Calendar size={13} color="#CC8A22" strokeWidth={2} />
               <span className="text-body" style={{ fontSize: "0.82rem" }}>
                 {new Date(r.fecha + "T12:00:00").toLocaleDateString("es-CO", { year: "numeric", month: "short", day: "numeric" })}
@@ -195,7 +189,7 @@ const ReservaCard = ({
             <div style={{ marginTop: "8px", fontSize: "0.72rem", color: "#8A6D3B" }}>
               {helperMessage || (remainingMinutes != null && remainingMinutes > 0
                 ? `Ventana activa: quedan ${remainingMinutes} min`
-                : (confirmBlockedMessage || 'Pendiente de confirmación'))}
+                : (confirmBlockedMessage || ''))}
             </div>
           )}
           <div style={{ marginTop: "12px", display: "flex", gap: "8px" }}>
@@ -319,7 +313,7 @@ const Panel = () => {
     if (!timeInfo.isToday) {
       return {
         canByTime: false,
-        blockedMessage: 'Solo puedes confirmar reservas del día de hoy.',
+        blockedMessage: '',
         remainingMinutes: null,
       };
     }
@@ -943,10 +937,10 @@ const Panel = () => {
               {esPendiente && (
                 <div style={{ marginTop: 6, fontSize: "0.68rem", color: "#8A6D3B", lineHeight: 1.2 }}>
                   {esAdmin
-                    ? 'Confirmación manual disponible para administrador.'
+                    ? ''
                     : (confirmMeta.remainingMinutes != null && confirmMeta.remainingMinutes > 0
                         ? `Quedan ${confirmMeta.remainingMinutes} min para confirmar`
-                        : (confirmMeta.blockedMessage || 'Pendiente de confirmación'))}
+                        : (confirmMeta.blockedMessage || ''))}
                 </div>
               )}
             </div>
@@ -994,64 +988,6 @@ const Panel = () => {
       overflowY: "auto",
       padding: isMobile ? "64px 16px 16px" : "76px 24px 28px",
     }}>
-      <div style={{
-        position: "fixed",
-        top: isMobile ? "8px" : "16px",
-        left: isMobile ? "8px" : "24px",
-        display: "flex",
-        alignItems: "center",
-        gap: "10px",
-        maxHeight: "34px",
-        zIndex: 120,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0, maxHeight: "34px" }}>
-          {(() => {
-            const nombre = String(datosEmpleado?.nombre || '').trim();
-            const primerNombre = nombre ? nombre.split(/\s+/)[0] : 'Usuario';
-            return (
-              <>
-          {datosEmpleado?.foto && datosEmpleado.foto !== "null" ? (
-            <img
-              src={datosEmpleado?.foto}
-              alt="Foto"
-              style={{
-                width: "34px",
-                height: "34px",
-                borderRadius: "8px",
-                objectFit: "cover",
-                border: "1px solid rgba(80,54,41,0.2)",
-                flexShrink: 0,
-              }}
-            />
-          ) : (
-            <div style={{
-              width: "34px",
-              height: "34px",
-              borderRadius: "8px",
-              border: "1px solid rgba(80,54,41,0.2)",
-              background: "rgba(80,54,41,0.06)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}>
-              <User size={15} color="#92614F" strokeWidth={2} />
-            </div>
-          )}
-          <div style={{ minWidth: 0, display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "center", lineHeight: 1, maxHeight: "34px", overflow: "hidden" }}>
-            <div style={{ fontSize: "0.8rem", lineHeight: 1, fontWeight: 700, color: "#503629", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {primerNombre}
-            </div>
-            <div style={{ fontSize: "0.66rem", lineHeight: 1.05, marginTop: "2px", color: esAdmin ? "#CC8A22" : "#92614F", fontWeight: 700 }}>
-              {esAdmin ? 'admin' : 'user'}
-            </div>
-          </div>
-              </>
-            );
-          })()}
-        </div>
-      </div>
-
       <div
         className="top-right-nav-actions"
         style={{
@@ -1089,75 +1025,185 @@ const Panel = () => {
         </div>
       </div>
 
-      {!esAdmin && (
-        <div style={{
-          padding: "10px 12px",
-          background: "rgba(80,54,41,0.05)",
-          borderRadius: 10,
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-          width: "100%",
-          maxWidth: isMobile ? "100%" : "420px",
-          marginBottom: "12px",
-        }}>
-          <div style={{ fontSize: "0.75rem", color: "#503629", fontWeight: 700 }}>
-            Confirmación por ubicación
-          </div>
-          <div style={{ fontSize: "0.74rem", color: isNearPoint ? "#155724" : "#8A6D3B" }}>
-            {isNearPoint
-              ? `Estás dentro del perímetro (${Math.round(distanceMeters || 0)} m).`
-              : `Para confirmar, debes estar dentro del perímetro de ${workplaceInfo.radius} m.`}
-          </div>
-          {!!locationError && (
-            <div style={{ fontSize: "0.72rem", color: "#c0392b" }}>{locationError}</div>
-          )}
-          <button
-            onClick={() => void refreshLocationStatus()}
-            disabled={locationChecking}
-            style={{
-              padding: "8px 10px",
-              borderRadius: 8,
-              border: "1px solid rgba(80,54,41,0.25)",
-              background: "rgba(80,54,41,0.08)",
-              color: "#503629",
-              fontSize: "0.75rem",
-              fontWeight: 600,
-              cursor: locationChecking ? "not-allowed" : "pointer",
-              opacity: locationChecking ? 0.7 : 1,
-            }}
-          >
-            {locationChecking ? "Verificando ubicación…" : "Actualizar ubicación"}
-          </button>
-        </div>
-      )}
-
       <div style={{
-        width: "100%", maxWidth: "none",
-        margin: 0, display: "flex",
-        flexDirection: "column", gap: "16px",
+        width: "100%", 
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row",
+        alignItems: isMobile ? "stretch" : "flex-start",
+        gap: "16px",
+        marginBottom: isMobile ? "12px" : "0",
       }}>
+        {/* Tarjeta de Usuario */}
+        {isMobile && (
+          <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+            {(() => {
+              const nombre = String(datosEmpleado?.nombre || '').trim();
+              const primerNombre = nombre ? nombre.split(/\s+/)[0] : 'Usuario';
+              const cargo = String(datosEmpleado?.cargo || 'Sin cargo').trim();
+              const area = String(datosEmpleado?.area_nombre || datosEmpleado?.area || 'Sin área').trim();
 
-        {/* Layout */}
-        <div style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "16px", alignItems: "flex-start",
+              return (
+                <div className="bienvenida-card" style={{ width: "100%", margin: 0 }}>
+                  <div className="bienvenida-avatar" style={{ marginBottom: "12px" }}>
+                    {datosEmpleado?.foto && datosEmpleado.foto !== "null" ? (
+                      <img src={datosEmpleado?.foto} alt="Foto" className="bienvenida-foto" />
+                    ) : (
+                      <div className="bienvenida-foto-placeholder">
+                        <User size={32} color="#92614F" strokeWidth={2} />
+                      </div>
+                    )}
+                  </div>
+
+                  <h1 className="bienvenida-saludo" style={{ marginBottom: "10px" }}>
+                    ¡Hola, {primerNombre}!
+                  </h1>
+
+                  <div className="bienvenida-info" style={{ gap: "4px" }}>
+                    <div className="text-label">Cargo y Área</div>
+                    <div className="bienvenida-cargo">{cargo}</div>
+                    <div className="text-muted">{area}</div>
+                  </div>
+
+                  {!esAdmin && (
+                    <div style={{
+                      marginTop: "14px",
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px dashed rgba(80,54,41,0.15)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                      width: "100%",
+                      boxSizing: "border-box",
+                    }}>
+                      <div style={{ fontSize: "0.75rem", color: "#503629", fontWeight: 700 }}>
+                        Confirmación por ubicación
+                      </div>
+                      <div style={{ fontSize: "0.74rem", color: isNearPoint ? "#155724" : "#8A6D3B" }}>
+                        {isNearPoint
+                          ? `Estás dentro del perímetro (${Math.round(distanceMeters || 0)} m).`
+                          : `Para confirmar, debes estar dentro del perímetro de ${workplaceInfo.radius} m.`}
+                      </div>
+                      {!!locationError && (
+                        <div style={{ fontSize: "0.72rem", color: "#c0392b" }}>{locationError}</div>
+                      )}
+                      <button
+                        onClick={() => void refreshLocationStatus()}
+                        disabled={locationChecking}
+                        style={{
+                          padding: "8px 10px",
+                          borderRadius: 8,
+                          border: "1px dashed rgba(80,54,41,0.15)",
+                          background: "transparent",
+                          color: "#503629",
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
+                          cursor: locationChecking ? "not-allowed" : "pointer",
+                          opacity: locationChecking ? 0.7 : 1,
+                        }}
+                      >
+                        {locationChecking ? "Verificando ubicación…" : "Actualizar ubicación"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* Tarjeta de Usuario (Desktop) */}
+        {!isMobile && (
+          <div style={{ flex: "0 0 auto", display: "flex", justifyContent: "center" }}>
+            {(() => {
+              const nombre = String(datosEmpleado?.nombre || '').trim();
+              const primerNombre = nombre ? nombre.split(/\s+/)[0] : 'Usuario';
+              const cargo = String(datosEmpleado?.cargo || 'Sin cargo').trim();
+              const area = String(datosEmpleado?.area_nombre || datosEmpleado?.area || 'Sin área').trim();
+
+              return (
+                <div className="bienvenida-card" style={{ width: "400px", margin: 0 }}>
+                  <div className="bienvenida-avatar" style={{ marginBottom: "12px" }}>
+                    {datosEmpleado?.foto && datosEmpleado.foto !== "null" ? (
+                      <img src={datosEmpleado?.foto} alt="Foto" className="bienvenida-foto" />
+                    ) : (
+                      <div className="bienvenida-foto-placeholder">
+                        <User size={32} color="#92614F" strokeWidth={2} />
+                      </div>
+                    )}
+                  </div>
+
+                  <h1 className="bienvenida-saludo" style={{ marginBottom: "10px" }}>
+                    ¡Hola, {primerNombre}!
+                  </h1>
+
+                  <div className="bienvenida-info" style={{ gap: "4px" }}>
+                    <div className="text-label">Cargo y Área</div>
+                    <div className="bienvenida-cargo">{cargo}</div>
+                    <div className="text-muted">{area}</div>
+                  </div>
+
+                  {!esAdmin && (
+                    <div style={{
+                      marginTop: "14px",
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px dashed rgba(80,54,41,0.15)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                      width: "100%",
+                      boxSizing: "border-box",
+                    }}>
+                      <div style={{ fontSize: "0.75rem", color: "#503629", fontWeight: 700 }}>
+                        Confirmación por ubicación
+                      </div>
+                      <div style={{ fontSize: "0.74rem", color: isNearPoint ? "#155724" : "#8A6D3B" }}>
+                        {isNearPoint
+                          ? `Estás dentro del perímetro (${Math.round(distanceMeters || 0)} m).`
+                          : `Para confirmar, debes estar dentro del perímetro de ${workplaceInfo.radius} m.`}
+                      </div>
+                      {!!locationError && (
+                        <div style={{ fontSize: "0.72rem", color: "#c0392b" }}>{locationError}</div>
+                      )}
+                      <button
+                        onClick={() => void refreshLocationStatus()}
+                        disabled={locationChecking}
+                        style={{
+                          padding: "8px 10px",
+                          borderRadius: 8,
+                          border: "1px dashed rgba(80,54,41,0.15)",
+                          background: "transparent",
+                          color: "#503629",
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
+                          cursor: locationChecking ? "not-allowed" : "pointer",
+                          opacity: locationChecking ? 0.7 : 1,
+                        }}
+                      >
+                        {locationChecking ? "Verificando ubicación…" : "Actualizar ubicación"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* Tabla de reservas */}
+        <div className="bienvenida-card" style={{
+          flex: 1,
+          padding: isMobile ? "16px" : "20px 24px",
+          minWidth: 0, boxSizing: "border-box",
+          width: isMobile ? "100%" : "auto",
+          maxWidth: "100%",
+          overflowX: "hidden",
         }}>
-          {/* Tabla de reservas */}
-          <div className="bienvenida-card" style={{
-            flex: 1, padding: isMobile ? "16px" : "20px 24px",
-            minWidth: 0, boxSizing: "border-box",
-            width: "100%",
-            maxWidth: "100%",
-            overflowX: "hidden",
-          }}>
             {/* ── Cabecera ──────────────────────────────────── */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <h2 className="bienvenida-saludo" style={{ margin: 0, fontSize: "1.05rem" }}>
-                  Mis <span className="text-accent">reservas</span>
-                </h2>
+                <h2 className="bienvenida-saludo" style={{ margin: 0, fontSize: "1.05rem" }}>Mis reservas</h2>
               </div>
 
               {/* Fila 2 (admin): tabs Todas / Mis reservas / Otras */}
@@ -1176,42 +1222,81 @@ const Panel = () => {
 
               {/* Fila 3: filtros + buscador */}
               {esAdmin && (
-                <Space wrap size={8} style={{ width: '100%' }}>
-                  <Select
-                    value={filterEstado}
-                    onChange={setFilterEstado}
-                    size="small"
-                    options={[
-                      { value: 'todos', label: 'Todos los estados' },
-                      { value: 'Pendiente', label: 'Pendiente' },
-                      { value: 'Confirmada', label: 'Confirmada' },
-                      { value: 'Cancelada', label: 'Cancelada' },
-                    ]}
-                    style={{
-                      minWidth: 170,
-                    }}
-                  />
+                isMobile ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+                    <div style={{ display: 'flex', gap: 6, width: '100%' }}>
+                      <Select
+                        value={filterEstado}
+                        onChange={setFilterEstado}
+                        size="small"
+                        options={[
+                          { value: 'todos', label: 'Estados' },
+                          { value: 'Pendiente', label: 'Pendiente' },
+                          { value: 'Confirmada', label: 'Confirmada' },
+                          { value: 'Cancelada', label: 'Cancelada' },
+                        ]}
+                        style={{ flex: '0 0 130px' }}
+                      />
 
-                  <Input
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    allowClear
-                    placeholder="Búsqueda global"
-                    size="small"
-                    style={{
-                      flex: 1, minWidth: 160,
-                    }}
-                  />
-                  {(searchQuery || filterEstado !== 'todos' || adminTab !== 'todos') && (
-                    <Button
-                      onClick={() => { setSearchQuery(''); setFilterEstado('todos'); setAdminTab('todos'); }}
-                      danger
+                      <Input
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        allowClear
+                        placeholder="Búsqueda"
+                        size="small"
+                        style={{ flex: 1 }}
+                      />
+                    </div>
+
+                    {(searchQuery || filterEstado !== 'todos' || adminTab !== 'todos') && (
+                      <Button
+                        onClick={() => { setSearchQuery(''); setFilterEstado('todos'); setAdminTab('todos'); }}
+                        danger
+                        size="small"
+                        block
+                      >
+                        Limpiar
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <Space wrap size={6} style={{ width: '100%' }}>
+                    <Select
+                      value={filterEstado}
+                      onChange={setFilterEstado}
                       size="small"
-                    >
-                      Limpiar filtros
-                    </Button>
-                  )}
-                </Space>
+                      options={[
+                        { value: 'todos', label: 'Estados' },
+                        { value: 'Pendiente', label: 'Pendiente' },
+                        { value: 'Confirmada', label: 'Confirmada' },
+                        { value: 'Cancelada', label: 'Cancelada' },
+                      ]}
+                      style={{
+                        minWidth: 140,
+                      }}
+                    />
+
+                    <Input
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      allowClear
+                      placeholder="Búsqueda"
+                      size="small"
+                      style={{
+                        flex: 1, minWidth: 150,
+                      }}
+                    />
+                    {(searchQuery || filterEstado !== 'todos' || adminTab !== 'todos') && (
+                      <Button
+                        onClick={() => { setSearchQuery(''); setFilterEstado('todos'); setAdminTab('todos'); }}
+                        danger
+                        size="small"
+                      >
+                        Limpiar
+                      </Button>
+                    )}
+                  </Space>
+                )
               )}
             </div>
 
@@ -1242,8 +1327,8 @@ const Panel = () => {
                       canConfirm={canAdminConfirm || (isNearPoint && confirmMeta.canByTime)}
                       helperMessage={esAdmin && r.estado === 'Pendiente'
                         ? (r.documento === documentoUsuario
-                            ? 'Puedes confirmar esta reserva como administrador.'
-                            : 'Puedes confirmar manualmente esta reserva como administrador.')
+                            ? ''
+                            : '')
                         : ''}
                       showOwner={esAdmin}
                       confirmBlockedMessage={confirmMeta.blockedMessage}
@@ -1272,7 +1357,6 @@ const Panel = () => {
             )}
 
           </div>
-        </div>
       </div>
 
       {cancelConfirmId != null && (
