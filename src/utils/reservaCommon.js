@@ -1,4 +1,4 @@
-export const ADMIN_DOCUMENTS = ['1028783377', '1019096266'];
+export const ADMIN_DOCUMENTS = ['1019096266'];
 
 export const HORARIO_META = {
   1: { label: 'Mañana', hora: '8:00 am – 12:00 m', badge: 'AM', badgeKey: 'am' },

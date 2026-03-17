@@ -787,7 +787,6 @@ const Panel = () => {
       {
         title: 'ID',
         key: 'id',
-        width: 80,
         render: (_, r) => (
           <span style={{
             display: "inline-block",
@@ -804,7 +803,6 @@ const Panel = () => {
         title: 'Usuario',
         key: 'usuario',
         ellipsis: true,
-        width: 180,
         render: (_, r) => (
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <span className="text-body" style={{ fontSize: "0.82rem", fontWeight: 700 }}>
@@ -819,7 +817,6 @@ const Panel = () => {
       {
         title: 'Fecha',
         key: 'fecha',
-        width: 110,
         render: (_, r) => (
           <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
             {r.fecha !== '—'
@@ -832,7 +829,6 @@ const Panel = () => {
         title: 'Escritorio',
         key: 'salaEscritorio',
         ellipsis: true,
-        width: 170,
         render: (_, r) => (
           <span className="text-body" style={{ fontSize: "0.82rem" }}>
             {r.puestoId ? `Escritorio ${r.puestoId}` : '—'}
@@ -843,7 +839,6 @@ const Panel = () => {
         title: 'Turno',
         key: 'turno',
         ellipsis: true,
-        width: 130,
         render: (_, r) => {
           const hMeta = HORARIO_META[r.horarioId];
           const turnoTexto = r.turnoLabel || hMeta?.label || '—';
@@ -857,7 +852,6 @@ const Panel = () => {
       {
         title: 'Estado',
         key: 'estado',
-        width: 105,
         render: (_, r) => {
           const esCancelada = r.estado === 'Cancelada';
           const esPendiente = r.estado === 'Pendiente';
@@ -875,7 +869,6 @@ const Panel = () => {
         title: 'Motivo',
         key: 'motivo',
         ellipsis: true,
-        width: 180,
         render: (_, r) => {
           const valor = r.estado === 'Cancelada'
             ? (r.motivoCancelacion || r.motivoGestion || '—')
@@ -892,7 +885,6 @@ const Panel = () => {
       {
         title: 'Acción',
         key: 'accion',
-        width: 230,
         render: (_, r) => {
           const esCancelada = r.estado === 'Cancelada';
           const esPendiente = r.estado === 'Pendiente';
@@ -985,8 +977,9 @@ const Panel = () => {
       flexDirection: "column",
       alignItems: "flex-start",
       justifyContent: "flex-start",
-      overflowY: "auto",
+      overflow: "hidden",
       padding: isMobile ? "64px 16px 16px" : "76px 24px 28px",
+      height: "100vh",
     }}>
       <div
         className="top-right-nav-actions"
@@ -1026,12 +1019,16 @@ const Panel = () => {
       </div>
 
       <div style={{
-        width: "100%", 
+        width: "100%",
+        flex: 1,
         display: "flex",
         flexDirection: isMobile ? "column" : "row",
         alignItems: isMobile ? "stretch" : "flex-start",
         gap: "16px",
         marginBottom: isMobile ? "12px" : "0",
+        minWidth: 0,
+        minHeight: 0,
+        overflow: "auto",
       }}>
         {/* Tarjeta de Usuario */}
         {isMobile && (
@@ -1122,13 +1119,13 @@ const Panel = () => {
               const area = String(datosEmpleado?.area_nombre || datosEmpleado?.area || 'Sin área').trim();
 
               return (
-                <div className="bienvenida-card" style={{ width: "400px", margin: 0 }}>
+                <div className="bienvenida-card" style={{ width: "280px", margin: 0 }}>
                   <div className="bienvenida-avatar" style={{ marginBottom: "12px" }}>
                     {datosEmpleado?.foto && datosEmpleado.foto !== "null" ? (
-                      <img src={datosEmpleado?.foto} alt="Foto" className="bienvenida-foto" />
+                      <img src={datosEmpleado?.foto} alt="Foto" className="bienvenida-foto" style={{ width: "72px", height: "72px" }} />
                     ) : (
-                      <div className="bienvenida-foto-placeholder">
-                        <User size={32} color="#92614F" strokeWidth={2} />
+                      <div className="bienvenida-foto-placeholder" style={{ width: "72px", height: "72px" }}>
+                        <User size={28} color="#92614F" strokeWidth={2} />
                       </div>
                     )}
                   </div>
@@ -1195,10 +1192,11 @@ const Panel = () => {
         <div className="bienvenida-card" style={{
           flex: 1,
           padding: isMobile ? "16px" : "20px 24px",
-          minWidth: 0, boxSizing: "border-box",
+          minWidth: 0,
+          minHeight: 0,
+          boxSizing: "border-box",
           width: isMobile ? "100%" : "auto",
-          maxWidth: "100%",
-          overflowX: "hidden",
+          overflow: "auto",
         }}>
             {/* ── Cabecera ──────────────────────────────────── */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
@@ -1347,7 +1345,7 @@ const Panel = () => {
                 dataSource={filteredReservations}
                 rowKey="id"
                 style={{ width: '100%' }}
-                tableLayout="fixed"
+                scroll={{ x: 'max-content' }}
                 pagination={{
                   pageSize: 8,
                   showSizeChanger: false,
