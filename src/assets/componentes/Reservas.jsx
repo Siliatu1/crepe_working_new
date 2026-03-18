@@ -12,6 +12,7 @@ import {
   esReservaActiva,
   formatFechaIso,
   getHorarioId,
+  getLocalDateString,
   getNombreCorto,
   getPrimerNombreReserva,
   getPuestoId,
@@ -55,7 +56,7 @@ const generarFechasHabiles = (n = 2) => {
       const formatoFecha = `${dia}. ${dd}/${mm}`;
       fechas.push({
         date:       new Date(cursor),
-        iso:        cursor.toISOString().split('T')[0],
+        iso:        getLocalDateString(cursor),
         label:      formatoFecha,
         diaLabel:   dia,
         fechaLabel: `${dd}/${mm}`,

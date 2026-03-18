@@ -102,7 +102,11 @@ const buildRemoteData = (baseReserva = {}, override = {}, options = {}) => {
     horaFin: merged.horaFin || undefined,
     correo: merged.correo || undefined,
     cargo: merged.cargo || undefined,
-    motivo_cancelacion: merged.motivo_cancelacion ?? merged.motivoCancelacion ?? undefined,
+    motivo_cancelacion: merged.motivo_cancelacion !== undefined
+      ? merged.motivo_cancelacion
+      : merged.motivoCancelacion !== undefined
+        ? merged.motivoCancelacion
+        : undefined,
   };
 
   if (apiEstado !== null || includeNullEstado) {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { User, Calendar, Monitor, Clock, Armchair, ArrowLeft, Trash2, LogOut, ChevronDown } from 'lucide-react';
 import { Table, Select, Input, Button, Segmented, Space, Tag } from 'antd';
@@ -63,8 +63,12 @@ const getSalaInfo = (r) => {
 const getEstadoReserva = (attrs = {}) => {
   const motivo = String(attrs?.motivo_cancelacion ?? attrs?.motivoCancelacion ?? '').trim();
   const tipoVerificacion = String(attrs?.verificacionAsistencia?.tipo ?? '').toLowerCase();
-  const fueCanceladaManualmente = motivo.length > 0 || tipoVerificacion.includes('cancelacion');
 
+  // Si la última acción fue una reactivación, el estado backend es null (Pendiente)
+  // y tiene prioridad sobre cualquier motivo de cancelación anterior.
+  if (tipoVerificacion === 'reactivacion-admin') return toEstado(attrs?.estado);
+
+  const fueCanceladaManualmente = motivo.length > 0 || tipoVerificacion.includes('cancelacion');
   if (fueCanceladaManualmente) return 'Cancelada';
   return toEstado(attrs?.estado);
 };
@@ -286,6 +290,7 @@ const Panel = () => {
   const [cancelando,   setCancelando]   = useState(null);
   const [confirmando,  setConfirmando]  = useState(null);
   const [reactivando,  setReactivando]  = useState(null);
+  const [reactivadaExitosa, setReactivadaExitosa] = useState(false);
   const [cancelConfirmId, setCancelConfirmId] = useState(null);
   const [conflictoReactivar, setConflictoReactivar] = useState(null);
   const [confirmadaExitosa, setConfirmadaExitosa] = useState(null);
@@ -307,6 +312,10 @@ const Panel = () => {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Ref siempre actualizado para evitar closures obsoletos en handlers
+  const reservationsRef = useRef(reservations);
+  useEffect(() => { reservationsRef.current = reservations; }, [reservations]);
 
   const getConfirmMeta = useCallback((reserva) => {
     const timeInfo = getVerificationTimeInfo(reserva, [], new Date(nowMs));
@@ -416,6 +425,9 @@ const Panel = () => {
           : null;
         const { salaId, salaNombre } = getSalaInfo(r);
 
+        const tipoVerifNorm = String(r.attributes?.verificacionAsistencia?.tipo ?? '').toLowerCase();
+        const fueReactivada = tipoVerifNorm === 'reactivacion-admin' && r.attributes?.estado === null;
+
         return {
           id:       r.id,
           nombre:   getNombreCompleto(r.attributes?.Nombre ?? r.attributes?.documento ?? '—').split(/\s+/).slice(0, 2).join(' '),
@@ -428,7 +440,8 @@ const Panel = () => {
           confirmada: r.attributes?.estado === true,
           pendiente: r.attributes?.estado === null,
           cancelada: r.attributes?.estado === false,
-          motivoCancelacion: r.attributes?.motivo_cancelacion ?? r.attributes?.motivoCancelacion ?? null,
+          reactivadaPorAdmin: fueReactivada,
+          motivoCancelacion: fueReactivada ? null : (r.attributes?.motivo_cancelacion ?? r.attributes?.motivoCancelacion ?? null),
           motivoGestion: r.attributes?.verificacionAsistencia?.mensaje ?? null,
           verificacionAsistencia: r.attributes?.verificacionAsistencia ?? null,
           puestoId: puestoId ?? (escritorioMatch ? Number(escritorioMatch) : null),
@@ -465,7 +478,7 @@ const Panel = () => {
   }, [refreshLocationStatus]);
 
   const handleConfirmar = async (id) => {
-    const reservaAux = reservations.find(r => r.id === id);
+    const reservaAux = reservationsRef.current.find(r => r.id === id);
     if (!reservaAux || reservaAux.estado !== 'Pendiente') {
       return;
     }
@@ -604,7 +617,7 @@ const Panel = () => {
   const handleReactivar = async (id) => {
     if (!esAdmin) return;
 
-    const reservaAux = reservations.find(r => r.id === id);
+    const reservaAux = reservationsRef.current.find(r => r.id === id);
     if (!reservaAux || reservaAux.estado !== 'Cancelada') {
       return;
     }
@@ -676,6 +689,7 @@ const Panel = () => {
                 estado: 'Pendiente',
                 confirmada: null,
                 motivoCancelacion: null,
+                reactivadaPorAdmin: true,
                 verificacionAsistencia: {
                   ...(r.verificacionAsistencia || {}),
                   fecha: new Date().toISOString(),
@@ -689,9 +703,7 @@ const Panel = () => {
         )
       );
 
-      // Sincroniza con la API para asegurar consistencia
-      await cargarReservas();
-      alert('Reserva reactivada exitosamente.');
+      setReactivadaExitosa(true);
     } catch (err) {
       console.error(err);
       alert(err?.message || 'Error al reactivar la reserva.');
@@ -704,13 +716,12 @@ const Panel = () => {
   const handleCancelar = async (id, motivoCancelacion) => {
     setCancelando(id);
     try {
-      const reservaAux = reservations.find(r => r.id === id);
+      const reservaAux = reservationsRef.current.find(r => r.id === id);
       await cancelReserva(id, reservaAux, motivoCancelacion);
       // Actualización local inmediata (sin recargar página)
       setReservations(prev =>
         prev.map(r => r.id === id ? {
           ...r,
-          // En API el estado queda false para cancelada.
           estado: 'Cancelada',
           confirmada: false,
           motivoCancelacion,
@@ -722,8 +733,7 @@ const Panel = () => {
           },
         } : r)
       );
-      // Sincroniza con la API para asegurar consistencia
-      await cargarReservas();
+      // El evento emitido por cancelReserva dispara el sync en useRealtimeSync
     } catch (err) {
       console.error(err);
       alert('Error al cancelar la reserva. Intenta de nuevo.');
@@ -732,11 +742,11 @@ const Panel = () => {
     }
   };
 
-  const solicitarCancelacion = (id) => {
+  const solicitarCancelacion = useCallback((id) => {
     setCancelConfirmId(id);
     setCancelReason('');
     setCancelReasonError('');
-  };
+  }, []);
 
   const cerrarConfirmacionCancelacion = () => {
     setCancelConfirmId(null);
@@ -901,7 +911,7 @@ const Panel = () => {
           const esPendiente = r.estado === 'Pendiente';
           const confirmMeta = getConfirmMeta(r);
           const actionBusy = confirmando === r.id || cancelando === r.id || reactivando === r.id;
-          const confirmDisabled = actionBusy || !esPendiente || (!esAdmin && (!isNearPoint || !confirmMeta.canByTime));
+          const confirmDisabled = actionBusy || !esPendiente || (r.reactivadaPorAdmin && !esAdmin) || (!esAdmin && (!isNearPoint || !confirmMeta.canByTime));
           const cancelDisabled = cancelando === r.id || esCancelada || cancelConfirmId === r.id || reactivando === r.id;
           const reactivateDisabled = actionBusy;
 
@@ -1336,7 +1346,7 @@ const Panel = () => {
                       onCancelar={solicitarCancelacion}
                       onConfirmar={handleConfirmar}
                       onReactivar={handleReactivar}
-                      canConfirm={canAdminConfirm || (isNearPoint && confirmMeta.canByTime)}
+                      canConfirm={canAdminConfirm || (!r.reactivadaPorAdmin && isNearPoint && confirmMeta.canByTime)}
                       helperMessage={esAdmin && r.estado === 'Pendiente'
                         ? (r.documento === documentoUsuario
                             ? ''
@@ -1530,6 +1540,65 @@ const Panel = () => {
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <button
                 onClick={() => setConfirmadaExitosa(null)}
+                style={{
+                  padding: "8px 20px",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(34,139,34,0.3)",
+                  background: "rgba(34,139,34,0.1)",
+                  color: "#1a6b2a",
+                  fontSize: "0.84rem",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {reactivadaExitosa && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1100,
+            padding: "16px",
+          }}
+          onClick={() => setReactivadaExitosa(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: "400px",
+              background: "#F0FFF4",
+              borderRadius: "14px",
+              border: "1px solid rgba(34,139,34,0.2)",
+              boxShadow: "0 20px 48px rgba(34,139,34,0.1)",
+              padding: "22px 20px 18px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", marginBottom: "14px" }}>
+              <span style={{ fontSize: "1.4rem", lineHeight: 1, flexShrink: 0 }}>✅</span>
+              <div>
+                <h3 style={{ margin: 0, color: "#1a6b2a", fontSize: "1rem", fontWeight: 700 }}>
+                  Reserva reactivada
+                </h3>
+                <p style={{ margin: "8px 0 0", color: "#2d6a3f", fontSize: "0.86rem", lineHeight: 1.5 }}>
+                  La reserva fue reactivada exitosamente como Pendiente.
+                </p>
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setReactivadaExitosa(false)}
                 style={{
                   padding: "8px 20px",
                   borderRadius: "8px",
