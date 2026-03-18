@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, ArrowLeft, Armchair, Calendar, Monitor, Ticket, User, LogOut } from 'lucide-react';
 import axios from 'axios';
+import useRealtimeSync from '../../hooks/useRealtimeSync';
 import sillaDis from '../../assets/sillaDis.png';
 import sillaLim from '../../assets/sillaLim.png';
 import sillaOcu from '../../assets/sillaOcu.png';
@@ -532,6 +533,9 @@ export default function Reservas() {
       .catch(err => { console.error('[Reservas] error:', err); setReservas([]); })
       .finally(() => setLoadingR(false));
   }, [fechaISO]);
+
+  // Sincronización en tiempo real con Socket.IO
+  useRealtimeSync(cargarReservas);
 
   useEffect(() => {
     cargarReservas();
