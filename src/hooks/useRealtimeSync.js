@@ -1,35 +1,11 @@
 import { useEffect, useCallback, useRef } from 'react';
+import { io } from 'socket.io-client';
 
-const WS_URL = import.meta.env.VITE_RESERVAS_WS_URL || '';
-const POLLING_MS = Number(import.meta.env.VITE_RESERVAS_POLLING_MS || 30000);
-const MAX_RECONNECT_MS = 15000;
-
-const normalizeText = (value) => String(value || '').toLowerCase();
-
-const shouldSyncFromSocketPayload = (payload) => {
-  if (!payload || typeof payload !== 'object') return false;
-
-  const eventText = normalizeText(payload.event || payload.type || payload.action || payload.topic);
-  const modelText = normalizeText(payload.model || payload.collection || payload.entity || payload.resource);
-  const dataText = normalizeText(JSON.stringify(payload.data || payload.payload || {}));
-  const fullText = `${eventText} ${modelText} ${dataText}`;
-
-  return (
-    fullText.includes('working-reservas-updated') ||
-    fullText.includes('reservas-updated') ||
-    fullText.includes('working-reserva') ||
-    fullText.includes('working-reservas') ||
-    fullText.includes('reserva')
-  );
-};
-
+const WS_URL = import.meta.env.VITE_RESERVAS_WS_URL || 'https://macfer.crepesywaffles.com';
+const ENABLE_SOCKET = import.meta.env.VITE_ENABLE_SOCKET !== 'false';
 
 const useRealtimeSync = (onSync) => {
-  const lastSyncRef = useRef(0);
-  const syncIntervalRef = useRef(null);
-  const wsRef = useRef(null);
-  const reconnectTimerRef = useRef(null);
-  const reconnectAttemptRef = useRef(0);
+  const socketRef = useRef(null);
   const syncDebounceRef = useRef(null);
 
   // Función para disparar sincronización
@@ -39,20 +15,15 @@ const useRealtimeSync = (onSync) => {
     }
 
     syncDebounceRef.current = setTimeout(() => {
-      console.log(`🔄 Sincronización disparada desde: ${source}`);
       if (onSync) {
         onSync();
       }
-      lastSyncRef.current = Date.now();
       syncDebounceRef.current = null;
     }, 120);
-
-    lastSyncRef.current = Date.now();
   }, [onSync]);
 
   useEffect(() => {
     const handleCustomSync = () => {
-      console.log(' Evento de sincronización recibido');
       triggerSync('custom-event');
     };
 
@@ -65,117 +36,109 @@ const useRealtimeSync = (onSync) => {
     };
   }, [triggerSync]);
 
+  // Socket.IO Connection  
   useEffect(() => {
-    if (!WS_URL) {
-      console.log('ℹ️ WebSocket no configurado (VITE_RESERVAS_WS_URL). Se usa eventos locales + polling.');
-      return undefined;
+    if (!ENABLE_SOCKET) {
+      return;
     }
 
-    let unmounted = false;
+    let mounted = true;
+    let socket = null;
+    let hasShownError = false;
 
-    const connect = () => {
-      if (unmounted) return;
+    const connectSocket = () => {
+      if (!mounted) return;
 
       try {
-        const ws = new WebSocket(WS_URL);
-        wsRef.current = ws;
+        socket = io(WS_URL, {
+          reconnection: false,
+          timeout: 10000,
+          transports: ['polling', 'websocket'],
+          upgrade: true,
+          autoConnect: true,
+          path: '/socket.io/',
+        });
 
-        ws.onopen = () => {
-          reconnectAttemptRef.current = 0;
-          console.log('✅ WebSocket conectado para reservas');
-        };
+        socketRef.current = socket;
 
-        ws.onmessage = (event) => {
-          try {
-            const payload = JSON.parse(event.data);
-            if (shouldSyncFromSocketPayload(payload)) {
-              triggerSync('websocket-message');
-            }
-          } catch {
-            const text = normalizeText(event.data);
-            if (text.includes('reserva') || text.includes('working-reserva') || text.includes('working-reservas')) {
-              triggerSync('websocket-text');
-            }
+        socket.on('connect', () => {
+          hasShownError = false;
+          if (mounted) {
+            triggerSync('socket-connect');
           }
-        };
+        });
 
-        ws.onerror = (error) => {
-          console.warn('⚠️ Error en WebSocket de reservas:', error);
-        };
+        socket.on('disconnect', () => {
+        });
 
-        ws.onclose = () => {
-          wsRef.current = null;
-          if (unmounted) return;
+        socket.on('connect_error', () => {
+          if (!hasShownError && mounted) {
+            hasShownError = true;
+          }
+          if (socket) {
+            socket.off();
+            socket.close();
+          }
+        });
 
-          reconnectAttemptRef.current += 1;
-          const delay = Math.min(1000 * (2 ** reconnectAttemptRef.current), MAX_RECONNECT_MS);
+        // Escuchar el evento "reserva3" que el backend emite cuando se crea una reserva
+        socket.on('reserva3', () => {
+          if (mounted) {
+            triggerSync('socket-reserva3');
+          }
+        });
 
-          reconnectTimerRef.current = setTimeout(() => {
-            connect();
-          }, delay);
+        // Mantener eventos adicionales por compatibilidad
+        socket.on('working-reservas-updated', () => {
+          if (mounted) {
+            triggerSync('socket-reservas-updated');
+          }
+        });
 
-          console.warn(`🔁 WebSocket desconectado. Reintentando en ${Math.round(delay / 1000)}s...`);
-        };
+        socket.on('reservas-updated', () => {
+          if (mounted) {
+            triggerSync('socket-reservas-general');
+          }
+        });
+
       } catch (error) {
-        console.error('❌ No se pudo iniciar WebSocket de reservas:', error);
+        if (!hasShownError) {
+          hasShownError = true;
+        }
       }
     };
 
-    connect();
+    const timer = setTimeout(connectSocket, 800);
 
     return () => {
-      unmounted = true;
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
+      mounted = false;
+      clearTimeout(timer);
+      
+      if (socket && socket.connected) {
+        socket.removeAllListeners();
+        socket.close();
+        socketRef.current = null;
       }
     };
   }, [triggerSync]);
-
-  // Polling cada 30 segundos (backup por si fallan los eventos)
-  useEffect(() => {
-    syncIntervalRef.current = setInterval(() => {
-      const timeSinceLastSync = Date.now() - lastSyncRef.current;
-
-      if (timeSinceLastSync > POLLING_MS - 5000) {
-        console.log('⏰ Sincronización automática (polling)');
-        triggerSync('polling');
-      }
-    }, POLLING_MS);
-
-    return () => {
-      if (syncIntervalRef.current) {
-        clearInterval(syncIntervalRef.current);
-      }
-      if (syncDebounceRef.current) {
-        clearTimeout(syncDebounceRef.current);
-      }
-    };
-  }, [triggerSync]);
-
 
   const notifyChange = useCallback(() => {
     window.dispatchEvent(new CustomEvent('reservas-updated'));
     window.dispatchEvent(new CustomEvent('working-reservas-updated'));
 
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
+    if (socketRef.current && socketRef.current.connected) {
+      socketRef.current.emit('working-reservas-updated', {
         event: 'working-reservas-updated',
         source: 'client',
         timestamp: Date.now(),
-      }));
+      });
     }
-
-    console.log('✅ Notificación de cambio enviada');
   }, []);
 
   return {
     triggerSync,
     notifyChange,
+    socket: socketRef.current,
   };
 };
 
