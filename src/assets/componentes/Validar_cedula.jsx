@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { IdCard } from "lucide-react";
-import { createSession, getNextPathForSession, hasActiveSession } from "../../utils/sessionFlow";
+import { createSession, getNextPathForSession, hasActiveSession, checkPoliciesAccepted } from "../../utils/sessionFlow";
 
 const ValidarCedula = () => {
   const navigate = useNavigate();
@@ -34,10 +34,14 @@ const ValidarCedula = () => {
 
       const empleado = response.data.data[0];
       const fechaHoraIngreso = new Date();
+      
+      // Verificar si el usuario ya aceptó las políticas
+      const politicasYaAceptadas = await checkPoliciesAccepted(cedula);
 
       createSession({
         datosEmpleado: empleado,
         fechaHoraIngreso: fechaHoraIngreso.toISOString(),
+        politicasAceptadas: politicasYaAceptadas
       });
 
       navigate(getNextPathForSession(), {

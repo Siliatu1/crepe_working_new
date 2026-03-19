@@ -9,9 +9,9 @@ const Politicas = () => {
   const datosEmpleado = location.state?.datosEmpleado || session?.datosEmpleado || {};
   const [aceptado, setAceptado] = useState(false);
 
-  const handleAceptar = () => {
+  const handleAceptar = async () => {
     if (aceptado) {
-      markPoliciesAccepted();
+      await markPoliciesAccepted();
       navigate("/salas", { state: { datosEmpleado }, replace: true });
     }
   };
