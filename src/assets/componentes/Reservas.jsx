@@ -408,8 +408,8 @@ const BookingCard = ({
               opacity: reservando ? 0.7 : 1,
             }}
           >
-            {reservaOk      ? '✓ Reservado'       :
-             reservando     ? '⏳ Reservando...'    :
+            {reservaOk      ? 'Reservado'       :
+             reservando     ? 'Reservando...'    :
              !puedeReservar ? 'No disponible'  :
                               'Reservar'}
           </button>

@@ -19,7 +19,7 @@ const Politicas = () => {
   const politicas = [
     {
       titulo: "Una reserva por día",
-      descripcion: "Solo se permite 1 reserva activa por día (pendiente o confirmada)"
+      descripcion: "Solo se permite 1 reserva activa por día (pendiente o confirmada)",
     },
     {
       titulo: "Rotación de puesto",
@@ -27,11 +27,11 @@ const Politicas = () => {
     },
     {
       titulo: "Horarios de reserva",
-      descripcion: "Las reservas están habilitadas en días hábiles. Entre 12:00 a.m. y 5:00 a.m. no se puede reservar para pasado mañana o fechas posteriores",
+      descripcion: "Las reservas están habilitadas en días hábiles",
     },
     {
-      titulo: "Confirmación en 25 minutos",
-      descripcion: "Debes confirmar el mismo día dentro de los primeros 25 minutos de tu turno, desde una ubicación dentro del perímetro permitido (1000 m). De lo contrario, se cancela automáticamente",
+      titulo: "Confirmación en 15 minutos",
+      descripcion: "Debes confirmar el mismo día dentro de los primeros 15 minutos de tu turno, desde una ubicación dentro del perímetro permitido (1000 m). De lo contrario, se cancela automáticamente",
     },
     {
       titulo: "Sin GPS disponible",
