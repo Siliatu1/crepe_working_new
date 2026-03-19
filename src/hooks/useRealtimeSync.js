@@ -63,15 +63,17 @@ const useRealtimeSync = (onSync) => {
 
         socket.on('connect', () => {
           if (mounted) {
+            console.log('🟢 WebSocket conectado correctamente');
             triggerSync('socket-connect');
           }
         });
 
         socket.on('disconnect', () => {
-          // Conexión cerrada normalmente
+          console.log('🔴 WebSocket desconectado');
         });
 
         socket.on('connect_error', (error) => {
+          console.warn('⚠️ Error de conexión WebSocket (backend sin Socket.IO configurado)');
           // Cerrar silenciosamente si el backend no tiene Socket.IO configurado
           if (socket) {
             socket.off();
@@ -80,21 +82,24 @@ const useRealtimeSync = (onSync) => {
         });
 
         // Escuchar el evento "reserva3" que el backend emite cuando se crea una reserva
-        socket.on('reserva3', () => {
+        socket.on('reserva3', (data) => {
           if (mounted) {
+            console.log('📡 Evento "reserva3" recibido del backend:', data);
             triggerSync('socket-reserva3');
           }
         });
 
         // Mantener eventos adicionales por compatibilidad
-        socket.on('working-reservas-updated', () => {
+        socket.on('working-reservas-updated', (data) => {
           if (mounted) {
+            console.log('📡 Evento "working-reservas-updated" recibido:', data);
             triggerSync('socket-reservas-updated');
           }
         });
 
-        socket.on('reservas-updated', () => {
+        socket.on('reservas-updated', (data) => {
           if (mounted) {
+            console.log('📡 Evento "reservas-updated" recibido:', data);
             triggerSync('socket-reservas-general');
           }
         });
