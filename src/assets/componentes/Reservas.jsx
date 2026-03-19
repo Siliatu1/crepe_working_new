@@ -308,34 +308,11 @@ const BookingCard = ({
   return (
     <div className="booking-card-wrapper">
       <div className="booking-card">
-
-        {/* Usuario */}
-        <div className="booking-section booking-section--compact">
-          <div className="booking-section-label">Reserva para</div>
-          {usuario && (
-            <div className="booking-user booking-user--row">
-              {usuario.foto && usuario.foto !== 'null' ? (
-                <img src={usuario.foto} alt={usuario.nombre} className="booking-user-foto booking-user-foto--sm" />
-              ) : (
-                <div className="booking-user-placeholder booking-user-placeholder--sm">
-                  <User size={24} strokeWidth={2} color="#92614F" />
-                </div>
-              )}
-              <div className="booking-user-info booking-user-info--row">
-                <div className="booking-user-nombre">{getNombreCorto(usuario.nombre)}</div>
-                <div className="booking-user-cargo">{usuario.cargo}</div>
-                <div className="booking-user-area">{usuario.area_nombre}</div>
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="booking-divider" />
-
         {/* Ubicación */}
         <div className="booking-section booking-section--compact">
           <div className="booking-section-label">Ubicación</div>
           <div className="booking-ubicacion-row">
-            <Ticket size={16} strokeWidth={2.5} color="#503629" />
+            <Monitor size={16} strokeWidth={2.5} color="#503629" /> 
             <span className="booking-escritorio-nombre">Escritorio {escritorioId}</span>
             {tieneMonitor && <span className="booking-badge-monitor">Con monitor</span>}
           </div>
@@ -462,7 +439,7 @@ export default function Reservas() {
   const handleGoToPanel = useCallback(() => {
     if (isNavigating) return;
     setIsNavigating(true);
-    navigate('/panel', { state: { datosEmpleado: usuario }, replace: false });
+    navigate('/panel', { state: { datosEmpleado: usuario, from: 'reservas' }, replace: false });
   }, [isNavigating, navigate, usuario]);
 
   const FECHAS = useMemo(() => generarFechasHabiles(2), []);

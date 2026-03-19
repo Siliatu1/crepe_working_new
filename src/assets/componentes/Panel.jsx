@@ -1047,12 +1047,6 @@ const Panel = () => {
                     ¡Hola, {primerNombre}!
                   </h1>
 
-                  <div className="bienvenida-info" style={{ gap: "4px" }}>
-                    <div className="text-label">Cargo y Área</div>
-                    <div className="bienvenida-cargo">{cargo}</div>
-                    <div className="text-muted">{area}</div>
-                  </div>
-
                   {!esAdmin && (
                     <div style={{
                       marginTop: "14px",
@@ -1125,12 +1119,6 @@ const Panel = () => {
                   <h1 className="bienvenida-saludo" style={{ marginBottom: "10px" }}>
                     ¡Hola, {primerNombre}!
                   </h1>
-
-                  <div className="bienvenida-info" style={{ gap: "4px" }}>
-                    <div className="text-label">Cargo y Área</div>
-                    <div className="bienvenida-cargo">{cargo}</div>
-                    <div className="text-muted">{area}</div>
-                  </div>
 
                   {!esAdmin && (
                     <div style={{

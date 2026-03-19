@@ -1,15 +1,5 @@
 import { LogOut, ArrowLeft } from 'lucide-react';
 
-/**
- * GlobalNavBar - Barra de navegación globalizada
- * 
- * Estructura:
- * - Izquierda: "Mis Reservas" (texto)
- * - Centro: Botón "Atrás"
- * - Derecha: Botón "Salir"
- * 
- * En Reservas, el DateSelector va a la izquierda, fuera de este grupo
- */
 export default function GlobalNavBar({
   onLogout,
   onGoBack,
