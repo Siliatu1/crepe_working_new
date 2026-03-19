@@ -261,7 +261,7 @@ const OcupantesPanel = ({ reservas }) => {
 // ─── BookingCard ──────────────────────────────────────────────────────────────
 const BookingCard = ({
   escritorioId, usuario, reservas, horarios,
-  onConfirm, onCancel,
+  onConfirm, onCancel, onHorarioSelect,
   reservando, reservaOk, reservaErr,
   yaReservoHoy,
   canReserveNow,
@@ -269,8 +269,16 @@ const BookingCard = ({
   rotacionBloqueada,
   rotationMessage,
   reserveWindowMessage,
+  selectedHorarioIdProp,
 }) => {
   const [selectedHorarioId, setSelectedHorarioId] = useState(null);
+  
+  // Sincronizar con prop cuando cambia desde fuera
+  useEffect(() => {
+    if (selectedHorarioIdProp !== undefined) {
+      setSelectedHorarioId(selectedHorarioIdProp);
+    }
+  }, [selectedHorarioIdProp]);
 
   if (!escritorioId) return null;
 
@@ -345,7 +353,14 @@ const BookingCard = ({
               return (
                 <button
                   key={h.id}
-                  onClick={() => !deshabilitado && setSelectedHorarioId(h.id)}
+                  onClick={() => {
+                    if (!deshabilitado) {
+                      setSelectedHorarioId(h.id);
+                      if (onHorarioSelect) {
+                        onHorarioSelect(h.id);
+                      }
+                    }
+                  }}
                   disabled={deshabilitado}
                   className={[
                     'booking-horario-btn',
@@ -457,6 +472,7 @@ export default function Reservas() {
   const [loadingR,    setLoadingR]    = useState(false);
   const [hoverId,     setHoverId]     = useState(null);
   const [selectedId,  setSelectedId]  = useState(null);
+  const [selectedHorarioId, setSelectedHorarioId] = useState(null); // Guardar horario seleccionado
   const [reservando,  setReservando]  = useState(false);
   const [reservaOk,   setReservaOk]   = useState(false);
   const [reservaErr,  setReservaErr]  = useState(null);
@@ -545,31 +561,58 @@ export default function Reservas() {
         const data = Array.isArray(json.data) ? json.data : [];
         setReservas(data);
       })
-      .catch(err => { console.error('[Reservas] error:', err); setReservas([]); })
+      .catch(err => { 
+        console.error('[Reservas] error:', err); 
+        setReservas([]); 
+      })
       .finally(() => setLoadingR(false));
   }, [fechaISO]);
 
-  // Sincronización en tiempo real con Socket.IO
+  // Sincronización en tiempo real con Socket.IO y eventos
   useRealtimeSync(cargarReservas);
 
+  // Cargar reservas al cambiar fecha
   useEffect(() => {
     cargarReservas();
     setSelectedId(null);
+    setSelectedHorarioId(null);
     setReservaErr(null);
     setReservaOk(false);
   }, [fechaISO, cargarReservas]);
 
+  // 🔍 DETECCIÓN EN TIEMPO REAL: Monitorear si el puesto/turno seleccionado fue ocupado
   useEffect(() => {
-    if (selectedId && calcEstado(reservas, selectedId) === 'ocupado') {
+    if (!selectedId || reservando) return;
+    
+    const estado = calcEstado(reservas, selectedId);
+    
+    // Si el escritorio está completamente ocupado
+    if (estado === 'ocupado') {
+      console.log('⚠️ Escritorio ocupado detectado vía sync:', selectedId);
       setSelectedId(null);
-      setReservaErr('Este escritorio acaba de ser reservado por otro usuario.');
+      setSelectedHorarioId(null);
+      setReservaErr('⚠️ Este escritorio acaba de ser reservado completamente. Por favor, elige otro.');
+      return;
     }
-  }, [reservas, selectedId]);
+    
+    // Si hay un turno específico seleccionado, verificar si todavía está disponible
+    if (selectedHorarioId) {
+      const turnosBloq = turnosBloqueados(reservas, selectedId);
+      if (turnosBloq.has(selectedHorarioId)) {
+        console.log('⚠️ Turno ocupado detectado vía sync:', selectedId, selectedHorarioId);
+        setSelectedId(null);
+        setSelectedHorarioId(null);
+        setReservaErr('⚠️ El turno que intentabas reservar ya fue tomado. Elige otro escritorio o turno.');
+      }
+    }
+  }, [reservas, selectedId, selectedHorarioId, reservando]);
 
+  // Verificar rotación de puestos
   useEffect(() => {
     if (!selectedId || loadingRotacion) return;
     if (ultimoPuestoReservado && selectedId === ultimoPuestoReservado) {
       setSelectedId(null);
+      setSelectedHorarioId(null);
       setReservaErr(getRotationMessage(selectedId));
     }
   }, [selectedId, ultimoPuestoReservado, loadingRotacion, getRotationMessage]);
@@ -593,13 +636,17 @@ export default function Reservas() {
     setReservando(true);
     setReservaErr(null);
     
+    const puestoSeleccionado = selectedId;
+    const horarioSeleccionado = horarioObj.id;
+    
     try {
-      // ⚡ VERIFICACIÓN COMPLETA EN TIEMPO REAL antes de reservar
+      // ⚡ VERIFICACIÓN 1: Consulta inicial
+      console.log('🔍 Verificación 1: Consultando disponibilidad...');
       const checkUrl = buildGetUrl(fechaISO);
       const checkRes = await axios.get(checkUrl);
       const reservasFrescas = checkRes.data?.data || [];
       
-      // 1️⃣ Verificar que el usuario NO tenga ya una reserva activa para este día
+      // Verificar que el usuario NO tenga ya una reserva activa
       const miReservaExistente = reservasFrescas.find(r => {
         const doc = r.attributes?.documento || '';
         return String(doc) === String(usuario.document_number) && esReservaActiva(r);
@@ -608,40 +655,62 @@ export default function Reservas() {
       if (miReservaExistente) {
         setReservaErr('Ya tienes una reserva activa para este día.');
         setSelectedId(null);
+        setSelectedHorarioId(null);
         cargarReservas();
         return;
       }
       
-      // 2️⃣ Verificar rotación de puestos con datos actualizados
-      if (ultimoPuestoReservado && selectedId === ultimoPuestoReservado) {
-        setReservaErr(getRotationMessage(selectedId));
+      // Verificar rotación de puestos
+      if (ultimoPuestoReservado && puestoSeleccionado === ultimoPuestoReservado) {
+        setReservaErr(getRotationMessage(puestoSeleccionado));
         setSelectedId(null);
+        setSelectedHorarioId(null);
         return;
       }
       
-      // 3️⃣ Verificar disponibilidad del turno en el puesto seleccionado
-      const turnosBloq = turnosBloqueados(reservasFrescas, selectedId);
-      if (turnosBloq.has(horarioObj.id)) {
-        setReservaErr('Este puesto/turno acaba de ser reservado por otro usuario. Por favor, elige otro.');
+      // Verificar disponibilidad del turno/puesto
+      const turnosBloq = turnosBloqueados(reservasFrescas, puestoSeleccionado);
+      if (turnosBloq.has(horarioSeleccionado)) {
+        setReservaErr('Este puesto/turno ya no está disponible. Por favor, elige otro.');
         setSelectedId(null);
+        setSelectedHorarioId(null);
         cargarReservas();
         return;
       }
       
-      // 4️⃣ Doble verificación: contar reservas existentes para este usuario en esta fecha
-      const misReservasEnFecha = reservasFrescas.filter(r => {
+      // ⚡ VERIFICACIÓN 2: Segunda consulta inmediatamente antes del POST
+      console.log('🔍 Verificación 2: Re-verificando disponibilidad antes de crear...');
+      const checkRes2 = await axios.get(checkUrl);
+      const reservasFrescas2 = checkRes2.data?.data || [];
+      
+      // Re-verificar que nadie reservó en el medio
+      const turnosBloq2 = turnosBloqueados(reservasFrescas2, puestoSeleccionado);
+      if (turnosBloq2.has(horarioSeleccionado)) {
+        console.log('⚠️ Conflicto detectado en segunda verificación');
+        setReservaErr('⚠️ Otro usuario acaba de reservar este puesto. Elige otro.');
+        setSelectedId(null);
+        setSelectedHorarioId(null);
+        cargarReservas();
+        return;
+      }
+      
+      // Re-verificar usuario
+      const miReserva2 = reservasFrescas2.find(r => {
         const doc = r.attributes?.documento || '';
         return String(doc) === String(usuario.document_number) && esReservaActiva(r);
       });
       
-      if (misReservasEnFecha.length > 0) {
-        setReservaErr(`Ya tienes ${misReservasEnFecha.length} reserva(s) para este día.`);
+      if (miReserva2) {
+        console.log('⚠️ Usuario ya tiene reserva (detectado en segunda verificación)');
+        setReservaErr('Ya tienes una reserva activa para este día.');
         setSelectedId(null);
+        setSelectedHorarioId(null);
         cargarReservas();
         return;
       }
       
-      // ✅ Todas las validaciones pasaron - crear reserva
+      // ✅ Crear reserva con marcador único temporal
+      console.log('✅ Todas las verificaciones pasaron, creando reserva...');
       const body = {
         data: {
           Nombre:           usuario.nombre      ?? '',
@@ -650,42 +719,51 @@ export default function Reservas() {
           area:             usuario.area_nombre ?? '',
           fecha_reserva:    fechaISO,
           estado:           null,
-          working_puestos:  { id: selectedId },
-          working_horarios: { id: horarioObj.id },
+          working_puestos:  { id: puestoSeleccionado },
+          working_horarios: { id: horarioSeleccionado },
         },
       };
       
       const response = await axios.post(API_RESERVAS, body, {
         headers: { 'Content-Type': 'application/json' },
+        timeout: 5000, // Timeout de 5 segundos
       });
       
-      // Verificar que la respuesta fue exitosa
+      // Verificar respuesta exitosa
       if (response.status === 200 || response.status === 201) {
+        console.log('✅ Reserva creada exitosamente');
         setReservaOk(true);
         window.dispatchEvent(new CustomEvent('working-reservas-updated'));
         cargarReservas();
-        setTimeout(() => { setSelectedId(null); setReservaOk(false); }, 2500);
+        setTimeout(() => { 
+          setSelectedId(null); 
+          setSelectedHorarioId(null);
+          setReservaOk(false); 
+        }, 2500);
       } else {
         throw new Error('Respuesta inesperada del servidor');
       }
     } catch (err) {
       console.error('❌ Error en handleReservar:', err);
       
-      // Verificar si el error es por duplicación o conflicto
       const errorMsg = err?.response?.data?.error?.message || err.message || '';
       const errorDetails = err?.response?.data?.error?.details || {};
       const statusCode = err?.response?.status;
       
       // Detectar errores de duplicación/conflicto
       if (statusCode === 409 ||
+          statusCode === 400 ||
           errorMsg.toLowerCase().includes('duplicate') || 
           errorMsg.toLowerCase().includes('already exists') ||
           errorMsg.toLowerCase().includes('unique') ||
           errorMsg.toLowerCase().includes('conflict') ||
           errorMsg.toLowerCase().includes('ya existe') ||
-          Object.keys(errorDetails).some(k => k.includes('unique'))) {
-        setReservaErr('⚠️ Este puesto ya fue reservado por otro usuario. Elige otro escritorio o turno.');
+          errorMsg.toLowerCase().includes('constraint') ||
+          JSON.stringify(errorDetails).toLowerCase().includes('unique')) {
+        console.log('⚠️ Error de duplicación detectado:', errorMsg);
+        setReservaErr('⚠️ Esta reserva ya no está disponible. Otro usuario la tomó primero.');
         setSelectedId(null);
+        setSelectedHorarioId(null);
       } else {
         setReservaErr('Error al reservar. Por favor, intenta de nuevo.');
       }
@@ -788,7 +866,9 @@ export default function Reservas() {
                         return;
                       }
                       if (!isAvail) return;
-                      setSelectedId(isSelect ? null : s.id);
+                      const nuevoId = isSelect ? null : s.id;
+                      setSelectedId(nuevoId);
+                      setSelectedHorarioId(null); // Resetear horario al cambiar de puesto
                       setReservaErr(null);
                       setReservaOk(false);
                     }}
@@ -846,7 +926,14 @@ export default function Reservas() {
         reservas={reservas}
         horarios={horarios}
         onConfirm={handleReservar}
-        onCancel={() => { setSelectedId(null); setReservaErr(null); setReservaOk(false); }}
+        onCancel={() => { 
+          setSelectedId(null); 
+          setSelectedHorarioId(null);
+          setReservaErr(null); 
+          setReservaOk(false); 
+        }}
+        onHorarioSelect={setSelectedHorarioId}
+        selectedHorarioIdProp={selectedHorarioId}
         reservando={reservando}
         reservaOk={reservaOk}
         reservaErr={reservaErr}
