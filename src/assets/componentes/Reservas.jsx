@@ -383,19 +383,34 @@ const BookingCard = ({
 
         {/* Botones */}
         <div className="booking-botones booking-botones--compact">
-          <button className="booking-btn-cancelar" onClick={onCancel}>Cancelar</button>
+          <button 
+            className="booking-btn-cancelar" 
+            onClick={onCancel}
+            disabled={reservando}
+          >
+            Cancelar
+          </button>
           <button
             className={[
               'booking-btn-confirmar',
               !puedeReservar && !reservaOk ? 'booking-btn-confirmar--ocupado' : '',
               reservaOk ? 'booking-btn-confirmar--ok' : '',
+              reservando ? 'booking-btn-confirmar--loading' : '',
             ].join(' ')}
-            onClick={() => puedeReservar && onConfirm(horarioSelObj)}
+            onClick={() => {
+              if (!reservando && puedeReservar && horarioSelObj) {
+                onConfirm(horarioSelObj);
+              }
+            }}
             disabled={reservando || !puedeReservar}
+            style={{
+              cursor: reservando || !puedeReservar ? 'not-allowed' : 'pointer',
+              opacity: reservando ? 0.7 : 1,
+            }}
           >
-            {reservaOk      ? 'Reservar'       :
-             reservando     ? 'Reservar'    :
-             !puedeReservar ? 'Reservar'  :
+            {reservaOk      ? '✓ Reservado'       :
+             reservando     ? '⏳ Reservando...'    :
+             !puedeReservar ? 'No disponible'  :
                               'Reservar'}
           </button>
         </div>
@@ -565,20 +580,68 @@ export default function Reservas() {
 
   const handleReservar = async (horarioObj) => {
     if (!usuario || !selectedId || !horarioObj) return;
+    
+    // 🔒 BLOQUEO: Prevenir múltiples clics simultáneos
+    if (reservando) {
+      console.log('⚠️ Reserva ya en proceso, ignorando clic adicional');
+      return;
+    }
+    
     if (!canReserveNow) { setReservaErr(reserveWindowMessage); return; }
     if (loadingRotacion) { setReservaErr('Aún estamos validando la rotación de puestos. Intenta de nuevo en unos segundos.'); return; }
-    if (yaReservoHoy) { setReservaErr('Ya tienes una reserva para este día.'); return; }
-    if (ultimoPuestoReservado && selectedId === ultimoPuestoReservado) {
-      setReservaErr(getRotationMessage(selectedId));
-      return;
-    }
-    if (turnosBloqueados(reservas, selectedId).has(horarioObj.id)) {
-      setReservaErr('Este turno ya no está disponible. Elige otro.');
-      return;
-    }
+    
     setReservando(true);
     setReservaErr(null);
+    
     try {
+      // ⚡ VERIFICACIÓN COMPLETA EN TIEMPO REAL antes de reservar
+      const checkUrl = buildGetUrl(fechaISO);
+      const checkRes = await axios.get(checkUrl);
+      const reservasFrescas = checkRes.data?.data || [];
+      
+      // 1️⃣ Verificar que el usuario NO tenga ya una reserva activa para este día
+      const miReservaExistente = reservasFrescas.find(r => {
+        const doc = r.attributes?.documento || '';
+        return String(doc) === String(usuario.document_number) && esReservaActiva(r);
+      });
+      
+      if (miReservaExistente) {
+        setReservaErr('Ya tienes una reserva activa para este día.');
+        setSelectedId(null);
+        cargarReservas();
+        return;
+      }
+      
+      // 2️⃣ Verificar rotación de puestos con datos actualizados
+      if (ultimoPuestoReservado && selectedId === ultimoPuestoReservado) {
+        setReservaErr(getRotationMessage(selectedId));
+        setSelectedId(null);
+        return;
+      }
+      
+      // 3️⃣ Verificar disponibilidad del turno en el puesto seleccionado
+      const turnosBloq = turnosBloqueados(reservasFrescas, selectedId);
+      if (turnosBloq.has(horarioObj.id)) {
+        setReservaErr('Este puesto/turno acaba de ser reservado por otro usuario. Por favor, elige otro.');
+        setSelectedId(null);
+        cargarReservas();
+        return;
+      }
+      
+      // 4️⃣ Doble verificación: contar reservas existentes para este usuario en esta fecha
+      const misReservasEnFecha = reservasFrescas.filter(r => {
+        const doc = r.attributes?.documento || '';
+        return String(doc) === String(usuario.document_number) && esReservaActiva(r);
+      });
+      
+      if (misReservasEnFecha.length > 0) {
+        setReservaErr(`Ya tienes ${misReservasEnFecha.length} reserva(s) para este día.`);
+        setSelectedId(null);
+        cargarReservas();
+        return;
+      }
+      
+      // ✅ Todas las validaciones pasaron - crear reserva
       const body = {
         data: {
           Nombre:           usuario.nombre      ?? '',
@@ -591,15 +654,44 @@ export default function Reservas() {
           working_horarios: { id: horarioObj.id },
         },
       };
-      await axios.post(API_RESERVAS, body, {
+      
+      const response = await axios.post(API_RESERVAS, body, {
         headers: { 'Content-Type': 'application/json' },
       });
-      setReservaOk(true);
-      window.dispatchEvent(new CustomEvent('working-reservas-updated'));
-      cargarReservas();
-      setTimeout(() => { setSelectedId(null); setReservaOk(false); }, 2500);
+      
+      // Verificar que la respuesta fue exitosa
+      if (response.status === 200 || response.status === 201) {
+        setReservaOk(true);
+        window.dispatchEvent(new CustomEvent('working-reservas-updated'));
+        cargarReservas();
+        setTimeout(() => { setSelectedId(null); setReservaOk(false); }, 2500);
+      } else {
+        throw new Error('Respuesta inesperada del servidor');
+      }
     } catch (err) {
-      setReservaErr(err?.response?.data?.error?.message || err.message || 'Error al reservar. Intenta de nuevo.');
+      console.error('❌ Error en handleReservar:', err);
+      
+      // Verificar si el error es por duplicación o conflicto
+      const errorMsg = err?.response?.data?.error?.message || err.message || '';
+      const errorDetails = err?.response?.data?.error?.details || {};
+      const statusCode = err?.response?.status;
+      
+      // Detectar errores de duplicación/conflicto
+      if (statusCode === 409 ||
+          errorMsg.toLowerCase().includes('duplicate') || 
+          errorMsg.toLowerCase().includes('already exists') ||
+          errorMsg.toLowerCase().includes('unique') ||
+          errorMsg.toLowerCase().includes('conflict') ||
+          errorMsg.toLowerCase().includes('ya existe') ||
+          Object.keys(errorDetails).some(k => k.includes('unique'))) {
+        setReservaErr('⚠️ Este puesto ya fue reservado por otro usuario. Elige otro escritorio o turno.');
+        setSelectedId(null);
+      } else {
+        setReservaErr('Error al reservar. Por favor, intenta de nuevo.');
+      }
+      
+      // Actualizar vista en cualquier caso
+      cargarReservas();
     } finally {
       setReservando(false);
     }
@@ -686,6 +778,11 @@ export default function Reservas() {
                     src={getSilla(s.id)}
                     alt={`Escritorio ${s.id}`}
                     onClick={() => {
+                      // 🔒 Bloquear interacción mientras se procesa reserva
+                      if (reservando) {
+                        console.log('⚠️ Reserva en proceso, click bloqueado');
+                        return;
+                      }
                       if (bloqueadoPorRotacion) {
                         setReservaErr(getRotationMessage(s.id));
                         return;
