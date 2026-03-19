@@ -517,6 +517,9 @@ const Panel = () => {
           fecha: reservaAux.fecha,
           turnoLabel: reservaAux.turnoLabel,
         });
+        
+        // Recargar reservas para reflejar cambios en tiempo real
+        await cargarReservas();
       } catch (err) {
         console.error(err);
         alert(err?.message || 'Error al confirmar la reserva.');
@@ -596,6 +599,9 @@ const Panel = () => {
       } else {
         alert(evaluation.message || 'Reserva actualizada.');
       }
+      
+      // Recargar reservas para reflejar cambios en tiempo real
+      await cargarReservas();
     } catch (err) {
       console.error(err);
       alert(err?.message || 'Error al confirmar la reserva.');
@@ -695,6 +701,9 @@ const Panel = () => {
       );
 
       setReactivadaExitosa(true);
+      
+      // Recargar reservas para reflejar cambios en tiempo real
+      await cargarReservas();
     } catch (err) {
       console.error(err);
       alert(err?.message || 'Error al reactivar la reserva.');
@@ -724,7 +733,9 @@ const Panel = () => {
           },
         } : r)
       );
-      // El evento emitido por cancelReserva dispara el sync en useRealtimeSync
+      
+      // Recargar reservas para reflejar cambios en tiempo real
+      await cargarReservas();
     } catch (err) {
       console.error(err);
       alert('Error al cancelar la reserva. Intenta de nuevo.');
