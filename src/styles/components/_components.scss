@@ -1229,3 +1229,8 @@ $footer-h: 52px;
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+
+.resaltado {
+  background-color: $color-accent-muted;
+  color: white;
+}
