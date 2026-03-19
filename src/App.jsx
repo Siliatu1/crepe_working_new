@@ -40,7 +40,7 @@ const RouteGuard = ({ mode, children }) => {
 
   if (mode === 'politicas') {
     if (!session?.bienvenidaVista) return <Navigate to="/bienvenida" replace />;
-    // Permitir volver a políticas incluso si ya fueron aceptadas
+    if (session?.politicasAceptadas) return <Navigate to="/salas" replace />;
     return children;
   }
 
