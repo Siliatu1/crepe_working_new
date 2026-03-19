@@ -346,20 +346,27 @@ export const fetchWorkingHorarios = async ({ force = false } = {}) => {
 
     const horarios = Array.from(horariosMap.values());
 
+    // Si no hay horarios válidos del API, usar caché o fallback sin error
     if (horarios.length === 0) {
-      throw new Error('La API no devolvió horarios válidos');
+      if (metadataCache.horarios) {
+        return metadataCache.horarios;
+      }
+      const fallback = getDefaultHorarios();
+      metadataCache.horarios = fallback;
+      metadataCache.horariosFetchedAt = now;
+      return fallback;
     }
 
     metadataCache.horarios = horarios;
     metadataCache.horariosFetchedAt = now;
     return horarios;
   } catch (error) {
-    console.warn('No se pudieron cargar los horarios remotos:', error);
-
+    // Intentar usar caché primero
     if (metadataCache.horarios) {
       return metadataCache.horarios;
     }
 
+    // Usar horarios por defecto como último recurso
     const fallback = getDefaultHorarios();
     metadataCache.horarios = fallback;
     metadataCache.horariosFetchedAt = now;

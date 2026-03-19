@@ -561,9 +561,38 @@ export default function Reservas() {
       setReservaErr('Este turno ya no está disponible. Elige otro.');
       return;
     }
+    
     setReservando(true);
     setReservaErr(null);
+    
     try {
+      // ⚡ VERIFICACIÓN EN TIEMPO REAL: Consultar datos frescos del API inmediatamente antes de reservar
+      const checkUrl = buildGetUrl(fechaISO);
+      const checkRes = await axios.get(checkUrl);
+      const reservasFrescas = checkRes.data?.data || [];
+      
+      // Verificar si el turno todavía está disponible con los datos más recientes
+      const turnosBloq = turnosBloqueados(reservasFrescas, selectedId);
+      if (turnosBloq.has(horarioObj.id)) {
+        setReservaErr('Este puesto acaba de ser reservado por otro usuario. Por favor, elige otro.');
+        setSelectedId(null);
+        cargarReservas(); // Actualizar vista local
+        return;
+      }
+      
+      // Verificar que el usuario no tenga ya una reserva activa (protección extra)
+      const miReservaExistente = reservasFrescas.find(r => {
+        const doc = r.attributes?.documento || '';
+        return String(doc) === String(usuario.document_number) && esReservaActiva(r);
+      });
+      
+      if (miReservaExistente) {
+        setReservaErr('Ya tienes una reserva activa para este día.');
+        setSelectedId(null);
+        cargarReservas();
+        return;
+      }
+      
       const body = {
         data: {
           Nombre:           usuario.nombre      ?? '',
@@ -576,15 +605,32 @@ export default function Reservas() {
           working_horarios: { id: horarioObj.id },
         },
       };
+      
       await axios.post(API_RESERVAS, body, {
         headers: { 'Content-Type': 'application/json' },
       });
+      
       setReservaOk(true);
       window.dispatchEvent(new CustomEvent('working-reservas-updated'));
       cargarReservas();
       setTimeout(() => { setSelectedId(null); setReservaOk(false); }, 2500);
     } catch (err) {
-      setReservaErr(err?.response?.data?.error?.message || err.message || 'Error al reservar. Intenta de nuevo.');
+      // Verificar si el error es por duplicación o conflicto
+      const errorMsg = err?.response?.data?.error?.message || err.message || '';
+      const errorDetails = err?.response?.data?.error?.details || {};
+      
+      if (errorMsg.toLowerCase().includes('duplicate') || 
+          errorMsg.toLowerCase().includes('already exists') ||
+          errorMsg.toLowerCase().includes('unique') ||
+          errorMsg.toLowerCase().includes('conflict') ||
+          Object.keys(errorDetails).some(k => k.includes('unique'))) {
+        setReservaErr('Este puesto ya fue reservado. Por favor, elige otro escritorio o turno.');
+        setSelectedId(null);
+        cargarReservas(); // Actualizar vista
+      } else {
+        setReservaErr('Error al reservar. Intenta de nuevo.');
+        console.error('Error en reserva:', err);
+      }
     } finally {
       setReservando(false);
     }

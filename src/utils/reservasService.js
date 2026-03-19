@@ -268,4 +268,82 @@ export const cancelarReservasVencidas = async () => {
   };
 };
 
+/**
+ * Cancela TODAS las reservas pendientes del DÍA ACTUAL sin importar la ventana de confirmación.
+ * Esta función se ejecuta a las 5 PM para limpiar reservas del día que no fueron confirmadas.
+ * IMPORTANTE: Solo opera sobre reservas con fecha igual al día presente.
+ */
+export const cancelarTodasLasReservasPendientes = async () => {
+  const hoy = getLocalDateString(); // Fecha actual en formato YYYY-MM-DD local
+  const reservasPendientes = await getReservasPendientesHoy();
+  const motivoAutoCancelacion = 'Reserva cancelada automáticamente al finalizar el día';
+
+  let canceladas = 0;
+
+  for (const reserva of reservasPendientes) {
+    // Doble validación: asegurar que la reserva es del día actual
+    const fechaReserva = reserva.fecha || reserva.rawAttributes?.fecha_reserva;
+    if (fechaReserva !== hoy) {
+      console.warn(`Saltando reserva ${reserva.id} - fecha ${fechaReserva} no coincide con hoy ${hoy}`);
+      continue;
+    }
+
+    await updateReservaWithVerification(reserva.id, {
+      estado: 'Cancelada',
+      confirmada: false,
+      motivoCancelacion: motivoAutoCancelacion,
+      motivo_cancelacion: motivoAutoCancelacion,
+      verificacionAsistencia: {
+        fecha: new Date().toISOString(),
+        mensaje: motivoAutoCancelacion,
+        tipo: 'auto-cancelacion-fin-dia',
+      },
+    }, reserva);
+
+    canceladas += 1;
+  }
+
+  return {
+    canceled: canceladas,
+    message: canceladas > 0
+      ? `${canceladas} reserva(s) pendiente(s) cancelada(s) al finalizar el día`
+      : 'No hay reservas pendientes para cancelar',
+  };
+};
+
+/**
+ * Verifica si un puesto está disponible para un horario específico en una fecha determinada.
+ * Retorna true si está disponible, false si ya está reservado.
+ */
+export const verificarDisponibilidadPuesto = async (puestoId, horarioId, fecha) => {
+  try {
+    const reservas = await getReservas({ fecha });
+    
+    // Buscar reservas activas (Pendiente o Confirmada) para este puesto
+    const reservasDelPuesto = reservas.filter((r) => {
+      const esPendienteOConfirmada = r.estado === 'Pendiente' || r.estado === 'Confirmada';
+      const esMismoPuesto = r.escritorioId === puestoId;
+      
+      if (!esPendienteOConfirmada || !esMismoPuesto) return false;
+      
+      // Verificar conflicto de horario
+      const horarioReserva = r.horarioId;
+      
+      // Horario 3 (completo) bloquea todo
+      if (horarioReserva === 3 || horarioId === 3) return true;
+      
+      // Mismo horario
+      if (horarioReserva === horarioId) return true;
+      
+      // Horario 1 (AM) con Horario 2 (PM) no tienen conflicto
+      return false;
+    });
+    
+    return reservasDelPuesto.length === 0;
+  } catch (error) {
+    console.error('Error al verificar disponibilidad:', error);
+    throw error;
+  }
+};
+
 export { RESERVAS_UPDATED_EVENT };

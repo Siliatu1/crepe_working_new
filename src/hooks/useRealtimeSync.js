@@ -44,17 +44,17 @@ const useRealtimeSync = (onSync) => {
 
     let mounted = true;
     let socket = null;
-    let hasShownError = false;
+    let connectionAttempted = false;
 
     const connectSocket = () => {
-      if (!mounted) return;
+      if (!mounted || connectionAttempted) return;
+      connectionAttempted = true;
 
       try {
         socket = io(WS_URL, {
           reconnection: false,
-          timeout: 10000,
-          transports: ['polling', 'websocket'],
-          upgrade: true,
+          timeout: 5000,
+          transports: ['websocket'],
           autoConnect: true,
           path: '/socket.io/',
         });
@@ -62,19 +62,17 @@ const useRealtimeSync = (onSync) => {
         socketRef.current = socket;
 
         socket.on('connect', () => {
-          hasShownError = false;
           if (mounted) {
             triggerSync('socket-connect');
           }
         });
 
         socket.on('disconnect', () => {
+          // Conexión cerrada normalmente
         });
 
-        socket.on('connect_error', () => {
-          if (!hasShownError && mounted) {
-            hasShownError = true;
-          }
+        socket.on('connect_error', (error) => {
+          // Cerrar silenciosamente si el backend no tiene Socket.IO configurado
           if (socket) {
             socket.off();
             socket.close();
@@ -102,9 +100,7 @@ const useRealtimeSync = (onSync) => {
         });
 
       } catch (error) {
-        if (!hasShownError) {
-          hasShownError = true;
-        }
+        // Error al crear socket - fallar silenciosamente
       }
     };
 
