@@ -8,6 +8,7 @@ import useMobile from '../../hooks/useMobile';
 import useRealtimeSync from '../../hooks/useRealtimeSync';
 import { ADMIN_DOCUMENTS, HORARIO_META, getPuestoId, getHorarioId, toEstado } from '../../utils/reservaCommon';
 import { clearSession, getSession } from '../../utils/sessionFlow';
+import GlobalNavBar from './GlobalNavBar';
 import {
   calculateDistance,
   checkGeolocationSupport,
@@ -1002,45 +1003,12 @@ const Panel = () => {
       padding: isMobile ? "64px 16px 16px" : "76px 24px 28px",
       height: "100vh",
     }}>
-      <div
-        className="top-right-nav-actions"
-        style={{
-          top: isMobile ? "8px" : "16px",
-          right: isMobile ? "8px" : "24px",
-        }}
-      >
-        <div className="top-nav-btn-group">
-          <button
-            className="btn-outline top-nav-icon-btn"
-            onClick={() => navigate('/panel', { state: { datosEmpleado }, replace: true })}
-            disabled={isNavigating}
-            title={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
-            aria-label={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
-          >
-            <Armchair size={14} strokeWidth={2.5} />
-          </button>
-          <button
-            className="btn-outline reservas-btn-atras top-nav-icon-btn"
-            onClick={handleGoBack}
-            disabled={isNavigating}
-            title="Volver"
-          >
-            <ArrowLeft size={14} strokeWidth={2.5} />
-          </button>
-          <button
-            className="btn-outline top-nav-icon-btn"
-            onClick={handleLogout}
-            disabled={isNavigating}
-            title="Cerrar sesión"
-            style={{
-              borderColor: "rgba(192,57,43,0.35)",
-              color: "#c0392b",
-            }}
-          >
-            <LogOut size={14} strokeWidth={2} />
-          </button>
-        </div>
-      </div>
+      <GlobalNavBar
+        onLogout={handleLogout}
+        onGoBack={handleGoBack}
+        onGoToPanel={() => navigate('/panel', { state: { datosEmpleado }, replace: true })}
+        isNavigating={isNavigating}
+      />
 
       <div style={{
         width: "100%",

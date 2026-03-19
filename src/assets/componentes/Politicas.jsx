@@ -23,7 +23,7 @@ const Politicas = () => {
     },
     {
       titulo: "Rotación de puesto",
-      descripcion: "No puedes usar el mismo puesto en días consecutivos",
+      descripcion: <mark>No puedes usar el mismo puesto en días consecutivos</mark>,
     },
     {
       titulo: "Horarios de reserva",
@@ -31,7 +31,7 @@ const Politicas = () => {
     },
     {
       titulo: "Confirmación en 15 minutos",
-      descripcion: "Debes confirmar el mismo día dentro de los primeros 15 minutos de tu turno, desde una ubicación dentro del perímetro permitido (1000 m). De lo contrario, se cancela automáticamente",
+      descripcion: "Debes confirmar el mismo día dentro de los primeros 15 minutos de tu turno, desde una ubicación dentro del perímetro permitido (1000 m)",
     },
     {
       titulo: "Sin GPS disponible",

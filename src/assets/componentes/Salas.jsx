@@ -5,6 +5,7 @@ import { Monitor, LogOut, Armchair, ArrowLeft, ArrowRight } from "lucide-react";
 import axios from 'axios';
 import { ADMIN_DOCUMENTS } from '../../utils/reservaCommon';
 import { clearSession, getSession } from "../../utils/sessionFlow";
+import GlobalNavBar from './GlobalNavBar';
 
 // ── Constantes ────────────────────────────────────────────
 const BASE      = 'https://macfer.crepesywaffles.com';
@@ -159,41 +160,12 @@ export default function Salas() {
   return (
     <div className="salas-page-wrapper">
         <div className="salas-layout">
-            <div className="top-right-nav-actions salas-header-actions" style={{ flexWrap: 'nowrap' }}>
-              <div className="top-nav-btn-group">
-              <button
-                className="btn-outline top-nav-icon-btn"
-                onClick={handleGoToPanel}
-                disabled={isNavigating}
-                title={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
-                aria-label={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
-              >
-                <Armchair size={14} strokeWidth={2.5} />
-              </button>
-              <button
-                className="btn-outline reservas-btn-atras top-nav-icon-btn"
-                onClick={handleGoBack}
-                disabled={isNavigating}
-                title="Volver"
-                aria-label="Volver"
-              >
-                <ArrowLeft size={14} strokeWidth={2.5} />
-              </button>
-              <button
-                className="btn-outline top-nav-icon-btn"
-                style={{
-                  borderColor: 'rgba(192,57,43,0.35)',
-                  color: '#c0392b',
-                }}
-                onClick={handleLogout}
-                disabled={isNavigating}
-                title="Cerrar sesión"
-                aria-label="Cerrar sesión"
-              >
-                <LogOut size={14} strokeWidth={2} />
-              </button>
-              </div>
-            </div>
+            <GlobalNavBar
+              onLogout={handleLogout}
+              onGoBack={handleGoBack}
+              onGoToPanel={handleGoToPanel}
+              isNavigating={isNavigating}
+            />
 
           <div className="salas-container">
 

@@ -7,6 +7,7 @@ import sillaDis from '../../assets/sillaDis.png';
 import sillaLim from '../../assets/sillaLim.png';
 import sillaOcu from '../../assets/sillaOcu.png';
 import mesaImg  from '../../assets/mesa.png';
+import GlobalNavBar from './GlobalNavBar';
 import {
   ADMIN_DOCUMENTS,
   HORARIO_META,
@@ -794,46 +795,19 @@ export default function Reservas() {
   return (
     <div className="reservas-wrapper">
       <div className="reservas-inner">
-        <div className="top-right-nav-actions reservas-top-right-nav-actions">
-          <DateSelector
-            fechas={FECHAS}
-            fechaIndex={fechaIndex}
-            setFechaIndex={setFechaIndex}
-          />
-
-          <div className="top-nav-btn-group">
-          <button
-            className="btn-outline top-nav-icon-btn"
-            onClick={handleGoToPanel}
-            disabled={isNavigating}
-            title={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
-          >
-            <Armchair size={14} strokeWidth={2.5} />
-          </button>
-
-          <button
-            className="btn-outline top-nav-icon-btn"
-            style={{
-              borderColor: 'rgba(192,57,43,0.35)',
-              color: '#c0392b',
-            }}
-            onClick={handleLogout}
-            disabled={isNavigating}
-            title="Cerrar sesión"
-          >
-            <LogOut size={14} strokeWidth={2} />
-          </button>
-
-          <button
-            className="btn-outline reservas-btn-atras top-nav-icon-btn"
-            onClick={handleGoBack}
-            disabled={isNavigating}
-            title="Volver"
-          >
-            <ArrowLeft size={14} strokeWidth={2.5} />
-          </button>
-          </div>
-        </div>
+        <GlobalNavBar
+          onLogout={handleLogout}
+          onGoBack={handleGoBack}
+          onGoToPanel={handleGoToPanel}
+          isNavigating={isNavigating}
+          dateSelector={
+            <DateSelector
+              fechas={FECHAS}
+              fechaIndex={fechaIndex}
+              setFechaIndex={setFechaIndex}
+            />
+          }
+        />
 
         {/* ── Mapa ── */}
         <div className="reservas-mapa reservas-mapa--con-panel">

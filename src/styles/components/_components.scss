@@ -1139,6 +1139,89 @@ $footer-h: 52px;
 }
 
 // ══════════════════════════════════════════════════════════
+// 14. GLOBAL NAV BAR
+// ══════════════════════════════════════════════════════════
+
+.global-nav-bar {
+  position: fixed;
+  top: $spacing-md;
+  right: $spacing-lg;
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  z-index: 120;
+
+  @include respond-to('sm') {
+    top: $spacing-sm;
+    right: $spacing-sm;
+  }
+}
+
+.global-nav-date-selector {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  margin-right: $spacing-sm;
+
+  @include respond-to('sm') {
+    transform: scale(0.95);
+    transform-origin: right center;
+    margin-right: 2px;
+  }
+}
+
+.global-nav-btn-group {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.global-nav-logout {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.global-nav-back {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.global-nav-reservas {
+  padding: 8px 12px;
+  border-radius: 6px;
+  white-space: nowrap;
+  font-size: $font-size-xs;
+  font-weight: 600;
+  flex-shrink: 0;
+
+  @include respond-to('md') {
+    padding: 7px 11px;
+    font-size: 0.75rem;
+  }
+
+  @include respond-to('sm') {
+    padding: 5px 8px;
+    font-size: 0.65rem;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+// ══════════════════════════════════════════════════════════
 // 15. MODAL MIS RESERVAS
 // ══════════════════════════════════════════════════════════
 
