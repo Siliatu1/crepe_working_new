@@ -412,7 +412,6 @@ export const checkLocationPermission = async () => {
     }
 
     const result = await navigator.permissions.query({ name: 'geolocation' });
-    console.log('📋 Estado de permiso de ubicación:', result.state);
     return result.state; // 'granted', 'denied', o 'prompt'
   } catch (error) {
     console.warn('Error al verificar permisos:', error);
@@ -430,17 +429,14 @@ export const requestLocationPermission = async () => {
     const permissionStatus = await checkLocationPermission();
     
     if (permissionStatus === 'granted') {
-      console.log('Permiso de ubicación ya otorgado');
       return true;
     }
     
     if (permissionStatus === 'denied') {
-      console.log(' Permiso de ubicación denegado previamente');
       return false;
     }
 
     // Intentar obtener ubicación para activar el prompt de permisos
-    console.log(' Solicitando permiso de ubicación...');
     await getCurrentPosition();
     return true;
   } catch (error) {
@@ -468,16 +464,8 @@ export const getCurrentPosition = () => {
       maximumAge: 5000               // Acepta posiciones de hasta 5 segundos
     };
 
-    console.log('📍 Solicitando ubicación GPS...');
-
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        console.log('✅ Ubicación obtenida:', {
-          lat: position.coords.latitude,
-          lon: position.coords.longitude,
-          accuracy: position.coords.accuracy
-        });
-        
         resolve({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
@@ -710,8 +698,6 @@ export const evaluateReservationStatus = (reserva, horarios = [], referenceDate 
  */
 export const verifyAttendance = async (reserva, options = {}) => {
   try {
-    console.log('🔍 Verificando asistencia para reserva:', reserva?.id);
-
     const horarios = Array.isArray(options.horarios) && options.horarios.length > 0
       ? options.horarios
       : await fetchWorkingHorarios();
@@ -765,9 +751,6 @@ export const verifyAttendance = async (reserva, options = {}) => {
 
     const workplaceInfo = options.workplaceInfo ?? getWorkplaceInfo();
     const position = options.position ?? await getCurrentPosition();
-
-    console.log(` Ubicación usuario: ${position.latitude}, ${position.longitude}`);
-    console.log(` Precisión: ${position.accuracy} metros`);
 
     const distance = calculateDistance(
       position.latitude,

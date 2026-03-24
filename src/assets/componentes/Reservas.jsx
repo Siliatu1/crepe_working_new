@@ -559,7 +559,7 @@ export default function Reservas() {
   }, [fechaISO]);
 
   // Sincronización en tiempo real con Socket.IO y eventos
-  useRealtimeSync(cargarReservas);
+  const { notifyChange } = useRealtimeSync(cargarReservas);
 
   // Cargar reservas al cambiar fecha
   useEffect(() => {
@@ -578,7 +578,6 @@ export default function Reservas() {
     
     // Si el escritorio está completamente ocupado
     if (estado === 'ocupado') {
-      console.log('⚠️ Escritorio ocupado detectado vía sync:', selectedId);
       setSelectedId(null);
       setSelectedHorarioId(null);
       setReservaErr('⚠️ Este escritorio acaba de ser reservado completamente. Por favor, elige otro.');
@@ -589,7 +588,6 @@ export default function Reservas() {
     if (selectedHorarioId) {
       const turnosBloq = turnosBloqueados(reservas, selectedId);
       if (turnosBloq.has(selectedHorarioId)) {
-        console.log('⚠️ Turno ocupado detectado vía sync:', selectedId, selectedHorarioId);
         setSelectedId(null);
         setSelectedHorarioId(null);
         setReservaErr('⚠️ El turno que intentabas reservar ya fue tomado. Elige otro escritorio o turno.');
@@ -616,7 +614,6 @@ export default function Reservas() {
     
     // 🔒 BLOQUEO: Prevenir múltiples clics simultáneos
     if (reservando) {
-      console.log('⚠️ Reserva ya en proceso, ignorando clic adicional');
       return;
     }
     
@@ -632,7 +629,6 @@ export default function Reservas() {
     
     try {
       // ⚡ VERIFICACIÓN 1: Consulta inicial
-      console.log('🔍 Verificación 1/3: Consultando disponibilidad inicial...');
       const checkUrl = buildGetUrl(fechaISO);
       const checkRes = await axios.get(checkUrl);
       const reservasFrescas = checkRes.data?.data || [];
@@ -670,7 +666,6 @@ export default function Reservas() {
       }
       
       // ⚡ VERIFICACIÓN 2: Segunda consulta
-      console.log('🔍 Verificación 2/3: Re-verificando disponibilidad...');
       await new Promise(resolve => setTimeout(resolve, 100)); // Pequeña pausa para detectar cambios
       
       const checkRes2 = await axios.get(checkUrl);
@@ -683,7 +678,6 @@ export default function Reservas() {
       });
       
       if (miReserva2) {
-        console.log('⚠️ Usuario ya tiene reserva (detectado en verificación 2)');
         setReservaErr('Ya tienes una reserva activa para este día.');
         setSelectedId(null);
         setSelectedHorarioId(null);
@@ -694,7 +688,6 @@ export default function Reservas() {
       // Re-verificar disponibilidad del turno/puesto
       const turnosBloq2 = turnosBloqueados(reservasFrescas2, puestoSeleccionado);
       if (turnosBloq2.has(horarioSeleccionado)) {
-        console.log('⚠️ Conflicto detectado en verificación 2');
         setReservaErr('⚠️ No puedes reservar, ya está ocupado. Intenta en otro escritorio.');
         setSelectedId(null);
         setSelectedHorarioId(null);
@@ -703,7 +696,6 @@ export default function Reservas() {
       }
       
       // ⚡ VERIFICACIÓN 3: Tercera consulta JUSTO antes del POST
-      console.log('🔍 Verificación 3/3: Verificación final antes de crear...');
       const checkRes3 = await axios.get(checkUrl);
       const reservasFrescas3 = checkRes3.data?.data || [];
       
@@ -714,7 +706,6 @@ export default function Reservas() {
       });
       
       if (miReserva3) {
-        console.log('⚠️ Usuario ya tiene reserva (detectado en verificación 3)');
         setReservaErr('Ya tienes una reserva activa para este día.');
         setSelectedId(null);
         setSelectedHorarioId(null);
@@ -725,7 +716,6 @@ export default function Reservas() {
       // Última verificación de disponibilidad
       const turnosBloq3 = turnosBloqueados(reservasFrescas3, puestoSeleccionado);
       if (turnosBloq3.has(horarioSeleccionado)) {
-        console.log('⚠️ Conflicto detectado en verificación final');
         setReservaErr('⚠️ No puedes reservar, ya está ocupado. Intenta en otro escritorio.');
         setSelectedId(null);
         setSelectedHorarioId(null);
@@ -734,7 +724,6 @@ export default function Reservas() {
       }
       
       // ✅ Crear reserva
-      console.log('✅ Todas las verificaciones (3/3) pasaron, creando reserva...');
       const body = {
         data: {
           Nombre:           usuario.nombre      ?? '',
@@ -756,9 +745,8 @@ export default function Reservas() {
       
       // Verificar respuesta exitosa
       if (response.status === 200 || response.status === 201) {
-        console.log('✅ Reserva creada exitosamente');
         setReservaOk(true);
-        window.dispatchEvent(new CustomEvent('working-reservas-updated'));
+        notifyChange();
         await cargarReservas();
         setTimeout(() => { 
           setSelectedId(null); 
@@ -785,7 +773,6 @@ export default function Reservas() {
           errorMsg.toLowerCase().includes('ya existe') ||
           errorMsg.toLowerCase().includes('constraint') ||
           JSON.stringify(errorDetails).toLowerCase().includes('unique')) {
-        console.log('⚠️ Error de duplicación detectado:', errorMsg);
         setReservaErr('⚠️ No puedes reservar, ya está ocupado. Intenta en otro escritorio.');
         setSelectedId(null);
         setSelectedHorarioId(null);
@@ -856,7 +843,6 @@ export default function Reservas() {
                     onClick={() => {
                       // 🔒 Bloquear interacción mientras se procesa reserva
                       if (reservando) {
-                        console.log('⚠️ Reserva en proceso, click bloqueado');
                         return;
                       }
                       if (bloqueadoPorRotacion) {
