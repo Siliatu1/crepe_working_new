@@ -450,7 +450,7 @@ const Panel = () => {
     }
   }, [datosEmpleado?.documento, datosEmpleado?.document_number, cargarReservas]);
 
-  useRealtimeSync(cargarReservas);
+  const { notifyChange } = useRealtimeSync(cargarReservas);
 
   useEffect(() => {
     void refreshLocationStatus(true);
@@ -505,6 +505,8 @@ const Panel = () => {
           fecha: reservaAux.fecha,
           turnoLabel: reservaAux.turnoLabel,
         });
+
+        notifyChange();
         
         // Recargar reservas para reflejar cambios en tiempo real
         await cargarReservas();
@@ -587,6 +589,8 @@ const Panel = () => {
       } else {
         alert(evaluation.message || 'Reserva actualizada.');
       }
+
+      notifyChange();
       
       // Recargar reservas para reflejar cambios en tiempo real
       await cargarReservas();
@@ -689,6 +693,8 @@ const Panel = () => {
       );
 
       setReactivadaExitosa(true);
+
+      notifyChange();
       
       // Recargar reservas para reflejar cambios en tiempo real
       await cargarReservas();
@@ -721,6 +727,8 @@ const Panel = () => {
           },
         } : r)
       );
+
+      notifyChange();
       
       // Recargar reservas para reflejar cambios en tiempo real
       await cargarReservas();

@@ -26,10 +26,6 @@ const useAutoCancelarReservas = (enabled = true) => {
 
       try {
         const result = await cancelarReservasVencidas();
-
-        if (isMounted && result.canceled > 0) {
-          console.log(`Auto-cancelación: ${result.message}`);
-        }
       } catch (error) {
         if (isMounted) {
           console.error('Error en auto-cancelación de reservas:', error);
@@ -47,14 +43,11 @@ const useAutoCancelarReservas = (enabled = true) => {
       // Esta función solo cancela reservas del día presente (fecha === hoy)
       if (hour === END_OF_DAY_HOUR && minute < 5 && !cancelacionFinDiaEjecutada) {
         try {
-          console.log('[Auto-Cancelación 5PM] Iniciando cancelación de reservas pendientes del día actual...');
           const result = await cancelarTodasLasReservasPendientes();
           cancelacionFinDiaEjecutada = true;
 
-          if (isMounted && result.canceled > 0) {
-            console.log(`[Auto-Cancelación 5PM] ${result.message}`);
-          } else {
-            console.log('[Auto-Cancelación 5PM] No hay reservas pendientes para cancelar.');
+          if (!isMounted) {
+            return;
           }
         } catch (error) {
           if (isMounted) {
