@@ -37,6 +37,28 @@ const normalizeSala = (item) => {
   };
 };
 
+// Lazy Loading
+const SalaCardSkeleton = () => {
+  return (
+    <div className="salas-card salas-card--skeleton">
+      <div className="salas-card-img-wrapper">
+        <div className="skeleton-image" />
+      </div>
+      <div className="salas-card-body">
+        <div className="skeleton-title" />
+        <div className="bienvenida-divider" style={{ margin: "10px 0" }} />
+        <div className="salas-card-features">
+          <div className="skeleton-line" style={{ width: '60%' }} />
+          <div className="skeleton-line" style={{ width: '50%' }} />
+        </div>
+        <div className="salas-card-footer">
+          <div className="skeleton-button" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── SalaCard ──────────────────────────────────────────────
 const SalaCard = ({ sala, onClick }) => {
   const [hover, setHover] = useState(false);
@@ -181,10 +203,12 @@ export default function Salas() {
               </div>
             </div>
 
-            {/* Cargando */}
+            {/* Cargando - Skeleton Loading */}
             {loading && (
-              <div className="salas-state-msg">
-                Cargando salas…
+              <div className="salas-grid">
+                {[...Array(1)].map((_, i) => (
+                  <SalaCardSkeleton key={`skeleton-${i}`} />
+                ))}
               </div>
             )}
 

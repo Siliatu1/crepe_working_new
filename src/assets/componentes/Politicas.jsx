@@ -23,7 +23,7 @@ const Politicas = () => {
     },
     {
       titulo: "Rotación de puesto",
-      descripcion: <mark class="resaltado">No puedes usar el mismo puesto en días consecutivos</mark>,
+      descripcion: <span class="resaltado">No puedes usar el mismo puesto en días consecutivos</span>,
     },
     {
       titulo: "Horarios de reserva",

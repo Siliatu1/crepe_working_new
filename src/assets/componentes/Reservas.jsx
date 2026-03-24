@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, ArrowLeft, Armchair, Calendar, Monitor, Ticket, User, LogOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Monitor, User } from 'lucide-react';
 import axios from 'axios';
 import useRealtimeSync from '../../hooks/useRealtimeSync';
 import sillaDis from '../../assets/sillaDis.png';
@@ -141,9 +141,21 @@ const DateSelector = ({ fechas, fechaIndex, setFechaIndex }) => (
 
 // ─── TimeBadge ────────────────────────────────────────────────────────────────
 const TimeBadge = ({ time }) => {
-  if (time === 'am')   return <span className="op-fila__turno op-fila__turno--am">AM</span>;
-  if (time === 'pm')   return <span className="op-fila__turno op-fila__turno--pm">PM</span>;
-  return <span className="op-fila__turno op-fila__turno--full">Todo el día</span>;
+  if (time === 'am')   return (
+    <span className="op-fila__turno op-fila__turno--am">
+      8:00 - 12:00
+    </span>
+  );
+  if (time === 'pm')   return (
+    <span className="op-fila__turno op-fila__turno--pm">
+      13:00 - 17:00
+    </span>
+  );
+  return (
+    <span className="op-fila__turno op-fila__turno--full">
+      8:00 - 17:00
+    </span>
+  );
 };
 
 // ─── OcupantesPanelContent ────────────────────────────────────────────────────

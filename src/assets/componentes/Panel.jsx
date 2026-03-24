@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { User, Calendar, Monitor, Clock, Armchair, ArrowLeft, Trash2, LogOut, ChevronDown } from 'lucide-react';
-import { Table, Select, Input, Button, Segmented, Space, Tag } from 'antd';
+import { User, Calendar, Monitor, Clock, Armchair, ArrowLeft, Trash2, LogOut, ChevronDown, CheckCircle2, AlertCircle, RotateCcw, X } from 'lucide-react';
+import { Table, Select, Input, Button, Segmented, Space, Tag, Dropdown } from 'antd';
 import axios from 'axios';
 import { cancelReserva, updateReservaWithVerification } from "../../utils/reservasService";
 import useMobile from '../../hooks/useMobile';
@@ -198,60 +198,38 @@ const ReservaCard = ({
             </div>
           )}
           <div style={{ marginTop: "12px", display: "flex", gap: "8px" }}>
-            <button
-              onClick={() => onConfirmar(r.id)}
-              disabled={confirmDisabled}
-              style={{
-                width: "100%",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
-                padding: "8px", borderRadius: "8px",
-                border: "1px solid rgba(21,87,36,0.3)",
-                background: "rgba(21,87,36,0.08)",
-                color: "#155724", fontSize: "0.8rem", fontWeight: 600,
-                cursor: confirmDisabled ? "not-allowed" : "pointer",
-                opacity: confirmDisabled ? 0.6 : 1,
-                fontFamily: "inherit",
+            <Dropdown
+              menu={{
+                items: [
+                  {
+                    key: 'confirmar',
+                    label: 'Confirmar',
+                    onClick: () => onConfirmar(r.id),
+                    disabled: confirmDisabled,
+                  },
+                  {
+                    key: 'cancelar',
+                    label: 'Cancelar',
+                    onClick: () => onCancelar(r.id),
+                    disabled: cancelDisabled,
+                  },
+                  ...(showOwner && esCancelada ? [{
+                    key: 'reactivar',
+                    label: 'Reactivar',
+                    onClick: () => onReactivar(r.id),
+                    disabled: reactivateDisabled,
+                  }] : []),
+                ]
               }}
+              trigger={['click']}
             >
-              {confirmando === r.id ? "Confirmando…" : "Confirmar"}
-            </button>
-            <button
-              onClick={() => onCancelar(r.id)}
-              disabled={cancelDisabled}
-              style={{
-                width: "100%",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
-                padding: "8px", borderRadius: "8px",
-                border: "1px solid rgba(220,53,69,0.3)",
-                background: "rgba(220,53,69,0.06)",
-                color: "#c0392b", fontSize: "0.8rem", fontWeight: 600,
-                cursor: cancelDisabled ? "not-allowed" : "pointer",
-                opacity: cancelDisabled ? 0.6 : 1,
-                fontFamily: "inherit",
-              }}
-            >
-              <Trash2 size={13} strokeWidth={2} />
-              {esCancelada ? "Ya cancelada" : cancelando === r.id ? "Cancelando…" : "Cancelar"}
-            </button>
-            {showOwner && esCancelada && (
-              <button
-                onClick={() => onReactivar(r.id)}
-                disabled={reactivateDisabled}
-                style={{
-                  width: "100%",
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
-                  padding: "8px", borderRadius: "8px",
-                  border: "1px solid rgba(204,138,34,0.35)",
-                  background: "rgba(204,138,34,0.1)",
-                  color: "#8A6D3B", fontSize: "0.8rem", fontWeight: 700,
-                  cursor: reactivateDisabled ? "not-allowed" : "pointer",
-                  opacity: reactivateDisabled ? 0.6 : 1,
-                  fontFamily: "inherit",
-                }}
+              <Button
+                type="link"
+                style={{ padding: 0, height: 'auto', display: 'flex', alignItems: 'center', gap: '4px', color: '#1890ff' }}
               >
-                {reactivando === r.id ? "Reactivando…" : "Reactivar"}
-              </button>
-            )}
+                Acciones <ChevronDown size={14} />
+              </Button>
+            </Dropdown>
           </div>
         </div>
       )}
@@ -927,48 +905,40 @@ const Panel = () => {
           const cancelDisabled = cancelando === r.id || esCancelada || cancelConfirmId === r.id || reactivando === r.id;
           const reactivateDisabled = actionBusy;
 
+          const actionItems = [
+            {
+              key: 'confirmar',
+              label: 'Confirmar',
+              onClick: () => handleConfirmar(r.id),
+              disabled: confirmDisabled,
+            },
+            {
+              key: 'cancelar',
+              label: 'Cancelar',
+              onClick: () => solicitarCancelacion(r.id),
+              disabled: cancelDisabled,
+            },
+            ...(esAdmin && esCancelada ? [{
+              key: 'reactivar',
+              label: 'Reactivar',
+              onClick: () => handleReactivar(r.id),
+              disabled: reactivateDisabled,
+            }] : []),
+          ];
+
           return (
-            <div>
-              <Space size={8} wrap>
-                <Button
-                  size="small"
-                  onClick={() => handleConfirmar(r.id)}
-                  disabled={confirmDisabled}
-                  loading={confirmando === r.id}
-                >
-                  Confirmar
-                </Button>
-                <Button
-                  size="small"
-                  danger
-                  onClick={() => solicitarCancelacion(r.id)}
-                  disabled={cancelDisabled}
-                  loading={cancelando === r.id}
-                  icon={<Trash2 size={13} strokeWidth={2} />}
-                >
-                  {esCancelada ? "Cancelada" : "Cancelar"}
-                </Button>
-                {esAdmin && esCancelada && (
-                  <Button
-                    size="small"
-                    onClick={() => handleReactivar(r.id)}
-                    disabled={reactivateDisabled}
-                    loading={reactivando === r.id}
-                  >
-                    Reactivar
-                  </Button>
-                )}
-              </Space>
-              {esPendiente && (
-                <div style={{ marginTop: 6, fontSize: "0.68rem", color: "#8A6D3B", lineHeight: 1.2 }}>
-                  {esAdmin
-                    ? ''
-                    : (confirmMeta.remainingMinutes != null && confirmMeta.remainingMinutes > 0
-                        ? `Quedan ${confirmMeta.remainingMinutes} min para confirmar`
-                        : (confirmMeta.blockedMessage || ''))}
-                </div>
-              )}
-            </div>
+            <Dropdown
+              menu={{ items: actionItems }}
+              trigger={['click']}
+            >
+              <Button
+                type="link"
+                size="small"
+                style={{ padding: 0, height: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}
+              >
+                Acciones <ChevronDown size={14} />
+              </Button>
+            </Dropdown>
           );
         },
       },
@@ -1349,46 +1319,20 @@ const Panel = () => {
       </div>
 
       {cancelConfirmId != null && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: "16px",
-          }}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "420px",
-              background: "#fff",
-              borderRadius: "12px",
-              border: "1px solid rgba(80,54,41,0.15)",
-              boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
-              padding: "18px",
-            }}
-          >
-            <h3 style={{ margin: 0, color: "#503629", fontSize: "1rem", fontWeight: 700 }}>
-              Confirmar cancelación
-            </h3>
-            <p style={{ margin: "10px 0 0", color: "#6B4A3A", fontSize: "0.88rem" }}>
-              ¿Seguro de cancelar su reserva?
-            </p>
-            {reservaEnConfirmacion && (
-              <p style={{ margin: "8px 0 0", color: "#92614F", fontSize: "0.8rem" }}>
-                Escritorio {reservaEnConfirmacion.puestoId ?? '—'} · {reservaEnConfirmacion.fecha || '—'}
-              </p>
-            )}
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <div className="modal-content">
+              <h3 className="modal-title modal-title--warning">Confirmar cancelación</h3>
+              <p className="modal-message">¿Seguro de cancelar su reserva?</p>
+              {reservaEnConfirmacion && (
+                <p className="modal-detail">
+                  Escritorio {reservaEnConfirmacion.puestoId ?? '—'} · {reservaEnConfirmacion.fecha || '—'}
+                </p>
+              )}
+            </div>
 
-            <div style={{ marginTop: "12px" }}>
-              <label
-                htmlFor="cancel-reason"
-                style={{ display: "block", marginBottom: "6px", color: "#503629", fontSize: "0.78rem", fontWeight: 600 }}
-              >
+            <div className="modal-form-group">
+              <label htmlFor="cancel-reason" className="modal-label">
                 Motivo de cancelación
               </label>
               <textarea
@@ -1400,55 +1344,24 @@ const Panel = () => {
                 }}
                 placeholder="Escribe el motivo"
                 rows={3}
-                style={{
-                  width: "100%",
-                  resize: "vertical",
-                  borderRadius: "8px",
-                  border: `1px solid ${cancelReasonError ? 'rgba(192,57,43,0.6)' : 'rgba(80,54,41,0.25)'}`,
-                  padding: "8px 10px",
-                  fontSize: "0.82rem",
-                  fontFamily: "inherit",
-                  color: "#503629",
-                  boxSizing: "border-box",
-                }}
+                className={`modal-textarea ${cancelReasonError ? 'error' : ''}`}
               />
               {cancelReasonError && (
-                <div style={{ marginTop: "6px", fontSize: "0.74rem", color: "#c0392b" }}>
-                  {cancelReasonError}
-                </div>
+                <div className="modal-error-message">{cancelReasonError}</div>
               )}
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "16px" }}>
+            <div className="modal-buttons">
               <button
                 onClick={cerrarConfirmacionCancelacion}
-                style={{
-                  padding: "7px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(80,54,41,0.25)",
-                  background: "#fff",
-                  color: "#503629",
-                  fontSize: "0.82rem",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
+                className="modal-button"
+                style={{ background: '#f5f5f5', color: '#666' }}
               >
                 Cerrar
               </button>
               <button
                 onClick={confirmarCancelacion}
-                style={{
-                  padding: "7px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(220,53,69,0.35)",
-                  background: "rgba(220,53,69,0.1)",
-                  color: "#c0392b",
-                  fontSize: "0.82rem",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
+                className="modal-button modal-button--error"
               >
                 Aceptar
               </button>
@@ -1458,192 +1371,62 @@ const Panel = () => {
       )}
 
       {confirmadaExitosa && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1100,
-            padding: "16px",
-          }}
-          onClick={() => setConfirmadaExitosa(null)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: "400px",
-              background: "#F0FFF4",
-              borderRadius: "14px",
-              border: "1px solid rgba(34,139,34,0.2)",
-              boxShadow: "0 20px 48px rgba(34,139,34,0.1)",
-              padding: "22px 20px 18px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", marginBottom: "14px" }}>
-              <span style={{ fontSize: "1.4rem", lineHeight: 1, flexShrink: 0 }}>✅</span>
-              <div>
-                <h3 style={{ margin: 0, color: "#1a6b2a", fontSize: "1rem", fontWeight: 700 }}>
-                  Reserva confirmada
-                </h3>
-                <p style={{ margin: "8px 0 0", color: "#2d6a3f", fontSize: "0.86rem", lineHeight: 1.5 }}>
-                  {confirmadaExitosa.mensaje}
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <div className="modal-content">
+              <h3 className="modal-title modal-title--success">¡Excelente!</h3>
+              <p className="modal-message">{confirmadaExitosa.mensaje}</p>
+              {(confirmadaExitosa.puestoId || confirmadaExitosa.fecha) && (
+                <p className="modal-detail">
+                  {confirmadaExitosa.puestoId ? `Escritorio ${confirmadaExitosa.puestoId}` : ''}
+                  {confirmadaExitosa.puestoId && confirmadaExitosa.fecha ? ' · ' : ''}
+                  {confirmadaExitosa.fecha
+                    ? new Date(confirmadaExitosa.fecha + 'T12:00:00').toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' })
+                    : ''}
+                  {confirmadaExitosa.turnoLabel ? ` · ${confirmadaExitosa.turnoLabel}` : ''}
                 </p>
-                {(confirmadaExitosa.puestoId || confirmadaExitosa.fecha) && (
-                  <p style={{ margin: "6px 0 0", color: "#4a8c5c", fontSize: "0.78rem" }}>
-                    {confirmadaExitosa.puestoId ? `Escritorio ${confirmadaExitosa.puestoId}` : ''}
-                    {confirmadaExitosa.puestoId && confirmadaExitosa.fecha ? ' · ' : ''}
-                    {confirmadaExitosa.fecha
-                      ? new Date(confirmadaExitosa.fecha + 'T12:00:00').toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' })
-                      : ''}
-                    {confirmadaExitosa.turnoLabel ? ` · ${confirmadaExitosa.turnoLabel}` : ''}
-                  </p>
-                )}
-              </div>
+              )}
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button
-                onClick={() => setConfirmadaExitosa(null)}
-                style={{
-                  padding: "8px 20px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(34,139,34,0.3)",
-                  background: "rgba(34,139,34,0.1)",
-                  color: "#1a6b2a",
-                  fontSize: "0.84rem",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                Cerrar
-              </button>
-            </div>
+            <button
+              onClick={() => setConfirmadaExitosa(null)}
+              className="modal-button modal-button--success"
+            >
+              Cerrar
+            </button>
           </div>
         </div>
       )}
 
       {reactivadaExitosa && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1100,
-            padding: "16px",
-          }}
-          onClick={() => setReactivadaExitosa(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: "400px",
-              background: "#F0FFF4",
-              borderRadius: "14px",
-              border: "1px solid rgba(34,139,34,0.2)",
-              boxShadow: "0 20px 48px rgba(34,139,34,0.1)",
-              padding: "22px 20px 18px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", marginBottom: "14px" }}>
-              <span style={{ fontSize: "1.4rem", lineHeight: 1, flexShrink: 0 }}>✅</span>
-              <div>
-                <h3 style={{ margin: 0, color: "#1a6b2a", fontSize: "1rem", fontWeight: 700 }}>
-                  Reserva reactivada
-                </h3>
-                <p style={{ margin: "8px 0 0", color: "#2d6a3f", fontSize: "0.86rem", lineHeight: 1.5 }}>
-                  La reserva fue reactivada exitosamente como Pendiente.
-                </p>
-              </div>
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <div className="modal-content">
+              <h3 className="modal-title modal-title--success">¡Reactivada!</h3>
+              <p className="modal-message">La reserva fue reactivada exitosamente como Pendiente.</p>
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button
-                onClick={() => setReactivadaExitosa(false)}
-                style={{
-                  padding: "8px 20px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(34,139,34,0.3)",
-                  background: "rgba(34,139,34,0.1)",
-                  color: "#1a6b2a",
-                  fontSize: "0.84rem",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                Cerrar
-              </button>
-            </div>
+            <button
+              onClick={() => setReactivadaExitosa(false)}
+              className="modal-button modal-button--success"
+            >
+              Cerrar
+            </button>
           </div>
         </div>
       )}
 
       {conflictoReactivar && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.45)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1100,
-            padding: "16px",
-          }}
-          onClick={() => setConflictoReactivar(null)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: "400px",
-              background: "#FFF0F0",
-              borderRadius: "14px",
-              border: "1px solid rgba(220,53,69,0.2)",
-              boxShadow: "0 20px 48px rgba(220,53,69,0.1)",
-              padding: "22px 20px 18px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", marginBottom: "14px" }}>
-              <span style={{
-                fontSize: "1.4rem",
-                lineHeight: 1,
-                flexShrink: 0,
-              }}>⚠️</span>
-              <div>
-                <h3 style={{ margin: 0, color: "#a32020", fontSize: "1rem", fontWeight: 700 }}>
-                  No se puede reactivar
-                </h3>
-                <p style={{ margin: "8px 0 0", color: "#7a2c2c", fontSize: "0.86rem", lineHeight: 1.5 }}>
-                  {conflictoReactivar}
-                </p>
-              </div>
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <div className="modal-content">
+              <h3 className="modal-title modal-title--error">No se puede reactivar</h3>
+              <p className="modal-message">{conflictoReactivar}</p>
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button
-                onClick={() => setConflictoReactivar(null)}
-                style={{
-                  padding: "8px 20px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(220,53,69,0.35)",
-                  background: "rgba(220,53,69,0.1)",
-                  color: "#a32020",
-                  fontSize: "0.84rem",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                Cerrar
-              </button>
-            </div>
+            <button
+              onClick={() => setConflictoReactivar(null)}
+              className="modal-button modal-button--error"
+            >
+              Cerrar
+            </button>
           </div>
         </div>
       )}

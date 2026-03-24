@@ -7,6 +7,13 @@ export default function GlobalNavBar({
   isNavigating,
   dateSelector = null,
 }) {
+  const handleLogout = () => {
+    const confirmed = window.confirm('¿Estás seguro de que deseas cerrar sesión?');
+    if (confirmed) {
+      onLogout();
+    }
+  };
+
   return (
     <div className="global-nav-bar" style={{ flexWrap: 'nowrap' }}>
       {/* DateSelector (solo en Reservas) */}
@@ -42,7 +49,7 @@ export default function GlobalNavBar({
         {/* Botón Salir - Derecha */}
         <button
           className="btn-outline top-nav-icon-btn global-nav-logout"
-          onClick={onLogout}
+          onClick={handleLogout}
           disabled={isNavigating}
           title="Cerrar sesión"
           style={{
