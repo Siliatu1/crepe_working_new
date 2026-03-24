@@ -1,6 +1,6 @@
 // PRINCIPAL
 $color-dark-primary:     #503629;   // Textos principales, títulos, bordes oscuros
-$color-light-primary:    transparent;   // Fondos de secciones / elementos suaves
+$color-light-primary:    transparent; // Fondos de secciones / elementos suaves
 $color-dark-secondary:   #3C1F1C;   // Textos muy oscuros, hover, énfasis
 $color-light-secondary:  #FFFFFF;   // Fondo principal de la app (blanco)
 
@@ -31,9 +31,9 @@ $shadow-sm:     0 8px 20px rgba($color-dark-primary, 0.10);
 $shadow-md:     0 16px 32px rgba($color-dark-primary, 0.16);
 
 // ESTADO
-$color-success: #4caf50;
-$color-warning: #ffc107;
-$color-error:   #f44336;
+$color-success: #27ae6070;
+$color-warning: #f0a50070;
+$color-error:   #e74c3c70;
 
 // TIPOGRAFÍA
 $font-family-base:    'DM Sans', sans-serif;    // Cuerpo / párrafos
