@@ -126,8 +126,9 @@ const ReservaCard = ({
           <span style={{
             padding: "2px 9px", borderRadius: "20px",
             fontSize: "0.7rem", fontWeight: 600,
-            background: esCancelada ? "#F8D7DA" : "#D4EDDA",
-            color: esCancelada ? "#721C24" : "#155724",
+            background: esCancelada ? "#c0392b" : esPendiente ? "#f39c12" : "#27ae60",
+            color: "#fff",
+            border: "none",
           }}>
             {r.estado}
           </span>
@@ -175,7 +176,31 @@ const ReservaCard = ({
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <Clock size={13} color="#CC8A22" strokeWidth={2} />
               <span className="text-body" style={{ fontSize: "0.82rem" }}>
-                {hMeta?.hora ? `${turnoTexto} · ${hMeta.hora}` : turnoTexto}
+                {hMeta?.hora ? (() => {
+                  // Convertir de formato 12h a 24h
+                  const convertir12a24 = (hora12) => {
+                    const partes = hora12.match(/(\d+):(\d+)\s*(am|pm|m)/i);
+                    if (!partes) return hora12;
+                    let [, horas, minutos, periodo] = partes;
+                    horas = parseInt(horas);
+                    periodo = (periodo || '').toLowerCase();
+                    
+                    if (periodo === 'pm' || periodo === 'p') {
+                      if (horas !== 12) horas += 12;
+                    } else if ((periodo === 'am' || periodo === 'a' || periodo === 'm') && horas === 12) {
+                      horas = 0;
+                    }
+                    
+                    return `${String(horas).padStart(2, '0')}:${minutos}`;
+                  };
+                  
+                  // Procesar horario (ej: "8:00 am – 5:00 pm")
+                  const partes = hMeta.hora.split(/[–—-]/).map(p => p.trim());
+                  const inicio = convertir12a24(partes[0]);
+                  const fin = convertir12a24(partes[1]);
+                  
+                  return `${inicio} - ${fin}`;
+                })() : turnoTexto}
               </span>
             </div>
 
@@ -224,8 +249,8 @@ const ReservaCard = ({
               trigger={['click']}
             >
               <Button
-                type="link"
-                style={{ padding: 0, height: 'auto', display: 'flex', alignItems: 'center', gap: '4px', color: '#1890ff' }}
+                type="default"
+                style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.82rem' }}
               >
                 Acciones <ChevronDown size={14} />
               </Button>
@@ -283,14 +308,6 @@ const Panel = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterEstado, setFilterEstado] = useState('todos');
   const [adminTab, setAdminTab] = useState(esAdmin ? 'mis' : 'todos');
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setNowMs(Date.now());
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, []);
 
   // Ref siempre actualizado para evitar closures obsoletos en handlers
   const reservationsRef = useRef(reservations);
@@ -450,6 +467,7 @@ const Panel = () => {
     }
   }, [datosEmpleado?.documento, datosEmpleado?.document_number, cargarReservas]);
 
+  // ── Sincronización en tiempo real con eventos de socket  ──────────────────────
   const { notifyChange } = useRealtimeSync(cargarReservas);
 
   useEffect(() => {
@@ -505,11 +523,11 @@ const Panel = () => {
           fecha: reservaAux.fecha,
           turnoLabel: reservaAux.turnoLabel,
         });
-
-        notifyChange();
         
-        // Recargar reservas para reflejar cambios en tiempo real
-        await cargarReservas();
+        // 🔌 Emitir evento del socket para notificar cambios
+        if (notifyChange) {
+          notifyChange();
+        }
       } catch (err) {
         console.error(err);
         alert(err?.message || 'Error al confirmar la reserva.');
@@ -589,11 +607,11 @@ const Panel = () => {
       } else {
         alert(evaluation.message || 'Reserva actualizada.');
       }
-
-      notifyChange();
       
-      // Recargar reservas para reflejar cambios en tiempo real
-      await cargarReservas();
+      // 🔌 Emitir evento del socket para notificar cambios
+      if (notifyChange) {
+        notifyChange();
+      }
     } catch (err) {
       console.error(err);
       alert(err?.message || 'Error al confirmar la reserva.');
@@ -693,11 +711,11 @@ const Panel = () => {
       );
 
       setReactivadaExitosa(true);
-
-      notifyChange();
       
-      // Recargar reservas para reflejar cambios en tiempo real
-      await cargarReservas();
+      // 🔌 Emitir evento del socket para notificar cambios
+      if (notifyChange) {
+        notifyChange();
+      }
     } catch (err) {
       console.error(err);
       alert(err?.message || 'Error al reactivar la reserva.');
@@ -727,11 +745,11 @@ const Panel = () => {
           },
         } : r)
       );
-
-      notifyChange();
       
-      // Recargar reservas para reflejar cambios en tiempo real
-      await cargarReservas();
+      // 🔌 Emitir evento del socket para notificar cambios
+      if (notifyChange) {
+        notifyChange();
+      }
     } catch (err) {
       console.error(err);
       alert('Error al cancelar la reserva. Intenta de nuevo.');
@@ -806,78 +824,129 @@ const Panel = () => {
       {
         title: 'ID',
         key: 'id',
+        width: 70,
+        align: 'center',
         render: (_, r) => (
-          <span style={{
-            display: "inline-block",
-            padding: "2px 8px", borderRadius: 20,
-            background: "rgba(80,54,41,0.08)",
-            color: "#92614F", fontSize: "0.72rem", fontWeight: 700,
-            fontFamily: "monospace", letterSpacing: "0.02em",
-          }}>
-            #{r.id}
+          <span style={{ fontSize: "0.82rem" }}>
+            {r.id}
           </span>
         ),
       },
       ...(esAdmin ? [{
         title: 'Usuario',
-        key: 'usuario',
-        ellipsis: true,
-        render: (_, r) => (
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <span className="text-body" style={{ fontSize: "0.82rem", fontWeight: 700 }}>
-              {r.nombreCompleto || r.nombre}
-            </span>
-            <span style={{ fontSize: "0.72rem", color: "#92614F" }}>
-              {r.documento || 'Sin documento'}
-            </span>
-          </div>
-        ),
+        align: 'center',
+        children: [
+          {
+            title: 'Nombre',
+            key: 'nombre',
+            align: 'center',
+            render: (_, r) => (
+              <span className="text-body" style={{ fontSize: "0.82rem" }}>
+                {r.nombreCompleto || r.nombre}
+              </span>
+            ),
+          },
+          {
+            title: 'Identificación',
+            key: 'documento',
+            align: 'center',
+            render: (_, r) => (
+              <span style={{ fontSize: "0.82rem" }}>
+                {r.documento || '—'}
+              </span>
+            ),
+          },
+        ],
       }] : []),
       {
-        title: 'Fecha',
-        key: 'fecha',
-        render: (_, r) => (
-          <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
-            {r.fecha !== '—'
-              ? new Date(r.fecha + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short" })
-              : '—'}
-          </span>
-        ),
-      },
-      {
-        title: 'Escritorio',
-        key: 'salaEscritorio',
-        ellipsis: true,
-        render: (_, r) => (
-          <span className="text-body" style={{ fontSize: "0.82rem" }}>
-            {r.puestoId ? `Escritorio ${r.puestoId}` : '—'}
-          </span>
-        ),
-      },
-      {
-        title: 'Turno',
-        key: 'turno',
-        ellipsis: true,
-        render: (_, r) => {
-          const hMeta = HORARIO_META[r.horarioId];
-          const turnoTexto = r.turnoLabel || hMeta?.label || '—';
-          return (
-            <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
-              {turnoTexto}
-            </span>
-          );
-        },
+        title: 'Reserva',
+        align: 'center',
+        children: [
+          {
+            title: 'Fecha',
+            key: 'fecha',
+            align: 'center',
+            render: (_, r) => (
+              <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
+                {r.fecha !== '—'
+                  ? new Date(r.fecha + "T12:00:00").toLocaleDateString("es-CO", { day: "2-digit", month: "2-digit", year: "numeric" })
+                  : '—'}
+              </span>
+            ),
+          },
+          {
+            title: 'Escritorio',
+            key: 'salaEscritorio',
+            align: 'center',
+            render: (_, r) => (
+              <span className="text-body" style={{ fontSize: "0.82rem" }}>
+                {r.puestoId ?? '—'}
+              </span>
+            ),
+          },
+          {
+            title: 'Horario',
+            key: 'turno',
+            align: 'center',
+            render: (_, r) => {
+              const hMeta = HORARIO_META[r.horarioId];
+              if (!hMeta?.hora) return <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>—</span>;
+              
+              // Convertir de formato 12h a 24h
+              const convertir12a24 = (hora12) => {
+                const partes = hora12.match(/(\d+):(\d+)\s*(am|pm|m)/i);
+                if (!partes) return hora12;
+                let [, horas, minutos, periodo] = partes;
+                horas = parseInt(horas);
+                periodo = (periodo || '').toLowerCase();
+                
+                if (periodo === 'pm' || periodo === 'p') {
+                  if (horas !== 12) horas += 12;
+                } else if ((periodo === 'am' || periodo === 'a' || periodo === 'm') && horas === 12) {
+                  horas = 0;
+                }
+                
+                return `${String(horas).padStart(2, '0')}:${minutos}`;
+              };
+              
+              // Procesar horario (ej: "8:00 am – 5:00 pm")
+              const partes = hMeta.hora.split(/[–—-]/).map(p => p.trim());
+              const inicio = convertir12a24(partes[0]);
+              const fin = convertir12a24(partes[1]);
+              
+              return (
+                <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
+                  {inicio} - {fin}
+                </span>
+              );
+            },
+          },
+        ],
       },
       {
         title: 'Estado',
         key: 'estado',
+        align: 'center',
         render: (_, r) => {
           const esCancelada = r.estado === 'Cancelada';
           const esPendiente = r.estado === 'Pendiente';
+          const colorMap = {
+            'Cancelada': '#c03a2bd0',
+            'Pendiente': '#f39d12d0',
+            'Confirmada': '#27ae5fd0'
+          };
           return (
             <Tag
-              style={{ marginInlineEnd: 0, borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, paddingInline: 10 }}
-              color={esCancelada ? 'error' : esPendiente ? 'warning' : 'success'}
+              style={{ 
+                marginInlineEnd: 0, 
+                borderRadius: '999px', 
+                fontSize: '0.72rem', 
+                fontWeight: 700, 
+                paddingInline: 10,
+                backgroundColor: colorMap[r.estado] || '#95a5a6',
+                color: '#fff',
+                border: 'none'
+              }}
             >
               {r.estado}
             </Tag>
@@ -887,15 +956,16 @@ const Panel = () => {
       {
         title: 'Motivo',
         key: 'motivo',
+        align: 'center',
         ellipsis: true,
         render: (_, r) => {
           const valor = r.estado === 'Cancelada'
-            ? (r.motivoCancelacion || r.motivoGestion || '—')
+            ? (r.motivoCancelacion || r.motivoGestion || 'Ninguno')
             : r.estado === 'Confirmada'
-              ? (r.motivoGestion || '—')
-              : '—';
+              ? (r.motivoGestion || 'Ninguno')
+              : 'Ninguno';
           return (
-            <span className="text-body" style={{ fontSize: "0.78rem", color: "#6B4A3A" }} title={valor}>
+            <span className="text-body" style={{ fontSize: "0.82rem" }} title={valor}>
               {valor}
             </span>
           );
@@ -904,6 +974,7 @@ const Panel = () => {
       {
         title: 'Acción',
         key: 'accion',
+        align: 'center',
         render: (_, r) => {
           const esCancelada = r.estado === 'Cancelada';
           const esPendiente = r.estado === 'Pendiente';
@@ -940,9 +1011,9 @@ const Panel = () => {
               trigger={['click']}
             >
               <Button
-                type="link"
+                type="default"
                 size="small"
-                style={{ padding: 0, height: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.82rem' }}
               >
                 Acciones <ChevronDown size={14} />
               </Button>
@@ -997,6 +1068,7 @@ const Panel = () => {
         onGoBack={handleGoBack}
         onGoToPanel={() => navigate('/panel', { state: { datosEmpleado }, replace: true })}
         isNavigating={isNavigating}
+        datosEmpleado={esAdmin ? datosEmpleado : null}
       />
 
       <div style={{
@@ -1011,8 +1083,8 @@ const Panel = () => {
         minHeight: 0,
         overflow: "auto",
       }}>
-        {/* Tarjeta de Usuario */}
-        {isMobile && (
+        {/* Tarjeta de Usuario - Solo para usuarios normales */}
+        {isMobile && !esAdmin && (
           <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
             {(() => {
               const nombre = String(datosEmpleado?.nombre || '').trim();
@@ -1084,8 +1156,8 @@ const Panel = () => {
           </div>
         )}
 
-        {/* Tarjeta de Usuario (Desktop) */}
-        {!isMobile && (
+        {/* Tarjeta de Usuario (Desktop) - Solo para usuarios normales */}
+        {!isMobile && !esAdmin && (
           <div style={{ flex: "0 0 auto", display: "flex", justifyContent: "center" }}>
             {(() => {
               const nombre = String(datosEmpleado?.nombre || '').trim();
@@ -1313,6 +1385,7 @@ const Panel = () => {
                 columns={desktopColumns}
                 dataSource={filteredReservations}
                 rowKey="id"
+                bordered
                 style={{ width: '100%' }}
                 scroll={{ x: 'max-content' }}
                 pagination={{

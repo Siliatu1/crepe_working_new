@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 
 const WS_URL = import.meta.env.VITE_RESERVAS_WS_URL || 'https://macfer.crepesywaffles.com';
 const ENABLE_SOCKET = import.meta.env.VITE_ENABLE_SOCKET !== 'false';
-const ENABLE_POLLING = import.meta.env.VITE_ENABLE_REALTIME_POLLING !== 'false';
+const ENABLE_POLLING = import.meta.env.VITE_ENABLE_REALTIME_POLLING === 'true'; // Desactivado por defecto
 const POLLING_VISIBLE_MS = Number(import.meta.env.VITE_REALTIME_POLL_MS || 7000);
 const POLLING_HIDDEN_MS = Number(import.meta.env.VITE_REALTIME_POLL_HIDDEN_MS || 15000);
 const SOCKET_EVENTS = [

@@ -2,12 +2,12 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Calendar, Monitor, User } from 'lucide-react';
 import axios from 'axios';
-import useRealtimeSync from '../../hooks/useRealtimeSync';
 import sillaDis from '../../assets/sillaDis.png';
 import sillaLim from '../../assets/sillaLim.png';
 import sillaOcu from '../../assets/sillaOcu.png';
 import mesaImg  from '../../assets/mesa.png';
 import GlobalNavBar from './GlobalNavBar';
+import useRealtimeSync from '../../hooks/useRealtimeSync';
 import {
   ADMIN_DOCUMENTS,
   HORARIO_META,
@@ -558,9 +558,6 @@ export default function Reservas() {
       .finally(() => setLoadingR(false));
   }, [fechaISO]);
 
-  // Sincronización en tiempo real con Socket.IO y eventos
-  const { notifyChange } = useRealtimeSync(cargarReservas);
-
   // Cargar reservas al cambiar fecha
   useEffect(() => {
     cargarReservas();
@@ -569,6 +566,9 @@ export default function Reservas() {
     setReservaErr(null);
     setReservaOk(false);
   }, [fechaISO, cargarReservas]);
+
+  // ── Sincronización en tiempo real con eventos de socket ──────────────────────
+  const { notifyChange } = useRealtimeSync(cargarReservas);
 
   // 🔍 DETECCIÓN EN TIEMPO REAL: Monitorear si el puesto/turno seleccionado fue ocupado
   useEffect(() => {
@@ -643,7 +643,6 @@ export default function Reservas() {
         setReservaErr('Ya tienes una reserva activa para este día.');
         setSelectedId(null);
         setSelectedHorarioId(null);
-        await cargarReservas();
         return;
       }
       
@@ -661,7 +660,6 @@ export default function Reservas() {
         setReservaErr('⚠️ Este escritorio ya está ocupado. Intenta con otro.');
         setSelectedId(null);
         setSelectedHorarioId(null);
-        await cargarReservas();
         return;
       }
       
@@ -681,7 +679,6 @@ export default function Reservas() {
         setReservaErr('Ya tienes una reserva activa para este día.');
         setSelectedId(null);
         setSelectedHorarioId(null);
-        await cargarReservas();
         return;
       }
       
@@ -691,7 +688,6 @@ export default function Reservas() {
         setReservaErr('⚠️ No puedes reservar, ya está ocupado. Intenta en otro escritorio.');
         setSelectedId(null);
         setSelectedHorarioId(null);
-        await cargarReservas();
         return;
       }
       
@@ -709,7 +705,6 @@ export default function Reservas() {
         setReservaErr('Ya tienes una reserva activa para este día.');
         setSelectedId(null);
         setSelectedHorarioId(null);
-        await cargarReservas();
         return;
       }
       
@@ -719,7 +714,6 @@ export default function Reservas() {
         setReservaErr('⚠️ No puedes reservar, ya está ocupado. Intenta en otro escritorio.');
         setSelectedId(null);
         setSelectedHorarioId(null);
-        await cargarReservas();
         return;
       }
       
@@ -746,13 +740,19 @@ export default function Reservas() {
       // Verificar respuesta exitosa
       if (response.status === 200 || response.status === 201) {
         setReservaOk(true);
-        notifyChange();
-        await cargarReservas();
+        
+        // 🔌 Emitir evento del socket para notificar a otros clientes
+        if (notifyChange) {
+          notifyChange();
+        }
+        
+        // Recargar reservas después de un pequeño delay
         setTimeout(() => { 
+          void cargarReservas();
           setSelectedId(null); 
           setSelectedHorarioId(null);
           setReservaOk(false); 
-        }, 2500);
+        }, 500);
       } else {
         throw new Error('Respuesta inesperada del servidor');
       }
@@ -780,8 +780,6 @@ export default function Reservas() {
         setReservaErr('Error al reservar. Por favor, intenta de nuevo.');
       }
       
-      // Actualizar vista en cualquier caso
-      await cargarReservas();
     } finally {
       setReservando(false);
     }

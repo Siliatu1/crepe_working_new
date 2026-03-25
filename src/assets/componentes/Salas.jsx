@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import mesaImg from "../mesa.png";
 import { Monitor, LogOut, Armchair, ArrowLeft, ArrowRight } from "lucide-react";
 import axios from 'axios';
+import useRealtimeSync from '../../hooks/useRealtimeSync';
 import { ADMIN_DOCUMENTS } from '../../utils/reservaCommon';
 import { clearSession, getSession } from "../../utils/sessionFlow";
 import GlobalNavBar from './GlobalNavBar';
@@ -178,6 +179,9 @@ export default function Salas() {
 
     return () => clearTimeout(timer);
   }, [cargarSalas]);
+
+  // ── Sincronización en tiempo real con eventos de socket ──────────────────────
+  useRealtimeSync(cargarSalas);
 
   return (
     <div className="salas-page-wrapper">
