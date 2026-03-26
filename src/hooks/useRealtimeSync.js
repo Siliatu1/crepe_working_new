@@ -1,158 +1,118 @@
-import { useEffect, useCallback, useRef } from 'react';
-import { io } from 'socket.io-client';
+import { useEffect, useRef, useCallback } from "react";
+import { io } from "socket.io-client";
 
-const WS_URL = import.meta.env.VITE_RESERVAS_WS_URL || 'https://macfer.crepesywaffles.com';
-const ENABLE_SOCKET = import.meta.env.VITE_ENABLE_SOCKET !== 'false';
-const ENABLE_POLLING = import.meta.env.VITE_ENABLE_REALTIME_POLLING !== 'false';
-const POLLING_VISIBLE_MS = Number(import.meta.env.VITE_REALTIME_POLL_MS || 7000);
-const POLLING_HIDDEN_MS = Number(import.meta.env.VITE_REALTIME_POLL_HIDDEN_MS || 15000);
-const SOCKET_EVENTS = [
-  'reserva3',
-  'working-reservas-updated',
-  'reservas-updated',
-  'reservation-updated',
-];
+const WS_URL =
+  import.meta.env.VITE_RESERVAS_WS_URL ||
+  "https://macfer.crepesywaffles.com";
 
-const useRealtimeSync = (onSync) => {
-  const socketRef = useRef(null);
-  const syncDebounceRef = useRef(null);
-  const pollingRef = useRef(null);
+const SOCKET_EVENT = "reserva3";
 
-  // Función para disparar sincronización
-  const triggerSync = useCallback((source = 'manual') => {
-    if (syncDebounceRef.current) {
-      clearTimeout(syncDebounceRef.current);
-    }
+// ─────────────────────────────────────────────────────────────
+// Singleton Socket
+// ─────────────────────────────────────────────────────────────
+let socket = null;
 
-    syncDebounceRef.current = setTimeout(() => {
-      if (onSync) {
-        onSync();
-      }
-      syncDebounceRef.current = null;
-    }, 120);
-  }, [onSync]);
+const getSocket = () => {
+  if (!socket) {
+    console.log("🔌 [useRealtimeSync] Conectando a:", WS_URL);
 
-  useEffect(() => {
-    const handleCustomSync = () => {
-      triggerSync('custom-event');
-    };
-
-    window.addEventListener('reservas-updated', handleCustomSync);
-    window.addEventListener('working-reservas-updated', handleCustomSync);
-
-    return () => {
-      window.removeEventListener('reservas-updated', handleCustomSync);
-      window.removeEventListener('working-reservas-updated', handleCustomSync);
-    };
-  }, [triggerSync]);
-
-  useEffect(() => {
-    if (!ENABLE_POLLING) {
-      return;
-    }
-
-    const clearPolling = () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
-      }
-    };
-
-    const startPolling = () => {
-      clearPolling();
-      const delay = document.hidden ? POLLING_HIDDEN_MS : POLLING_VISIBLE_MS;
-      pollingRef.current = setInterval(() => {
-        triggerSync(document.hidden ? 'polling-hidden' : 'polling-visible');
-      }, delay);
-    };
-
-    const handleVisibilityChange = () => {
-      startPolling();
-      if (!document.hidden) {
-        triggerSync('tab-visible');
-      }
-    };
-
-    const handleOnline = () => {
-      triggerSync('network-online');
-    };
-
-    startPolling();
-    window.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('online', handleOnline);
-
-    return () => {
-      clearPolling();
-      window.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('online', handleOnline);
-    };
-  }, [triggerSync]);
-
-  // Socket.IO Connection  
-  useEffect(() => {
-    if (!ENABLE_SOCKET) {
-      return;
-    }
-
-    const socket = io(WS_URL, {
-      transports: ['websocket', 'polling'],
+    socket = io(WS_URL, {
+      transports: ["polling"],
+      upgrade: false,
       reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+      forceNew: false,
     });
 
-    socket.on('connect', () => {
-      triggerSync('socket-connect');
+    socket.on("connect", () =>
+      console.log("✅ [Socket] Conectado - ID:", socket.id)
+    );
+
+    socket.on("disconnect", (reason) => {
+      console.log("❌ [Socket] Desconectado:", reason);
+      if (reason === "io server disconnect") socket.connect();
     });
 
-    socket.on('reconnect', () => {
-      triggerSync('socket-reconnect');
+    socket.on("connect_error", (err) =>
+      console.error("⚠️ [Socket] Error:", err.message)
+    );
+
+    socket.on("reconnect", (n) =>
+      console.log("🔄 [Socket] Reconectado en intento #", n)
+    );
+
+    // Debug: loguea eventos de reservas
+    socket.onAny((eventName, payload) => {
+      if (eventName.includes("reserva")) {
+        console.log(`📡 [Socket] Evento: ${eventName}`, payload ?? "");
+      }
     });
+  }
 
-    SOCKET_EVENTS.forEach((eventName) => {
-      socket.on(eventName, () => {
-        triggerSync(`socket-${eventName}`);
-      });
-    });
-
-    socketRef.current = socket;
-
-    return () => {
-      socket.removeAllListeners();
-      socket.close();
-      socketRef.current = null;
-    };
-  }, [triggerSync]);
-
-  const notifyChange = useCallback(() => {
-    window.dispatchEvent(new CustomEvent('reservas-updated'));
-    window.dispatchEvent(new CustomEvent('working-reservas-updated'));
-    triggerSync('notify-change');
-
-    if (socketRef.current && socketRef.current.connected) {
-      socketRef.current.emit('working-reservas-updated', {
-        event: 'working-reservas-updated',
-        source: 'client',
-        timestamp: Date.now(),
-      });
-
-      socketRef.current.emit('reservas-updated', {
-        event: 'reservas-updated',
-        source: 'client',
-        timestamp: Date.now(),
-      });
-
-      socketRef.current.emit('reserva3', {
-        event: 'reserva3',
-        source: 'client',
-        timestamp: Date.now(),
-      });
-    }
-  }, [triggerSync]);
-
-  return {
-    triggerSync,
-    notifyChange,
-    socket: socketRef.current,
-  };
+  return socket;
 };
 
-export default useRealtimeSync;
+// ─────────────────────────────────────────────────────────────
+// Hook principal
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * useRealtimeSync
+ *
+ * Escucha el evento `reserva3` del servidor para sincronizar
+ * las reservas en tiempo real cuando se crea una nueva.
+ *
+ * @param {Function} refetch - Función para recargar las reservas
+ * @returns {{ socket, notifyChange, isConnected }}
+ */
+export default function useRealtimeSync(refetch) {
+  const refetchRef = useRef(refetch);
+  const lastRefetchRef = useRef(0);
+
+  useEffect(() => {
+    refetchRef.current = refetch;
+  }, [refetch]);
+
+  // ── Refetch con debounce ────────────────────────────────────
+  const doRefetch = useCallback((source) => {
+    const now = Date.now();
+    if (now - lastRefetchRef.current < 300) return;
+    lastRefetchRef.current = now;
+
+    console.log(`🔄 [Sync] Actualizando reservas | Fuente: ${source}`);
+
+    if (typeof refetchRef.current === "function") {
+      refetchRef.current();
+    }
+  }, []);
+
+  // ── Listener Socket.IO ──────────────────────────────────────
+  useEffect(() => {
+    const socketInstance = getSocket();
+
+    const handleReserva = (payload) => {
+      doRefetch(`socket:${SOCKET_EVENT}`);
+    };
+
+    socketInstance.on(SOCKET_EVENT, handleReserva);
+
+    return () => {
+      socketInstance.off(SOCKET_EVENT, handleReserva);
+    };
+  }, [doRefetch]);
+
+  // ── notifyChange (para compatibilidad) ──────────────────────
+  const notifyChange = useCallback(() => {
+    // Solo dispara refetch local, el servidor no reenvía eventos del cliente
+    doRefetch("local:notifyChange");
+  }, [doRefetch]);
+
+  return {
+    socket: getSocket(),
+    notifyChange,
+    isConnected: socket?.connected ?? false,
+  };
+}
