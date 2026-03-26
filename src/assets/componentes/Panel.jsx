@@ -833,7 +833,7 @@ const Panel = () => {
         ),
       },
       ...(esAdmin ? [{
-        title: 'Usuario',
+        title: 'Datos del usuario',
         align: 'center',
         children: [
           {
@@ -859,7 +859,7 @@ const Panel = () => {
         ],
       }] : []),
       {
-        title: 'Reserva',
+        title: 'Detalles de reserva',
         align: 'center',
         children: [
           {
@@ -972,7 +972,7 @@ const Panel = () => {
         },
       },
       {
-        title: 'Acción',
+        title: 'Acciones',
         key: 'accion',
         align: 'center',
         render: (_, r) => {
