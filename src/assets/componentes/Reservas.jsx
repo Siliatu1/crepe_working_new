@@ -5,7 +5,7 @@ import axios from 'axios';
 import sillaDis from '../../assets/sillaDis.png';
 import sillaLim from '../../assets/sillaLim.png';
 import sillaOcu from '../../assets/sillaOcu.png';
-import mesaImg  from '../../assets/mesa.png';
+import mesaImg from '../../assets/mesa.png';
 import GlobalNavBar from './GlobalNavBar';
 import useRealtimeSync from '../../hooks/useRealtimeSync';
 import {
@@ -22,23 +22,23 @@ import {
 import { clearSession, getSession } from '../../utils/sessionFlow';
 
 // ─── URLs ─────────────────────────────────────────────────────────────────────
-const BASE         = 'https://macfer.crepesywaffles.com';
+const BASE = 'https://macfer.crepesywaffles.com';
 const API_HORARIOS = `${BASE}/api/working-horarios`;
 const API_RESERVAS = `${BASE}/api/working-reservas`;
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const CON_MONITOR = [1, 3, 6];
-const H_AM        = 1;
-const H_PM        = 2;
-const H_COMPLETO  = 3;
+const H_AM = 1;
+const H_PM = 2;
+const H_COMPLETO = 3;
 
 const SILLAS = [
-  { id: 1, top: '-5%',  left: '0%',   rotate: '-15deg' },
-  { id: 2, top: '-25%', left: '45%',  rotate: '25deg'  },
-  { id: 3, top: '-25%', left: '70%',  rotate: '-20deg' },
-  { id: 4, top: '95%',  left: '0%',   rotate: '210deg' },
-  { id: 5, top: '75%',  left: '40%',  rotate: '180deg' },
-  { id: 6, top: '75%',  right: '15%', rotate: '210deg' },
+  { id: 1, top: '-5%', left: '0%', rotate: '-15deg' },
+  { id: 2, top: '-25%', left: '45%', rotate: '25deg' },
+  { id: 3, top: '-25%', left: '70%', rotate: '-20deg' },
+  { id: 4, top: '95%', left: '0%', rotate: '210deg' },
+  { id: 5, top: '75%', left: '40%', rotate: '180deg' },
+  { id: 6, top: '75%', right: '15%', rotate: '210deg' },
 ];
 
 // ─── Días y fecha ─────────────────────────────────────────────────────────────
@@ -46,23 +46,23 @@ const DIAS_CORTO = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
 const generarFechasHabiles = (n = 2) => {
   const fechas = [];
-  const hoy    = new Date();
+  const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
   let cursor = new Date(hoy);
   while (fechas.length < n) {
     const dow = cursor.getDay();
     if (dow !== 0 && dow !== 6) {
-      const dia          = DIAS_CORTO[dow];
-      const dd           = cursor.getDate();
-      const mm           = cursor.getMonth() + 1;
+      const dia = DIAS_CORTO[dow];
+      const dd = cursor.getDate();
+      const mm = cursor.getMonth() + 1;
       const formatoFecha = `${dia}. ${dd}/${mm}`;
       fechas.push({
-        date:       new Date(cursor),
-        iso:        getLocalDateString(cursor),
-        label:      formatoFecha,
-        diaLabel:   dia,
+        date: new Date(cursor),
+        iso: getLocalDateString(cursor),
+        label: formatoFecha,
+        diaLabel: dia,
         fechaLabel: `${dd}/${mm}`,
-        chipLabel:  formatoFecha,
+        chipLabel: formatoFecha,
       });
     }
     cursor.setDate(cursor.getDate() + 1);
@@ -83,7 +83,7 @@ const buildUserHistoryUrl = (documento, fecha) => {
   return `${API_RESERVAS}?${params.toString()}`;
 };
 
-const getFoto      = (r) => r.attributes?.foto ?? r.foto ?? null;
+const getFoto = (r) => r.attributes?.foto ?? r.foto ?? null;
 
 // ─── Lógica de disponibilidad ─────────────────────────────────────────────────
 const turnosBloqueados = (reservas, puestoId) => {
@@ -92,20 +92,20 @@ const turnosBloqueados = (reservas, puestoId) => {
     .filter(r => getPuestoId(r) === puestoId && esReservaActiva(r))
     .forEach(r => {
       const hId = getHorarioId(r);
-      if (hId === H_AM)            { bloq.add(H_AM);  bloq.add(H_COMPLETO); }
-      else if (hId === H_PM)       { bloq.add(H_PM);  bloq.add(H_COMPLETO); }
-      else if (hId === H_COMPLETO) { bloq.add(H_AM);  bloq.add(H_PM); bloq.add(H_COMPLETO); }
+      if (hId === H_AM) { bloq.add(H_AM); bloq.add(H_COMPLETO); }
+      else if (hId === H_PM) { bloq.add(H_PM); bloq.add(H_COMPLETO); }
+      else if (hId === H_COMPLETO) { bloq.add(H_AM); bloq.add(H_PM); bloq.add(H_COMPLETO); }
     });
   return bloq;
 };
 
 const calcEstado = (reservas, puestoId) => {
-  const rp            = reservas.filter(r => getPuestoId(r) === puestoId && esReservaActiva(r));
-  const tieneAM       = rp.some(r => getHorarioId(r) === H_AM);
-  const tienePM       = rp.some(r => getHorarioId(r) === H_PM);
+  const rp = reservas.filter(r => getPuestoId(r) === puestoId && esReservaActiva(r));
+  const tieneAM = rp.some(r => getHorarioId(r) === H_AM);
+  const tienePM = rp.some(r => getHorarioId(r) === H_PM);
   const tieneCompleto = rp.some(r => getHorarioId(r) === H_COMPLETO);
   if (tieneCompleto || (tieneAM && tienePM)) return 'ocupado';
-  if (tieneAM || tienePM)                    return 'limitado';
+  if (tieneAM || tienePM) return 'limitado';
   return 'disponible';
 };
 
@@ -141,12 +141,12 @@ const DateSelector = ({ fechas, fechaIndex, setFechaIndex }) => (
 
 // ─── TimeBadge ────────────────────────────────────────────────────────────────
 const TimeBadge = ({ time }) => {
-  if (time === 'am')   return (
+  if (time === 'am') return (
     <span className="op-fila__turno op-fila__turno--am">
       8:00 - 12:00
     </span>
   );
-  if (time === 'pm')   return (
+  if (time === 'pm') return (
     <span className="op-fila__turno op-fila__turno--pm">
       13:00 - 17:00
     </span>
@@ -163,7 +163,7 @@ const OcupantesPanelContent = ({ reservas, asCard = false }) => {
   return (
     <div className={asCard ? 'op-tabla' : undefined}>
       {[1, 2, 3, 4, 5, 6].map(id => {
-        const rp   = reservas.filter(r => getPuestoId(r) === id && esReservaActiva(r));
+        const rp = reservas.filter(r => getPuestoId(r) === id && esReservaActiva(r));
         const hasM = CON_MONITOR.includes(id);
         return (
           <div
@@ -183,9 +183,9 @@ const OcupantesPanelContent = ({ reservas, asCard = false }) => {
                     )}
                   </div>
                   {rp.map((r, i) => {
-                    const hId    = getHorarioId(r);
-                    const meta   = HORARIO_META[hId];
-                    const foto   = getFoto(r);
+                    const hId = getHorarioId(r);
+                    const meta = HORARIO_META[hId];
+                    const foto = getFoto(r);
                     const nombre = getPrimerNombreReserva(r);
                     return (
                       <div key={i} className="op-fila__persona-card">
@@ -263,7 +263,7 @@ const OcupantesPanel = ({ reservas }) => {
       {/* Drawer móvil */}
       {drawerOpen && (
         <div className="ocupantes-drawer-backdrop" onClick={() => setDrawerOpen(false)}>
-            <div className="ocupantes-drawer__body"><OcupantesPanelContent reservas={reservas} asCard />
+          <div className="ocupantes-drawer__body"><OcupantesPanelContent reservas={reservas} asCard />
           </div>
         </div>
       )}
@@ -285,7 +285,7 @@ const BookingCard = ({
   selectedHorarioIdProp,
 }) => {
   const [selectedHorarioId, setSelectedHorarioId] = useState(null);
-  
+
   // Sincronizar con prop cuando cambia desde fuera
   useEffect(() => {
     if (selectedHorarioIdProp !== undefined) {
@@ -295,27 +295,27 @@ const BookingCard = ({
 
   if (!escritorioId) return null;
 
-  const bloq          = turnosBloqueados(reservas, escritorioId);
+  const bloq = turnosBloqueados(reservas, escritorioId);
   const defaultHorarioId = horarios.find(h => !bloq.has(h.id))?.id ?? null;
   const horarioSelId = selectedHorarioId && !bloq.has(selectedHorarioId)
     ? selectedHorarioId
     : defaultHorarioId;
   const todoBloqueado = bloq.size >= 3;
-  const tieneMonitor  = CON_MONITOR.includes(escritorioId);
+  const tieneMonitor = CON_MONITOR.includes(escritorioId);
   const horarioSelObj = horarios.find(h => h.id === horarioSelId);
   const puedeReservar = canReserveNow && !loadingRotacion && !yaReservoHoy && !rotacionBloqueada && !todoBloqueado && !!horarioSelId && !reservaOk;
 
   const aviso = !canReserveNow
     ? reserveWindowMessage
     : loadingRotacion
-    ? 'Validando regla de rotación...'
-    : yaReservoHoy
-    ? 'Ya tienes una reserva para este día'
-    : rotacionBloqueada
-    ? rotationMessage
-    : todoBloqueado
-    ? 'Este escritorio no tiene turnos disponibles'
-    : null;
+      ? 'Validando regla de rotación...'
+      : yaReservoHoy
+        ? 'Ya tienes una reserva para este día'
+        : rotacionBloqueada
+          ? rotationMessage
+          : todoBloqueado
+            ? 'Este escritorio no tiene turnos disponibles'
+            : null;
 
   return (
     <div className="booking-card-wrapper">
@@ -324,7 +324,7 @@ const BookingCard = ({
         <div className="booking-section booking-section--compact">
           <div className="booking-section-label">Ubicación</div>
           <div className="booking-ubicacion-row">
-            <Monitor size={16} strokeWidth={2.5} color="#503629" /> 
+            <Monitor size={16} strokeWidth={2.5} color="#503629" />
             <span className="booking-escritorio-nombre">Escritorio {escritorioId}</span>
             {tieneMonitor && <span className="booking-badge-monitor">Con monitor</span>}
           </div>
@@ -336,9 +336,9 @@ const BookingCard = ({
           <div className="booking-section-label">Horario</div>
           <div className="booking-horarios">
             {horarios.map(h => {
-              const esBloq        = bloq.has(h.id);
-              const esSel         = horarioSelId === h.id;
-              const meta          = HORARIO_META[h.id];
+              const esBloq = bloq.has(h.id);
+              const esSel = horarioSelId === h.id;
+              const meta = HORARIO_META[h.id];
               const deshabilitado = esBloq;
               return (
                 <button
@@ -354,12 +354,12 @@ const BookingCard = ({
                   disabled={deshabilitado}
                   className={[
                     'booking-horario-btn',
-                    esSel  ? 'booking-horario-btn--selected'  : '',
+                    esSel ? 'booking-horario-btn--selected' : '',
                     esBloq ? 'booking-horario-btn--bloqueado' : '',
                   ].join(' ')}
                   style={{
                     opacity: deshabilitado ? 0.38 : 1,
-                    cursor:  deshabilitado ? 'not-allowed' : 'pointer',
+                    cursor: deshabilitado ? 'not-allowed' : 'pointer',
                   }}
                 >
                   <span className="booking-horario-label">{meta?.label}</span>
@@ -375,7 +375,7 @@ const BookingCard = ({
           <>
             <div className="booking-divider" />
             <div className="booking-section booking-section--compact">
-              {reservaOk  && <div className="booking-feedback booking-feedback--ok">Reservado!</div>}
+              {reservaOk && <div className="booking-feedback booking-feedback--ok">Reservado!</div>}
               {reservaErr && <div className="booking-feedback booking-feedback--error">{reservaErr}</div>}
               {!reservaOk && !reservaErr && aviso && (
                 <div className="booking-feedback booking-feedback--error" style={{ background: 'rgba(192,57,43,0.08)' }}>
@@ -388,8 +388,8 @@ const BookingCard = ({
 
         {/* Botones */}
         <div className="booking-botones booking-botones--compact">
-          <button 
-            className="booking-btn-cancelar" 
+          <button
+            className="booking-btn-cancelar"
             onClick={onCancel}
             disabled={reservando}
           >
@@ -413,10 +413,10 @@ const BookingCard = ({
               opacity: reservando ? 0.7 : 1,
             }}
           >
-            {reservaOk      ? 'Reservado'       :
-             reservando     ? 'Reservando...'    :
-             !puedeReservar ? 'No disponible'  :
-                              'Reservar'}
+            {reservaOk ? 'Reservado' :
+              reservando ? 'Reservando...' :
+                !puedeReservar ? 'No disponible' :
+                  'Reservar'}
           </button>
         </div>
 
@@ -430,9 +430,9 @@ export default function Reservas() {
   const location = useLocation();
   const navigate = useNavigate();
   const session = getSession();
-  const usuario  = location.state?.datosEmpleado ?? session?.datosEmpleado ?? null;
+  const usuario = location.state?.datosEmpleado ?? session?.datosEmpleado ?? null;
   const documentoUsuario = String(usuario?.document_number ?? usuario?.documento ?? '');
-  const esAdmin  = usuario && ADMIN_DOCUMENTS.includes(documentoUsuario);
+  const esAdmin = usuario && ADMIN_DOCUMENTS.includes(documentoUsuario);
   const [isNavigating, setIsNavigating] = useState(false);
 
   const handleLogout = useCallback(() => {
@@ -456,21 +456,21 @@ export default function Reservas() {
 
   const FECHAS = useMemo(() => generarFechasHabiles(2), []);
 
-  const [fechaIndex,  setFechaIndex]  = useState(0);
-  const [horarios,    setHorarios]    = useState([]);
-  const [reservas,    setReservas]    = useState([]);
-  const [loadingR,    setLoadingR]    = useState(false);
-  const [hoverId,     setHoverId]     = useState(null);
-  const [selectedId,  setSelectedId]  = useState(null);
+  const [fechaIndex, setFechaIndex] = useState(0);
+  const [horarios, setHorarios] = useState([]);
+  const [reservas, setReservas] = useState([]);
+  const [loadingR, setLoadingR] = useState(false);
+  const [hoverId, setHoverId] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
   const [selectedHorarioId, setSelectedHorarioId] = useState(null); // Guardar horario seleccionado
-  const [reservando,  setReservando]  = useState(false);
-  const [reservaOk,   setReservaOk]   = useState(false);
-  const [reservaErr,  setReservaErr]  = useState(null);
+  const [reservando, setReservando] = useState(false);
+  const [reservaOk, setReservaOk] = useState(false);
+  const [reservaErr, setReservaErr] = useState(null);
   const [loadingRotacion, setLoadingRotacion] = useState(false);
   const [ultimaReservaPrevia, setUltimaReservaPrevia] = useState(null);
 
   const fechaActual = FECHAS[fechaIndex];
-  const fechaISO    = fechaActual.iso;
+  const fechaISO = fechaActual.iso;
   const now = new Date();
   const hoyLocal = new Date(now);
   hoyLocal.setHours(0, 0, 0, 0);
@@ -551,9 +551,9 @@ export default function Reservas() {
         const data = Array.isArray(json.data) ? json.data : [];
         setReservas(data);
       })
-      .catch(err => { 
-        console.error('[Reservas] error:', err); 
-        setReservas([]); 
+      .catch(err => {
+        console.error('[Reservas] error:', err);
+        setReservas([]);
       })
       .finally(() => setLoadingR(false));
   }, [fechaISO]);
@@ -573,9 +573,9 @@ export default function Reservas() {
   // 🔍 DETECCIÓN EN TIEMPO REAL: Monitorear si el puesto/turno seleccionado fue ocupado
   useEffect(() => {
     if (!selectedId || reservando) return;
-    
+
     const estado = calcEstado(reservas, selectedId);
-    
+
     // Si el escritorio está completamente ocupado
     if (estado === 'ocupado') {
       setSelectedId(null);
@@ -583,7 +583,7 @@ export default function Reservas() {
       setReservaErr('⚠️ Este escritorio acaba de ser reservado completamente. Por favor, elige otro.');
       return;
     }
-    
+
     // Si hay un turno específico seleccionado, verificar si todavía está disponible
     if (selectedHorarioId) {
       const turnosBloq = turnosBloqueados(reservas, selectedId);
@@ -611,41 +611,41 @@ export default function Reservas() {
 
   const handleReservar = async (horarioObj) => {
     if (!usuario || !selectedId || !horarioObj) return;
-    
+
     // 🔒 BLOQUEO: Prevenir múltiples clics simultáneos
     if (reservando) {
       return;
     }
-    
+
     if (!canReserveNow) { setReservaErr(reserveWindowMessage); return; }
     if (loadingRotacion) { setReservaErr('Aún estamos validando la rotación de puestos. Intenta de nuevo en unos segundos.'); return; }
-    
+
     setReservando(true);
     setReservaErr(null);
-    
+
     const puestoSeleccionado = selectedId;
     const horarioSeleccionado = horarioObj.id;
     const timestamp = Date.now();
-    
+
     try {
       // ⚡ VERIFICACIÓN 1: Consulta inicial
       const checkUrl = buildGetUrl(fechaISO);
       const checkRes = await axios.get(checkUrl);
       const reservasFrescas = checkRes.data?.data || [];
-      
+
       // Verificar que el usuario NO tenga ya una reserva activa
       const miReservaExistente = reservasFrescas.find(r => {
         const doc = r.attributes?.documento || '';
         return String(doc) === String(usuario.document_number) && esReservaActiva(r);
       });
-      
+
       if (miReservaExistente) {
         setReservaErr('Ya tienes una reserva activa para este día.');
         setSelectedId(null);
         setSelectedHorarioId(null);
         return;
       }
-      
+
       // Verificar rotación de puestos
       if (ultimoPuestoReservado && puestoSeleccionado === ultimoPuestoReservado) {
         setReservaErr(getRotationMessage(puestoSeleccionado));
@@ -653,7 +653,7 @@ export default function Reservas() {
         setSelectedHorarioId(null);
         return;
       }
-      
+
       // Verificar disponibilidad del turno/puesto
       const turnosBloq = turnosBloqueados(reservasFrescas, puestoSeleccionado);
       if (turnosBloq.has(horarioSeleccionado)) {
@@ -662,26 +662,26 @@ export default function Reservas() {
         setSelectedHorarioId(null);
         return;
       }
-      
+
       // ⚡ VERIFICACIÓN 2: Segunda consulta
       await new Promise(resolve => setTimeout(resolve, 100)); // Pequeña pausa para detectar cambios
-      
+
       const checkRes2 = await axios.get(checkUrl);
       const reservasFrescas2 = checkRes2.data?.data || [];
-      
+
       // Re-verificar usuario
       const miReserva2 = reservasFrescas2.find(r => {
         const doc = r.attributes?.documento || '';
         return String(doc) === String(usuario.document_number) && esReservaActiva(r);
       });
-      
+
       if (miReserva2) {
         setReservaErr('Ya tienes una reserva activa para este día.');
         setSelectedId(null);
         setSelectedHorarioId(null);
         return;
       }
-      
+
       // Re-verificar disponibilidad del turno/puesto
       const turnosBloq2 = turnosBloqueados(reservasFrescas2, puestoSeleccionado);
       if (turnosBloq2.has(horarioSeleccionado)) {
@@ -690,24 +690,24 @@ export default function Reservas() {
         setSelectedHorarioId(null);
         return;
       }
-      
+
       // ⚡ VERIFICACIÓN 3: Tercera consulta JUSTO antes del POST
       const checkRes3 = await axios.get(checkUrl);
       const reservasFrescas3 = checkRes3.data?.data || [];
-      
+
       // Última verificación de usuario
       const miReserva3 = reservasFrescas3.find(r => {
         const doc = r.attributes?.documento || '';
         return String(doc) === String(usuario.document_number) && esReservaActiva(r);
       });
-      
+
       if (miReserva3) {
         setReservaErr('Ya tienes una reserva activa para este día.');
         setSelectedId(null);
         setSelectedHorarioId(null);
         return;
       }
-      
+
       // Última verificación de disponibilidad
       const turnosBloq3 = turnosBloqueados(reservasFrescas3, puestoSeleccionado);
       if (turnosBloq3.has(horarioSeleccionado)) {
@@ -716,78 +716,78 @@ export default function Reservas() {
         setSelectedHorarioId(null);
         return;
       }
-      
+
       // ✅ Crear reserva
       const body = {
         data: {
-          Nombre:           usuario.nombre      ?? '',
-          foto:             usuario.foto        ?? '',
-          documento:        String(usuario.document_number),
-          area:             usuario.area_nombre ?? '',
-          fecha_reserva:    fechaISO,
-          estado:           null,
-          working_puestos:  { id: puestoSeleccionado },
+          Nombre: usuario.nombre ?? '',
+          foto: usuario.foto ?? '',
+          documento: String(usuario.document_number),
+          area: usuario.area_nombre ?? '',
+          fecha_reserva: fechaISO,
+          estado: null,
+          working_puestos: { id: puestoSeleccionado },
           working_horarios: { id: horarioSeleccionado },
-          metadata:         { timestamp }, // Marcador único temporal
+          metadata: { timestamp }, // Marcador único temporal
         },
       };
-      
+
       const response = await axios.post(API_RESERVAS, body, {
         headers: { 'Content-Type': 'application/json' },
         timeout: 8000,
       });
-      
+
       // Verificar respuesta exitosa
       if (response.status === 200 || response.status === 201) {
         setReservaOk(true);
-        
+
         // 🔌 Emitir evento del socket para notificar a otros clientes
         if (notifyChange) {
           notifyChange();
         }
-        
+
         // Recargar reservas después de un pequeño delay
-        setTimeout(() => { 
+        setTimeout(() => {
           void cargarReservas();
-          setSelectedId(null); 
+          setSelectedId(null);
           setSelectedHorarioId(null);
-          setReservaOk(false); 
+          setReservaOk(false);
         }, 500);
       } else {
         throw new Error('Respuesta inesperada del servidor');
       }
     } catch (err) {
       console.error('❌ Error en handleReservar:', err);
-      
+
       const errorMsg = err?.response?.data?.error?.message || err.message || '';
       const errorDetails = err?.response?.data?.error?.details || {};
       const statusCode = err?.response?.status;
-      
+
       // Detectar errores de duplicación/conflicto
       if (statusCode === 409 ||
-          statusCode === 400 ||
-          errorMsg.toLowerCase().includes('duplicate') || 
-          errorMsg.toLowerCase().includes('already exists') ||
-          errorMsg.toLowerCase().includes('unique') ||
-          errorMsg.toLowerCase().includes('conflict') ||
-          errorMsg.toLowerCase().includes('ya existe') ||
-          errorMsg.toLowerCase().includes('constraint') ||
-          JSON.stringify(errorDetails).toLowerCase().includes('unique')) {
+        statusCode === 400 ||
+        errorMsg.toLowerCase().includes('duplicate') ||
+        errorMsg.toLowerCase().includes('already exists') ||
+        errorMsg.toLowerCase().includes('unique') ||
+        errorMsg.toLowerCase().includes('conflict') ||
+        errorMsg.toLowerCase().includes('ya existe') ||
+        errorMsg.toLowerCase().includes('constraint') ||
+        JSON.stringify(errorDetails).toLowerCase().includes('unique')) {
         setReservaErr('⚠️ No puedes reservar, ya está ocupado. Intenta en otro escritorio.');
         setSelectedId(null);
         setSelectedHorarioId(null);
       } else {
         setReservaErr('Error al reservar. Por favor, intenta de nuevo.');
       }
-      
+
     } finally {
       setReservando(false);
     }
   };
 
-  const getSilla   = (id) => {
+  const getSilla = (id) => {
     const e = calcEstado(reservas, id);
-    if (e === 'ocupado')  return sillaOcu;
+    if (e === 'ocupado') return sillaOcu;
     if (e === 'limitado') return sillaLim;
     return sillaDis;
   };
@@ -796,7 +796,7 @@ export default function Reservas() {
       return `Rotación activa: elige un escritorio distinto al ${id}`;
     }
     const e = calcEstado(reservas, id);
-    if (e === 'ocupado')  return 'Escritorio lleno — sin turnos disponibles';
+    if (e === 'ocupado') return 'Escritorio lleno — sin turnos disponibles';
     if (e === 'limitado') return 'Clic para ver turnos disponibles';
     return 'Clic para reservar';
   };
@@ -828,10 +828,10 @@ export default function Reservas() {
             <div className="reservas-mesa-container">
               <img src={mesaImg} alt="Mesa" className="reservas-mesa-img" />
               {SILLAS.map(s => {
-                const estado   = calcEstado(reservas, s.id);
+                const estado = calcEstado(reservas, s.id);
                 const bloqueadoPorRotacion = !loadingRotacion && ultimoPuestoReservado === s.id;
-                const isAvail  = estado !== 'ocupado' && !bloqueadoPorRotacion;
-                const isHover  = hoverId    === s.id;
+                const isAvail = estado !== 'ocupado' && !bloqueadoPorRotacion;
+                const isHover = hoverId === s.id;
                 const isSelect = selectedId === s.id;
                 return (
                   <img
@@ -858,19 +858,19 @@ export default function Reservas() {
                     onMouseLeave={() => setHoverId(null)}
                     title={getTooltip(s.id)}
                     style={{
-                      position:   'absolute',
-                      width:      isHover || isSelect ? '22%' : '18%',
+                      position: 'absolute',
+                      width: isHover || isSelect ? '22%' : '18%',
                       top: s.top, left: s.left, right: s.right, bottom: s.bottom,
-                      transform:  `rotate(${s.rotate})${isSelect ? ' scale(1.15)' : ''}`,
-                      cursor:     isAvail ? 'pointer' : 'not-allowed',
+                      transform: `rotate(${s.rotate})${isSelect ? ' scale(1.15)' : ''}`,
+                      cursor: isAvail ? 'pointer' : 'not-allowed',
                       transition: 'width 0.2s ease, filter 0.2s ease, transform 0.2s ease',
-                      filter:     isSelect
+                      filter: isSelect
                         ? 'drop-shadow(0 0 10px rgba(127,58,20,0.75)) brightness(1.1)'
                         : isHover && isAvail
-                        ? 'brightness(1.15) drop-shadow(0 4px 10px rgba(0,0,0,0.2))'
-                        : bloqueadoPorRotacion
-                        ? 'grayscale(0.55) brightness(0.9)'
-                        : 'none',
+                          ? 'brightness(1.15) drop-shadow(0 4px 10px rgba(0,0,0,0.2))'
+                          : bloqueadoPorRotacion
+                            ? 'grayscale(0.55) brightness(0.9)'
+                            : 'none',
                       zIndex: isHover || isSelect ? 10 : 1,
                     }}
                   />
@@ -888,9 +888,9 @@ export default function Reservas() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
             {[
-              { img: sillaDis, label: 'Disponible'              },
-              { img: sillaLim, label: 'Limitado'  },
-              { img: sillaOcu, label: 'Ocupado'                  },
+              { img: sillaDis, label: 'Disponible' },
+              { img: sillaLim, label: 'Limitado' },
+              { img: sillaOcu, label: 'Ocupado' },
             ].map(({ img, label }) => (
               <div key={label} className="reservas-leyenda-item">
                 <img src={img} alt={label} className="reservas-leyenda-img" />
@@ -908,11 +908,11 @@ export default function Reservas() {
         reservas={reservas}
         horarios={horarios}
         onConfirm={handleReservar}
-        onCancel={() => { 
-          setSelectedId(null); 
+        onCancel={() => {
+          setSelectedId(null);
           setSelectedHorarioId(null);
-          setReservaErr(null); 
-          setReservaOk(false); 
+          setReservaErr(null);
+          setReservaOk(false);
         }}
         onHorarioSelect={setSelectedHorarioId}
         selectedHorarioIdProp={selectedHorarioId}

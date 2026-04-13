@@ -18,7 +18,7 @@ import {
   verifyAttendance,
 } from "../../utils/geolocationService";
 
-const BASE         = 'https://macfer.crepesywaffles.com';
+const BASE = 'https://macfer.crepesywaffles.com';
 const API_RESERVAS = `${BASE}/api/working-reservas`;
 
 // Chevron con rotación
@@ -54,7 +54,7 @@ const getSalaInfo = (r) => {
   const salaData = pAttr?.working_sala?.data;
   if (salaData) {
     return {
-      salaId:    salaData.id ?? null,
+      salaId: salaData.id ?? null,
       salaNombre: salaData.attributes?.nombre ?? `Sala ${salaData.id}`,
     };
   }
@@ -184,38 +184,38 @@ const ReservaCard = ({
                     let [, horas, minutos, periodo] = partes;
                     horas = parseInt(horas);
                     periodo = (periodo || '').toLowerCase();
-                    
+
                     if (periodo === 'pm' || periodo === 'p') {
                       if (horas !== 12) horas += 12;
                     } else if ((periodo === 'am' || periodo === 'a' || periodo === 'm') && horas === 12) {
                       horas = 0;
                     }
-                    
+
                     return `${String(horas).padStart(2, '0')}:${minutos}`;
                   };
-                  
+
                   // Procesar horario (ej: "8:00 am – 5:00 pm")
                   const partes = hMeta.hora.split(/[–—-]/).map(p => p.trim());
                   const inicio = convertir12a24(partes[0]);
                   const fin = convertir12a24(partes[1]);
-                  
+
                   return `${inicio} - ${fin}`;
                 })() : turnoTexto}
               </span>
             </div>
 
           </div>
-            {(esCancelada || r.estado === 'Confirmada') && (r.motivoCancelacion || r.motivoGestion) && (
-              <div style={{ marginTop: "8px", display: "flex", flexDirection: "column", gap: "4px" }}>
-                <span style={{ fontSize: "0.74rem", color: "#92614F", fontWeight: 700 }}>
-                  Motivo
-                </span>
-                <span className="text-body" style={{ fontSize: "0.78rem", color: "#6B4A3A" }}>
-                  {r.motivoCancelacion || r.motivoGestion}
-                </span>
-              </div>
-            )}
-            {esPendiente && (
+          {(esCancelada || r.estado === 'Confirmada') && (r.motivoCancelacion || r.motivoGestion) && (
+            <div style={{ marginTop: "8px", display: "flex", flexDirection: "column", gap: "4px" }}>
+              <span style={{ fontSize: "0.74rem", color: "#92614F", fontWeight: 700 }}>
+                Motivo
+              </span>
+              <span className="text-body" style={{ fontSize: "0.78rem", color: "#6B4A3A" }}>
+                {r.motivoCancelacion || r.motivoGestion}
+              </span>
+            </div>
+          )}
+          {esPendiente && (
             <div style={{ marginTop: "8px", fontSize: "0.72rem", color: "#8A6D3B" }}>
               {helperMessage || (remainingMinutes != null && remainingMinutes > 0
                 ? `Ventana activa: quedan ${remainingMinutes} min`
@@ -264,11 +264,11 @@ const ReservaCard = ({
 
 // ── Panel principal ───────────────────────────────────────────
 const Panel = () => {
-  const navigate      = useNavigate();
-  const location      = useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const session = getSession();
   const datosEmpleado = location.state?.datosEmpleado || session?.datosEmpleado || null;
-  const isMobile      = useMobile();
+  const isMobile = useMobile();
   const workplaceInfo = getWorkplaceInfo();
   const geoSupport = checkGeolocationSupport();
 
@@ -289,18 +289,18 @@ const Panel = () => {
     navigate('/salas', { replace: true, state: { datosEmpleado } });
   }, [isNavigating, navigate, datosEmpleado]);
   const [reservations, setReservations] = useState([]);
-  const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState("");
-  const [cancelando,   setCancelando]   = useState(null);
-  const [confirmando,  setConfirmando]  = useState(null);
-  const [reactivando,  setReactivando]  = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [cancelando, setCancelando] = useState(null);
+  const [confirmando, setConfirmando] = useState(null);
+  const [reactivando, setReactivando] = useState(null);
   const [reactivadaExitosa, setReactivadaExitosa] = useState(false);
   const [cancelConfirmId, setCancelConfirmId] = useState(null);
   const [conflictoReactivar, setConflictoReactivar] = useState(null);
   const [confirmadaExitosa, setConfirmadaExitosa] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelReasonError, setCancelReasonError] = useState('');
-  const [isNearPoint,  setIsNearPoint]  = useState(false);
+  const [isNearPoint, setIsNearPoint] = useState(false);
   const [distanceMeters, setDistanceMeters] = useState(null);
   const [locationChecking, setLocationChecking] = useState(false);
   const [locationError, setLocationError] = useState("");
@@ -425,14 +425,14 @@ const Panel = () => {
         const fueReactivada = tipoVerifNorm === 'reactivacion-admin' && r.attributes?.estado === null;
 
         return {
-          id:       r.id,
-          nombre:   getNombreCompleto(r.attributes?.Nombre ?? r.attributes?.documento ?? '—').split(/\s+/).slice(0, 2).join(' '),
+          id: r.id,
+          nombre: getNombreCompleto(r.attributes?.Nombre ?? r.attributes?.documento ?? '—').split(/\s+/).slice(0, 2).join(' '),
           nombreCompleto: getNombreCompleto(r.attributes?.Nombre ?? r.attributes?.documento ?? '—'),
-          foto:     r.attributes?.foto      ?? null,
-          documento:r.attributes?.documento ?? '—',
-          area:     r.attributes?.area      ?? '—',
-          fecha:    r.attributes?.fecha_reserva ?? '—',
-          estado:   getEstadoReserva(r.attributes),
+          foto: r.attributes?.foto ?? null,
+          documento: r.attributes?.documento ?? '—',
+          area: r.attributes?.area ?? '—',
+          fecha: r.attributes?.fecha_reserva ?? '—',
+          estado: getEstadoReserva(r.attributes),
           confirmada: r.attributes?.estado === true,
           pendiente: r.attributes?.estado === null,
           cancelada: r.attributes?.estado === false,
@@ -461,7 +461,7 @@ const Panel = () => {
     }
   }, [documentoUsuario, esAdmin]);
 
-  useEffect(() => { 
+  useEffect(() => {
     if (datosEmpleado?.documento || datosEmpleado?.document_number) {
       cargarReservas();
     }
@@ -501,18 +501,18 @@ const Panel = () => {
           prev.map((r) =>
             r.id === id
               ? {
-                  ...r,
-                  estado: 'Confirmada',
-                  confirmada: true,
-                  verificacionAsistencia: {
-                    ...(r.verificacionAsistencia || {}),
-                    fecha: new Date().toISOString(),
-                    mensaje,
-                    tipo: 'confirmacion-admin-manual',
-                    autorizadaPor: documentoUsuario,
-                    nombreAutorizador: datosEmpleado?.nombre ?? 'Administrador',
-                  },
-                }
+                ...r,
+                estado: 'Confirmada',
+                confirmada: true,
+                verificacionAsistencia: {
+                  ...(r.verificacionAsistencia || {}),
+                  fecha: new Date().toISOString(),
+                  mensaje,
+                  tipo: 'confirmacion-admin-manual',
+                  autorizadaPor: documentoUsuario,
+                  nombreAutorizador: datosEmpleado?.nombre ?? 'Administrador',
+                },
+              }
               : r
           )
         );
@@ -523,7 +523,7 @@ const Panel = () => {
           fecha: reservaAux.fecha,
           turnoLabel: reservaAux.turnoLabel,
         });
-        
+
         // 🔌 Emitir evento del socket para notificar cambios
         if (notifyChange) {
           notifyChange();
@@ -581,18 +581,18 @@ const Panel = () => {
         prev.map((r) =>
           r.id === id
             ? {
-                ...r,
-                estado: estadoNuevo,
-                confirmada: confirmadaNueva,
-                motivoCancelacion,
-                verificacionAsistencia: {
-                  ...(r.verificacionAsistencia || {}),
-                  fecha: new Date().toISOString(),
-                  mensaje: evaluation.message,
-                  distancia: evaluation.distance ?? null,
-                  tipo: estadoNuevo === 'Confirmada' ? 'confirmacion-manual-geolocalizada' : 'auto-cancelacion',
-                },
-              }
+              ...r,
+              estado: estadoNuevo,
+              confirmada: confirmadaNueva,
+              motivoCancelacion,
+              verificacionAsistencia: {
+                ...(r.verificacionAsistencia || {}),
+                fecha: new Date().toISOString(),
+                mensaje: evaluation.message,
+                distancia: evaluation.distance ?? null,
+                tipo: estadoNuevo === 'Confirmada' ? 'confirmacion-manual-geolocalizada' : 'auto-cancelacion',
+              },
+            }
             : r
         )
       );
@@ -607,7 +607,7 @@ const Panel = () => {
       } else {
         alert(evaluation.message || 'Reserva actualizada.');
       }
-      
+
       // 🔌 Emitir evento del socket para notificar cambios
       if (notifyChange) {
         notifyChange();
@@ -692,26 +692,26 @@ const Panel = () => {
         prev.map((r) =>
           r.id === id
             ? {
-                ...r,
-                estado: 'Pendiente',
-                confirmada: null,
-                motivoCancelacion: null,
-                reactivadaPorAdmin: true,
-                verificacionAsistencia: {
-                  ...(r.verificacionAsistencia || {}),
-                  fecha: new Date().toISOString(),
-                  mensaje: 'Reserva reactivada por administrador.',
-                  tipo: 'reactivacion-admin',
-                  autorizadaPor: documentoUsuario,
-                  nombreAutorizador: datosEmpleado?.nombre ?? 'Administrador',
-                },
-              }
+              ...r,
+              estado: 'Pendiente',
+              confirmada: null,
+              motivoCancelacion: null,
+              reactivadaPorAdmin: true,
+              verificacionAsistencia: {
+                ...(r.verificacionAsistencia || {}),
+                fecha: new Date().toISOString(),
+                mensaje: 'Reserva reactivada por administrador.',
+                tipo: 'reactivacion-admin',
+                autorizadaPor: documentoUsuario,
+                nombreAutorizador: datosEmpleado?.nombre ?? 'Administrador',
+              },
+            }
             : r
         )
       );
 
       setReactivadaExitosa(true);
-      
+
       // 🔌 Emitir evento del socket para notificar cambios
       if (notifyChange) {
         notifyChange();
@@ -745,7 +745,7 @@ const Panel = () => {
           },
         } : r)
       );
-      
+
       // 🔌 Emitir evento del socket para notificar cambios
       if (notifyChange) {
         notifyChange();
@@ -891,7 +891,7 @@ const Panel = () => {
             render: (_, r) => {
               const hMeta = HORARIO_META[r.horarioId];
               if (!hMeta?.hora) return <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>—</span>;
-              
+
               // Convertir de formato 12h a 24h
               const convertir12a24 = (hora12) => {
                 const partes = hora12.match(/(\d+):(\d+)\s*(am|pm|m)/i);
@@ -899,21 +899,21 @@ const Panel = () => {
                 let [, horas, minutos, periodo] = partes;
                 horas = parseInt(horas);
                 periodo = (periodo || '').toLowerCase();
-                
+
                 if (periodo === 'pm' || periodo === 'p') {
                   if (horas !== 12) horas += 12;
                 } else if ((periodo === 'am' || periodo === 'a' || periodo === 'm') && horas === 12) {
                   horas = 0;
                 }
-                
+
                 return `${String(horas).padStart(2, '0')}:${minutos}`;
               };
-              
+
               // Procesar horario (ej: "8:00 am – 5:00 pm")
               const partes = hMeta.hora.split(/[–—-]/).map(p => p.trim());
               const inicio = convertir12a24(partes[0]);
               const fin = convertir12a24(partes[1]);
-              
+
               return (
                 <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
                   {inicio} - {fin}
@@ -937,11 +937,11 @@ const Panel = () => {
           };
           return (
             <Tag
-              style={{ 
-                marginInlineEnd: 0, 
-                borderRadius: '999px', 
-                fontSize: '0.72rem', 
-                fontWeight: 700, 
+              style={{
+                marginInlineEnd: 0,
+                borderRadius: '999px',
+                fontSize: '0.72rem',
+                fontWeight: 700,
                 paddingInline: 10,
                 backgroundColor: colorMap[r.estado] || '#95a5a6',
                 color: '#fff',
@@ -1069,6 +1069,7 @@ const Panel = () => {
         onGoToPanel={() => navigate('/panel', { state: { datosEmpleado }, replace: true })}
         isNavigating={isNavigating}
         datosEmpleado={esAdmin ? datosEmpleado : null}
+        showMisReservas={false}
       />
 
       <div style={{
@@ -1239,67 +1240,31 @@ const Panel = () => {
           width: isMobile ? "100%" : "auto",
           overflow: "auto",
         }}>
-            {/* ── Cabecera ──────────────────────────────────── */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <h2 className="bienvenida-saludo" style={{ margin: 0, fontSize: "1.05rem" }}>Mis reservas</h2>
-              </div>
+          {/* ── Cabecera ──────────────────────────────────── */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <h2 className="bienvenida-saludo" style={{ margin: 0, fontSize: "1.05rem" }}>Mis reservas</h2>
+            </div>
 
-              {/* Fila 2 (admin): tabs Todas / Mis reservas / Otras */}
-              {esAdmin && (
-                <Segmented
-                  block={isMobile}
-                  value={adminTab}
-                  onChange={(value) => setAdminTab(String(value))}
-                  options={[
-                    { value: 'todos', label: 'Todas' },
-                    { value: 'mis', label: 'Mis reservas' },
-                    { value: 'otros', label: 'Otras' },
-                  ]}
-                />
-              )}
+            {/* Fila 2 (admin): tabs Todas / Mis reservas / Otras */}
+            {esAdmin && (
+              <Segmented
+                block={isMobile}
+                value={adminTab}
+                onChange={(value) => setAdminTab(String(value))}
+                options={[
+                  { value: 'todos', label: 'Todas' },
+                  { value: 'mis', label: 'Mis reservas' },
+                  { value: 'otros', label: 'Otras' },
+                ]}
+              />
+            )}
 
-              {/* Fila 3: filtros + buscador */}
-              {esAdmin && (
-                isMobile ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
-                    <div style={{ display: 'flex', gap: 6, width: '100%' }}>
-                      <Select
-                        value={filterEstado}
-                        onChange={setFilterEstado}
-                        size="small"
-                        options={[
-                          { value: 'todos', label: 'Estados' },
-                          { value: 'Pendiente', label: 'Pendiente' },
-                          { value: 'Confirmada', label: 'Confirmada' },
-                          { value: 'Cancelada', label: 'Cancelada' },
-                        ]}
-                        style={{ flex: '0 0 130px' }}
-                      />
-
-                      <Input
-                        value={searchQuery}
-                        onChange={e => setSearchQuery(e.target.value)}
-                        allowClear
-                        placeholder="Búsqueda"
-                        size="small"
-                        style={{ flex: 1 }}
-                      />
-                    </div>
-
-                    {(searchQuery || filterEstado !== 'todos' || adminTab !== 'todos') && (
-                      <Button
-                        onClick={() => { setSearchQuery(''); setFilterEstado('todos'); setAdminTab('todos'); }}
-                        danger
-                        size="small"
-                        block
-                      >
-                        Limpiar
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <Space wrap size={6} style={{ width: '100%' }}>
+            {/* Fila 3: filtros + buscador */}
+            {esAdmin && (
+              isMobile ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+                  <div style={{ display: 'flex', gap: 6, width: '100%' }}>
                     <Select
                       value={filterEstado}
                       onChange={setFilterEstado}
@@ -1310,9 +1275,7 @@ const Panel = () => {
                         { value: 'Confirmada', label: 'Confirmada' },
                         { value: 'Cancelada', label: 'Cancelada' },
                       ]}
-                      style={{
-                        minWidth: 140,
-                      }}
+                      style={{ flex: '0 0 130px' }}
                     />
 
                     <Input
@@ -1321,82 +1284,120 @@ const Panel = () => {
                       allowClear
                       placeholder="Búsqueda"
                       size="small"
-                      style={{
-                        flex: 1, minWidth: 150,
-                      }}
+                      style={{ flex: 1 }}
                     />
-                    {(searchQuery || filterEstado !== 'todos' || adminTab !== 'todos') && (
-                      <Button
-                        onClick={() => { setSearchQuery(''); setFilterEstado('todos'); setAdminTab('todos'); }}
-                        danger
-                        size="small"
-                      >
-                        Limpiar
-                      </Button>
-                    )}
-                  </Space>
-                )
-              )}
-            </div>
+                  </div>
 
-            {filteredReservations.length === 0 && (
-              <p className="text-muted" style={{ fontSize: "0.85rem", textAlign: "center", padding: "24px 0" }}>
-                {reservations.length === 0
-                  ? 'No hay reservas registradas.'
-                  : 'No hay reservas que coincidan con los filtros aplicados.'}
-              </p>
+                  {(searchQuery || filterEstado !== 'todos' || adminTab !== 'todos') && (
+                    <Button
+                      onClick={() => { setSearchQuery(''); setFilterEstado('todos'); setAdminTab('todos'); }}
+                      danger
+                      size="small"
+                      block
+                    >
+                      Limpiar
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <Space wrap size={6} style={{ width: '100%' }}>
+                  <Select
+                    value={filterEstado}
+                    onChange={setFilterEstado}
+                    size="small"
+                    options={[
+                      { value: 'todos', label: 'Estados' },
+                      { value: 'Pendiente', label: 'Pendiente' },
+                      { value: 'Confirmada', label: 'Confirmada' },
+                      { value: 'Cancelada', label: 'Cancelada' },
+                    ]}
+                    style={{
+                      minWidth: 140,
+                    }}
+                  />
+
+                  <Input
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    allowClear
+                    placeholder="Búsqueda"
+                    size="small"
+                    style={{
+                      flex: 1, minWidth: 150,
+                    }}
+                  />
+                  {(searchQuery || filterEstado !== 'todos' || adminTab !== 'todos') && (
+                    <Button
+                      onClick={() => { setSearchQuery(''); setFilterEstado('todos'); setAdminTab('todos'); }}
+                      danger
+                      size="small"
+                    >
+                      Limpiar
+                    </Button>
+                  )}
+                </Space>
+              )
             )}
-
-            {/* MOBILE */}
-            {isMobile && filteredReservations.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                {filteredReservations.map(r => {
-                  const confirmMeta = getConfirmMeta(r);
-                  const canAdminConfirm = esAdmin && r.estado === 'Pendiente';
-                  return (
-                    <ReservaCard
-                      key={r.id}
-                      r={r}
-                      cancelando={cancelando}
-                      confirmando={confirmando}
-                      reactivando={reactivando}
-                      onCancelar={solicitarCancelacion}
-                      onConfirmar={handleConfirmar}
-                      onReactivar={handleReactivar}
-                      canConfirm={canAdminConfirm || (!r.reactivadaPorAdmin && isNearPoint && confirmMeta.canByTime)}
-                      helperMessage={esAdmin && r.estado === 'Pendiente'
-                        ? (r.documento === documentoUsuario
-                            ? ''
-                            : '')
-                        : ''}
-                      showOwner={esAdmin}
-                      confirmBlockedMessage={confirmMeta.blockedMessage}
-                      remainingMinutes={confirmMeta.remainingMinutes}
-                    />
-                  );
-                })}
-              </div>
-            )}
-
-            {/* DESKTOP */}
-            {!isMobile && filteredReservations.length > 0 && (
-              <Table
-                size="small"
-                columns={desktopColumns}
-                dataSource={filteredReservations}
-                rowKey="id"
-                bordered
-                style={{ width: '100%' }}
-                scroll={{ x: 'max-content' }}
-                pagination={{
-                  pageSize: 8,
-                  showSizeChanger: false,
-                  hideOnSinglePage: true,
-                }}
-              />
-            )}
-
           </div>
+
+          {filteredReservations.length === 0 && (
+            <p className="text-muted" style={{ fontSize: "0.85rem", textAlign: "center", padding: "24px 0" }}>
+              {reservations.length === 0
+                ? 'No hay reservas registradas.'
+                : 'No hay reservas que coincidan con los filtros aplicados.'}
+            </p>
+          )}
+
+          {/* MOBILE */}
+          {isMobile && filteredReservations.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {filteredReservations.map(r => {
+                const confirmMeta = getConfirmMeta(r);
+                const canAdminConfirm = esAdmin && r.estado === 'Pendiente';
+                return (
+                  <ReservaCard
+                    key={r.id}
+                    r={r}
+                    cancelando={cancelando}
+                    confirmando={confirmando}
+                    reactivando={reactivando}
+                    onCancelar={solicitarCancelacion}
+                    onConfirmar={handleConfirmar}
+                    onReactivar={handleReactivar}
+                    canConfirm={canAdminConfirm || (!r.reactivadaPorAdmin && isNearPoint && confirmMeta.canByTime)}
+                    helperMessage={esAdmin && r.estado === 'Pendiente'
+                      ? (r.documento === documentoUsuario
+                        ? ''
+                        : '')
+                      : ''}
+                    showOwner={esAdmin}
+                    confirmBlockedMessage={confirmMeta.blockedMessage}
+                    remainingMinutes={confirmMeta.remainingMinutes}
+                  />
+                );
+              })}
+            </div>
+          )}
+
+          {/* DESKTOP */}
+          {!isMobile && filteredReservations.length > 0 && (
+            <Table
+              size="small"
+              columns={desktopColumns}
+              dataSource={filteredReservations}
+              rowKey="id"
+              bordered
+              style={{ width: '100%' }}
+              scroll={{ x: 'max-content' }}
+              pagination={{
+                pageSize: 8,
+                showSizeChanger: false,
+                hideOnSinglePage: true,
+              }}
+            />
+          )}
+
+        </div>
       </div>
 
       {cancelConfirmId != null && (

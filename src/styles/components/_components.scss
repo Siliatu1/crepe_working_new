@@ -1038,6 +1038,7 @@ $footer-h: 52px;
 .global-nav-bar {
   position: fixed;
   top: $spacing-md;
+  left: $spacing-lg;
   right: $spacing-lg;
   display: flex;
   align-items: center;
@@ -1046,6 +1047,7 @@ $footer-h: 52px;
 
   @include respond-to('sm') {
     top: $spacing-sm;
+    left: $spacing-sm;
     right: $spacing-sm;
   }
 }

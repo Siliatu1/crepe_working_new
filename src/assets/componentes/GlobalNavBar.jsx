@@ -8,21 +8,23 @@ export default function GlobalNavBar({
   isNavigating,
   dateSelector = null,
   datosEmpleado = null,
+  showMisReservas = true,
+  showAtras = true,
 }) {
   const handleLogout = () => {
     onLogout();
   };
 
   return (
-    <div className="global-nav-bar" style={{ flexWrap: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '20px' }}>
+    <div className="global-nav-bar" style={{ flexWrap: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px' }}>
       {/* Lado Izquierdo: Admin Info */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px', minWidth: 0 }}>
         {datosEmpleado && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingLeft: '24px', minWidth: 'auto', flexShrink: 0 }}>
             {datosEmpleado?.foto && datosEmpleado.foto !== "null" ? (
-              <img 
-                src={datosEmpleado?.foto} 
-                alt="Foto" 
+              <img
+                src={datosEmpleado?.foto}
+                alt="Foto"
                 style={{ width: '34px', height: '34px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
               />
             ) : (
@@ -54,26 +56,30 @@ export default function GlobalNavBar({
           </div>
         )}
         {/* Botón Mis Reservas - Izquierda */}
-        <button
-          className="btn-outline global-nav-reservas"
-          onClick={onGoToPanel}
-          disabled={isNavigating}
-          title="Mis Reservas"
-          aria-label="Mis Reservas"
-        >
-          Mis reservas
-        </button>
+        {showMisReservas && (
+          <button
+            className="btn-outline global-nav-reservas"
+            onClick={onGoToPanel}
+            disabled={isNavigating}
+            title="Mis Reservas"
+            aria-label="Mis Reservas"
+          >
+            Mis reservas
+          </button>
+        )}
 
         {/* Botón Atrás - Centro */}
-        <button
-          className="btn-outline top-nav-icon-btn global-nav-back"
-          onClick={onGoBack}
-          disabled={isNavigating}
-          title="Volver"
-          aria-label="Volver"
-        >
-          <ArrowLeft size={14} strokeWidth={2.5} />
-        </button>
+        {showAtras && (
+          <button
+            className="btn-outline top-nav-icon-btn global-nav-back"
+            onClick={onGoBack}
+            disabled={isNavigating}
+            title="Volver"
+            aria-label="Volver"
+          >
+            <ArrowLeft size={14} strokeWidth={2.5} />
+          </button>
+        )}
 
         {/* Botón Salir - Derecha */}
         <Popconfirm

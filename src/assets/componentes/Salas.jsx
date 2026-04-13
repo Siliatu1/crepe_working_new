@@ -9,7 +9,7 @@ import { clearSession, getSession } from "../../utils/sessionFlow";
 import GlobalNavBar from './GlobalNavBar';
 
 // ── Constantes ────────────────────────────────────────────
-const BASE      = 'https://macfer.crepesywaffles.com';
+const BASE = 'https://macfer.crepesywaffles.com';
 const API_SALAS = `${BASE}/api/working-salas`;
 
 // ── Normaliza una sala desde la API ───────────────────────
@@ -28,13 +28,13 @@ const normalizeSala = (item) => {
   }
 
   return {
-    id:         item.id,
-    nombre:     a.nombre    ?? a.name    ?? `Sala ${item.id}`,
-    capacidad:  a.capacidad ?? 0,           // total de puestos
-    monitores:  a.monitores ?? 0,
-    imagen:     imagenUrl,
+    id: item.id,
+    nombre: a.nombre ?? a.name ?? `Sala ${item.id}`,
+    capacidad: a.capacidad ?? 0,           // total de puestos
+    monitores: a.monitores ?? 0,
+    imagen: imagenUrl,
     disponible: a.disponible !== false,
-    ruta:       '/reservas',
+    ruta: '/reservas',
   };
 };
 
@@ -110,7 +110,7 @@ const SalaCard = ({ sala, onClick }) => {
         {/* Footer */}
         <div className="salas-card-footer">
           <span className="salas-card-disponible" style={{
-            color:      sala.disponible ? undefined : '#92614F',
+            color: sala.disponible ? undefined : '#92614F',
             background: sala.disponible ? undefined : 'rgba(80,54,41,0.07)',
           }}>
             {sala.disponible ? 'Disponible' : 'No disponible'}
@@ -131,8 +131,8 @@ export default function Salas() {
   const navigate = useNavigate();
   const location = useLocation();
   const session = getSession();
-  const usuario  = location.state?.datosEmpleado || session?.datosEmpleado || null;
-  const esAdmin  = ADMIN_DOCUMENTS.includes(usuario?.documento ?? usuario?.document_number ?? '');
+  const usuario = location.state?.datosEmpleado || session?.datosEmpleado || null;
+  const esAdmin = ADMIN_DOCUMENTS.includes(usuario?.documento ?? usuario?.document_number ?? '');
   const [isNavigating, setIsNavigating] = useState(false);
 
   const handleLogout = useCallback(() => {
@@ -154,9 +154,9 @@ export default function Salas() {
     navigate('/panel', { state: { datosEmpleado: usuario }, replace: false });
   }, [isNavigating, navigate, usuario]);
 
-  const [salas,      setSalas]      = useState([]);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState(null);
+  const [salas, setSalas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const cargarSalas = useCallback(async () => {
     setLoading(true);
@@ -185,67 +185,68 @@ export default function Salas() {
 
   return (
     <div className="salas-page-wrapper">
-        <div className="salas-layout">
-            <GlobalNavBar
-              onLogout={handleLogout}
-              onGoBack={handleGoBack}
-              onGoToPanel={handleGoToPanel}
-              isNavigating={isNavigating}
-            />
+      <div className="salas-layout">
+        <GlobalNavBar
+          onLogout={handleLogout}
+          onGoBack={handleGoBack}
+          onGoToPanel={handleGoToPanel}
+          isNavigating={isNavigating}
+          showAtras={false}
+        />
 
-          <div className="salas-container">
+        <div className="salas-container">
 
-            {/* Header */}
-            <div className="salas-header">
-              <div style={{ width: '100%', textAlign: 'center' }}>
-                <h1 className="bienvenida-saludo">
-                  Elige la sala
-                </h1>
-                <p className="text-muted bienvenida-sub">
-                  Selecciona la sala para continuar con tu reserva
-                </p>
-              </div>
-            </div>
-
-            {/* Cargando - Skeleton Loading */}
-            {loading && (
-              <div className="salas-grid">
-                {[...Array(1)].map((_, i) => (
-                  <SalaCardSkeleton key={`skeleton-${i}`} />
-                ))}
-              </div>
-            )}
-
-            {/* Error */}
-            {error && !loading && (
-              <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                <p style={{ color: '#c0392b', fontSize: '0.82rem', marginBottom: 0 }}>{error}</p>
-              </div>
-            )}
-
-            {/* Vacío */}
-            {!loading && !error && salas.length === 0 && (
-              <p className="text-muted" style={{ textAlign: 'center', padding: '24px 0', fontSize: '0.85rem' }}>
-                No hay salas registradas.
+          {/* Header */}
+          <div className="salas-header">
+            <div style={{ width: '100%', textAlign: 'center' }}>
+              <h1 className="bienvenida-saludo">
+                Elige la sala
+              </h1>
+              <p className="text-muted bienvenida-sub">
+                Selecciona la sala para continuar con tu reserva
               </p>
-            )}
-
-            {/* Grid */}
-            {!loading && !error && salas.length > 0 && (
-              <div className="salas-grid">
-                {salas.map((sala) => (
-                  <SalaCard
-                    key={sala.id}
-                    sala={sala}
-                    onClick={() => navigate(sala.ruta, { state: { datosEmpleado: usuario, salaId: sala.id, salaNombre: sala.nombre } })}
-                  />
-                ))}
-              </div>
-            )}
-
+            </div>
           </div>
+
+          {/* Cargando - Skeleton Loading */}
+          {loading && (
+            <div className="salas-grid">
+              {[...Array(1)].map((_, i) => (
+                <SalaCardSkeleton key={`skeleton-${i}`} />
+              ))}
+            </div>
+          )}
+
+          {/* Error */}
+          {error && !loading && (
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+              <p style={{ color: '#c0392b', fontSize: '0.82rem', marginBottom: 0 }}>{error}</p>
+            </div>
+          )}
+
+          {/* Vacío */}
+          {!loading && !error && salas.length === 0 && (
+            <p className="text-muted" style={{ textAlign: 'center', padding: '24px 0', fontSize: '0.85rem' }}>
+              No hay salas registradas.
+            </p>
+          )}
+
+          {/* Grid */}
+          {!loading && !error && salas.length > 0 && (
+            <div className="salas-grid">
+              {salas.map((sala) => (
+                <SalaCard
+                  key={sala.id}
+                  sala={sala}
+                  onClick={() => navigate(sala.ruta, { state: { datosEmpleado: usuario, salaId: sala.id, salaNombre: sala.nombre } })}
+                />
+              ))}
+            </div>
+          )}
+
         </div>
       </div>
+    </div>
   );
 }
 
