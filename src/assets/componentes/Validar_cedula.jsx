@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { IdCard } from "lucide-react";
-import { createSession, getNextPathForSession, hasActiveSession } from "../../utils/sessionFlow";
+import { createSession, getNextPathForSession, hasActiveSession, checkPoliciesAccepted } from "../../utils/sessionFlow";
 
 const ValidarCedula = () => {
   const navigate = useNavigate();
@@ -20,7 +20,6 @@ const ValidarCedula = () => {
     e.preventDefault();
 
     if (!cedula.trim()) {
-      setError("Por favor ingrese el número de cédula");
       return;
     }
 
@@ -33,11 +32,23 @@ const ValidarCedula = () => {
       );
 
       const empleado = response.data.data[0];
+
+      // Validar que el usuario esté activo
+      if (empleado.status && empleado.status.toLowerCase() === 'inactivo') {
+        setError("Usuario inactivo, acérquese a bienestar");
+        setLoading(false);
+        return;
+      }
+
       const fechaHoraIngreso = new Date();
+      
+      // Verificar si el usuario ya aceptó las políticas
+      const politicasYaAceptadas = await checkPoliciesAccepted(cedula);
 
       createSession({
         datosEmpleado: empleado,
         fechaHoraIngreso: fechaHoraIngreso.toISOString(),
+        politicasAceptadas: politicasYaAceptadas
       });
 
       navigate(getNextPathForSession(), {
@@ -49,7 +60,15 @@ const ValidarCedula = () => {
       });
     } catch (error) {
       console.error(error);
-      setError("Error al validar la cédula.");
+      // Extraer solo "Empleado no encontrado" del mensaje de error
+      let errorMessage = error.response?.data?.detail;
+      
+      // Si incluye "Empleado no encontrado", mostrar solo eso
+      if (errorMessage && errorMessage.includes("Empleado no encontrado")) {
+        errorMessage = "Empleado no encontrado";
+      }
+      
+      setError(errorMessage || "");
     } finally {
       setLoading(false);
     }

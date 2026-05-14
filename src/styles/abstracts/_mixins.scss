@@ -1,10 +1,5 @@
-// ========================================
-// MIXINS - Funciones reutilizables
-// ========================================
-
 @use 'variables' as *;
 
-// Flexbox
 @mixin flex-center {
   display: flex;
   align-items: center;
@@ -22,13 +17,11 @@
   justify-content: space-between;
 }
 
-// Grid
 @mixin grid-col($cols) {
   display: grid;
   grid-template-columns: repeat($cols, 1fr);
 }
 
-// Responsive
 @mixin respond-to($breakpoint) {
   @if $breakpoint == 'sm' {
     @media (max-width: 480px) {
@@ -45,7 +38,6 @@
   }
 }
 
-// Animaciones
 @mixin fade-in-scale {
   animation: fadeInScale 0.5s ease-out;
 
@@ -95,12 +87,10 @@
   }
 }
 
-// Transiciones
 @mixin transition-all($duration: $transition-base) {
   transition: all $duration ease;
 }
 
-// Estado Hover
 @mixin hover-effect($translateY: -2px) {
   @include transition-all;
 
@@ -109,7 +99,6 @@
   }
 }
 
-// Estado Focus
 @mixin focus-ring {
   &:focus,
   &:focus-visible {
@@ -117,7 +106,6 @@
   }
 }
 
-// Gradiente de texto
 @mixin gradient-text($gradient) {
   background: $gradient;
   -webkit-background-clip: text;
@@ -125,7 +113,6 @@
   background-clip: text;
 }
 
-// Elipsis
 @mixin truncate {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -139,7 +126,6 @@
   overflow: hidden;
 }
 
-// Sombra personalizada
 @mixin box-shadow($shadow) {
   box-shadow: $shadow;
 }

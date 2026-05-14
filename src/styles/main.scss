@@ -2,3 +2,8 @@
 @use 'abstracts/mixins' as *;
 @use 'base/reset';
 @use 'components/components';
+
+/* Popconfirm logout - evitar que quede pegado al borde */
+.popconfirm-logout {
+  margin-right: 80px !important;
+}

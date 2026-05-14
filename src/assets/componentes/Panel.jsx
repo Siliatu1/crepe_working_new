@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { User, Calendar, Monitor, Clock, Armchair, ArrowLeft, Trash2, LogOut, ChevronDown } from 'lucide-react';
-import { Table, Select, Input, Button, Segmented, Space, Tag } from 'antd';
+import { User, Calendar, Monitor, Clock, Armchair, ArrowLeft, Trash2, LogOut, ChevronDown, CheckCircle2, AlertCircle, RotateCcw, X } from 'lucide-react';
+import { Table, Select, Input, Button, Segmented, Space, Tag, Dropdown } from 'antd';
 import axios from 'axios';
 import { cancelReserva, updateReservaWithVerification } from "../../utils/reservasService";
 import useMobile from '../../hooks/useMobile';
 import useRealtimeSync from '../../hooks/useRealtimeSync';
 import { ADMIN_DOCUMENTS, HORARIO_META, getPuestoId, getHorarioId, toEstado } from '../../utils/reservaCommon';
 import { clearSession, getSession } from '../../utils/sessionFlow';
+import GlobalNavBar from './GlobalNavBar';
 import {
   calculateDistance,
   checkGeolocationSupport,
@@ -17,7 +18,7 @@ import {
   verifyAttendance,
 } from "../../utils/geolocationService";
 
-const BASE         = 'https://macfer.crepesywaffles.com';
+const BASE = 'https://macfer.crepesywaffles.com';
 const API_RESERVAS = `${BASE}/api/working-reservas`;
 
 // Chevron con rotación
@@ -53,7 +54,7 @@ const getSalaInfo = (r) => {
   const salaData = pAttr?.working_sala?.data;
   if (salaData) {
     return {
-      salaId:    salaData.id ?? null,
+      salaId: salaData.id ?? null,
       salaNombre: salaData.attributes?.nombre ?? `Sala ${salaData.id}`,
     };
   }
@@ -125,8 +126,9 @@ const ReservaCard = ({
           <span style={{
             padding: "2px 9px", borderRadius: "20px",
             fontSize: "0.7rem", fontWeight: 600,
-            background: esCancelada ? "#F8D7DA" : "#D4EDDA",
-            color: esCancelada ? "#721C24" : "#155724",
+            background: esCancelada ? "#c0392b" : esPendiente ? "#f39c12" : "#27ae60",
+            color: "#fff",
+            border: "none",
           }}>
             {r.estado}
           </span>
@@ -174,22 +176,46 @@ const ReservaCard = ({
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <Clock size={13} color="#CC8A22" strokeWidth={2} />
               <span className="text-body" style={{ fontSize: "0.82rem" }}>
-                {hMeta?.hora ? `${turnoTexto} · ${hMeta.hora}` : turnoTexto}
+                {hMeta?.hora ? (() => {
+                  // Convertir de formato 12h a 24h
+                  const convertir12a24 = (hora12) => {
+                    const partes = hora12.match(/(\d+):(\d+)\s*(am|pm|m)/i);
+                    if (!partes) return hora12;
+                    let [, horas, minutos, periodo] = partes;
+                    horas = parseInt(horas);
+                    periodo = (periodo || '').toLowerCase();
+
+                    if (periodo === 'pm' || periodo === 'p') {
+                      if (horas !== 12) horas += 12;
+                    } else if ((periodo === 'am' || periodo === 'a' || periodo === 'm') && horas === 12) {
+                      horas = 0;
+                    }
+
+                    return `${String(horas).padStart(2, '0')}:${minutos}`;
+                  };
+
+                  // Procesar horario (ej: "8:00 am – 5:00 pm")
+                  const partes = hMeta.hora.split(/[–—-]/).map(p => p.trim());
+                  const inicio = convertir12a24(partes[0]);
+                  const fin = convertir12a24(partes[1]);
+
+                  return `${inicio} - ${fin}`;
+                })() : turnoTexto}
               </span>
             </div>
 
           </div>
-            {(esCancelada || r.estado === 'Confirmada') && (r.motivoCancelacion || r.motivoGestion) && (
-              <div style={{ marginTop: "8px", display: "flex", flexDirection: "column", gap: "4px" }}>
-                <span style={{ fontSize: "0.74rem", color: "#92614F", fontWeight: 700 }}>
-                  Motivo
-                </span>
-                <span className="text-body" style={{ fontSize: "0.78rem", color: "#6B4A3A" }}>
-                  {r.motivoCancelacion || r.motivoGestion}
-                </span>
-              </div>
-            )}
-            {esPendiente && (
+          {(esCancelada || r.estado === 'Confirmada') && (r.motivoCancelacion || r.motivoGestion) && (
+            <div style={{ marginTop: "8px", display: "flex", flexDirection: "column", gap: "4px" }}>
+              <span style={{ fontSize: "0.74rem", color: "#92614F", fontWeight: 700 }}>
+                Motivo
+              </span>
+              <span className="text-body" style={{ fontSize: "0.78rem", color: "#6B4A3A" }}>
+                {r.motivoCancelacion || r.motivoGestion}
+              </span>
+            </div>
+          )}
+          {esPendiente && (
             <div style={{ marginTop: "8px", fontSize: "0.72rem", color: "#8A6D3B" }}>
               {helperMessage || (remainingMinutes != null && remainingMinutes > 0
                 ? `Ventana activa: quedan ${remainingMinutes} min`
@@ -197,60 +223,38 @@ const ReservaCard = ({
             </div>
           )}
           <div style={{ marginTop: "12px", display: "flex", gap: "8px" }}>
-            <button
-              onClick={() => onConfirmar(r.id)}
-              disabled={confirmDisabled}
-              style={{
-                width: "100%",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
-                padding: "8px", borderRadius: "8px",
-                border: "1px solid rgba(21,87,36,0.3)",
-                background: "rgba(21,87,36,0.08)",
-                color: "#155724", fontSize: "0.8rem", fontWeight: 600,
-                cursor: confirmDisabled ? "not-allowed" : "pointer",
-                opacity: confirmDisabled ? 0.6 : 1,
-                fontFamily: "inherit",
+            <Dropdown
+              menu={{
+                items: [
+                  {
+                    key: 'confirmar',
+                    label: 'Confirmar',
+                    onClick: () => onConfirmar(r.id),
+                    disabled: confirmDisabled,
+                  },
+                  {
+                    key: 'cancelar',
+                    label: 'Cancelar',
+                    onClick: () => onCancelar(r.id),
+                    disabled: cancelDisabled,
+                  },
+                  ...(showOwner && esCancelada ? [{
+                    key: 'reactivar',
+                    label: 'Reactivar',
+                    onClick: () => onReactivar(r.id),
+                    disabled: reactivateDisabled,
+                  }] : []),
+                ]
               }}
+              trigger={['click']}
             >
-              {confirmando === r.id ? "Confirmando…" : "Confirmar"}
-            </button>
-            <button
-              onClick={() => onCancelar(r.id)}
-              disabled={cancelDisabled}
-              style={{
-                width: "100%",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
-                padding: "8px", borderRadius: "8px",
-                border: "1px solid rgba(220,53,69,0.3)",
-                background: "rgba(220,53,69,0.06)",
-                color: "#c0392b", fontSize: "0.8rem", fontWeight: 600,
-                cursor: cancelDisabled ? "not-allowed" : "pointer",
-                opacity: cancelDisabled ? 0.6 : 1,
-                fontFamily: "inherit",
-              }}
-            >
-              <Trash2 size={13} strokeWidth={2} />
-              {esCancelada ? "Ya cancelada" : cancelando === r.id ? "Cancelando…" : "Cancelar"}
-            </button>
-            {showOwner && esCancelada && (
-              <button
-                onClick={() => onReactivar(r.id)}
-                disabled={reactivateDisabled}
-                style={{
-                  width: "100%",
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
-                  padding: "8px", borderRadius: "8px",
-                  border: "1px solid rgba(204,138,34,0.35)",
-                  background: "rgba(204,138,34,0.1)",
-                  color: "#8A6D3B", fontSize: "0.8rem", fontWeight: 700,
-                  cursor: reactivateDisabled ? "not-allowed" : "pointer",
-                  opacity: reactivateDisabled ? 0.6 : 1,
-                  fontFamily: "inherit",
-                }}
+              <Button
+                type="default"
+                style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.82rem' }}
               >
-                {reactivando === r.id ? "Reactivando…" : "Reactivar"}
-              </button>
-            )}
+                Acciones <ChevronDown size={14} />
+              </Button>
+            </Dropdown>
           </div>
         </div>
       )}
@@ -260,11 +264,11 @@ const ReservaCard = ({
 
 // ── Panel principal ───────────────────────────────────────────
 const Panel = () => {
-  const navigate      = useNavigate();
-  const location      = useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const session = getSession();
   const datosEmpleado = location.state?.datosEmpleado || session?.datosEmpleado || null;
-  const isMobile      = useMobile();
+  const isMobile = useMobile();
   const workplaceInfo = getWorkplaceInfo();
   const geoSupport = checkGeolocationSupport();
 
@@ -285,18 +289,18 @@ const Panel = () => {
     navigate('/salas', { replace: true, state: { datosEmpleado } });
   }, [isNavigating, navigate, datosEmpleado]);
   const [reservations, setReservations] = useState([]);
-  const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState("");
-  const [cancelando,   setCancelando]   = useState(null);
-  const [confirmando,  setConfirmando]  = useState(null);
-  const [reactivando,  setReactivando]  = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [cancelando, setCancelando] = useState(null);
+  const [confirmando, setConfirmando] = useState(null);
+  const [reactivando, setReactivando] = useState(null);
   const [reactivadaExitosa, setReactivadaExitosa] = useState(false);
   const [cancelConfirmId, setCancelConfirmId] = useState(null);
   const [conflictoReactivar, setConflictoReactivar] = useState(null);
   const [confirmadaExitosa, setConfirmadaExitosa] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelReasonError, setCancelReasonError] = useState('');
-  const [isNearPoint,  setIsNearPoint]  = useState(false);
+  const [isNearPoint, setIsNearPoint] = useState(false);
   const [distanceMeters, setDistanceMeters] = useState(null);
   const [locationChecking, setLocationChecking] = useState(false);
   const [locationError, setLocationError] = useState("");
@@ -304,14 +308,6 @@ const Panel = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterEstado, setFilterEstado] = useState('todos');
   const [adminTab, setAdminTab] = useState(esAdmin ? 'mis' : 'todos');
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setNowMs(Date.now());
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, []);
 
   // Ref siempre actualizado para evitar closures obsoletos en handlers
   const reservationsRef = useRef(reservations);
@@ -429,14 +425,14 @@ const Panel = () => {
         const fueReactivada = tipoVerifNorm === 'reactivacion-admin' && r.attributes?.estado === null;
 
         return {
-          id:       r.id,
-          nombre:   getNombreCompleto(r.attributes?.Nombre ?? r.attributes?.documento ?? '—').split(/\s+/).slice(0, 2).join(' '),
+          id: r.id,
+          nombre: getNombreCompleto(r.attributes?.Nombre ?? r.attributes?.documento ?? '—').split(/\s+/).slice(0, 2).join(' '),
           nombreCompleto: getNombreCompleto(r.attributes?.Nombre ?? r.attributes?.documento ?? '—'),
-          foto:     r.attributes?.foto      ?? null,
-          documento:r.attributes?.documento ?? '—',
-          area:     r.attributes?.area      ?? '—',
-          fecha:    r.attributes?.fecha_reserva ?? '—',
-          estado:   getEstadoReserva(r.attributes),
+          foto: r.attributes?.foto ?? null,
+          documento: r.attributes?.documento ?? '—',
+          area: r.attributes?.area ?? '—',
+          fecha: r.attributes?.fecha_reserva ?? '—',
+          estado: getEstadoReserva(r.attributes),
           confirmada: r.attributes?.estado === true,
           pendiente: r.attributes?.estado === null,
           cancelada: r.attributes?.estado === false,
@@ -465,13 +461,14 @@ const Panel = () => {
     }
   }, [documentoUsuario, esAdmin]);
 
-  useEffect(() => { 
+  useEffect(() => {
     if (datosEmpleado?.documento || datosEmpleado?.document_number) {
       cargarReservas();
     }
   }, [datosEmpleado?.documento, datosEmpleado?.document_number, cargarReservas]);
 
-  useRealtimeSync(cargarReservas);
+  // ── Sincronización en tiempo real con eventos de socket  ──────────────────────
+  const { notifyChange } = useRealtimeSync(cargarReservas);
 
   useEffect(() => {
     void refreshLocationStatus(true);
@@ -504,18 +501,18 @@ const Panel = () => {
           prev.map((r) =>
             r.id === id
               ? {
-                  ...r,
-                  estado: 'Confirmada',
-                  confirmada: true,
-                  verificacionAsistencia: {
-                    ...(r.verificacionAsistencia || {}),
-                    fecha: new Date().toISOString(),
-                    mensaje,
-                    tipo: 'confirmacion-admin-manual',
-                    autorizadaPor: documentoUsuario,
-                    nombreAutorizador: datosEmpleado?.nombre ?? 'Administrador',
-                  },
-                }
+                ...r,
+                estado: 'Confirmada',
+                confirmada: true,
+                verificacionAsistencia: {
+                  ...(r.verificacionAsistencia || {}),
+                  fecha: new Date().toISOString(),
+                  mensaje,
+                  tipo: 'confirmacion-admin-manual',
+                  autorizadaPor: documentoUsuario,
+                  nombreAutorizador: datosEmpleado?.nombre ?? 'Administrador',
+                },
+              }
               : r
           )
         );
@@ -526,6 +523,11 @@ const Panel = () => {
           fecha: reservaAux.fecha,
           turnoLabel: reservaAux.turnoLabel,
         });
+
+        // 🔌 Emitir evento del socket para notificar cambios
+        if (notifyChange) {
+          notifyChange();
+        }
       } catch (err) {
         console.error(err);
         alert(err?.message || 'Error al confirmar la reserva.');
@@ -579,18 +581,18 @@ const Panel = () => {
         prev.map((r) =>
           r.id === id
             ? {
-                ...r,
-                estado: estadoNuevo,
-                confirmada: confirmadaNueva,
-                motivoCancelacion,
-                verificacionAsistencia: {
-                  ...(r.verificacionAsistencia || {}),
-                  fecha: new Date().toISOString(),
-                  mensaje: evaluation.message,
-                  distancia: evaluation.distance ?? null,
-                  tipo: estadoNuevo === 'Confirmada' ? 'confirmacion-manual-geolocalizada' : 'auto-cancelacion',
-                },
-              }
+              ...r,
+              estado: estadoNuevo,
+              confirmada: confirmadaNueva,
+              motivoCancelacion,
+              verificacionAsistencia: {
+                ...(r.verificacionAsistencia || {}),
+                fecha: new Date().toISOString(),
+                mensaje: evaluation.message,
+                distancia: evaluation.distance ?? null,
+                tipo: estadoNuevo === 'Confirmada' ? 'confirmacion-manual-geolocalizada' : 'auto-cancelacion',
+              },
+            }
             : r
         )
       );
@@ -604,6 +606,11 @@ const Panel = () => {
         });
       } else {
         alert(evaluation.message || 'Reserva actualizada.');
+      }
+
+      // 🔌 Emitir evento del socket para notificar cambios
+      if (notifyChange) {
+        notifyChange();
       }
     } catch (err) {
       console.error(err);
@@ -685,25 +692,30 @@ const Panel = () => {
         prev.map((r) =>
           r.id === id
             ? {
-                ...r,
-                estado: 'Pendiente',
-                confirmada: null,
-                motivoCancelacion: null,
-                reactivadaPorAdmin: true,
-                verificacionAsistencia: {
-                  ...(r.verificacionAsistencia || {}),
-                  fecha: new Date().toISOString(),
-                  mensaje: 'Reserva reactivada por administrador.',
-                  tipo: 'reactivacion-admin',
-                  autorizadaPor: documentoUsuario,
-                  nombreAutorizador: datosEmpleado?.nombre ?? 'Administrador',
-                },
-              }
+              ...r,
+              estado: 'Pendiente',
+              confirmada: null,
+              motivoCancelacion: null,
+              reactivadaPorAdmin: true,
+              verificacionAsistencia: {
+                ...(r.verificacionAsistencia || {}),
+                fecha: new Date().toISOString(),
+                mensaje: 'Reserva reactivada por administrador.',
+                tipo: 'reactivacion-admin',
+                autorizadaPor: documentoUsuario,
+                nombreAutorizador: datosEmpleado?.nombre ?? 'Administrador',
+              },
+            }
             : r
         )
       );
 
       setReactivadaExitosa(true);
+
+      // 🔌 Emitir evento del socket para notificar cambios
+      if (notifyChange) {
+        notifyChange();
+      }
     } catch (err) {
       console.error(err);
       alert(err?.message || 'Error al reactivar la reserva.');
@@ -733,7 +745,11 @@ const Panel = () => {
           },
         } : r)
       );
-      // El evento emitido por cancelReserva dispara el sync en useRealtimeSync
+
+      // 🔌 Emitir evento del socket para notificar cambios
+      if (notifyChange) {
+        notifyChange();
+      }
     } catch (err) {
       console.error(err);
       alert('Error al cancelar la reserva. Intenta de nuevo.');
@@ -808,78 +824,129 @@ const Panel = () => {
       {
         title: 'ID',
         key: 'id',
+        width: 70,
+        align: 'center',
         render: (_, r) => (
-          <span style={{
-            display: "inline-block",
-            padding: "2px 8px", borderRadius: 20,
-            background: "rgba(80,54,41,0.08)",
-            color: "#92614F", fontSize: "0.72rem", fontWeight: 700,
-            fontFamily: "monospace", letterSpacing: "0.02em",
-          }}>
-            #{r.id}
+          <span style={{ fontSize: "0.82rem" }}>
+            {r.id}
           </span>
         ),
       },
       ...(esAdmin ? [{
-        title: 'Usuario',
-        key: 'usuario',
-        ellipsis: true,
-        render: (_, r) => (
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <span className="text-body" style={{ fontSize: "0.82rem", fontWeight: 700 }}>
-              {r.nombreCompleto || r.nombre}
-            </span>
-            <span style={{ fontSize: "0.72rem", color: "#92614F" }}>
-              {r.documento || 'Sin documento'}
-            </span>
-          </div>
-        ),
+        title: 'Datos del usuario',
+        align: 'center',
+        children: [
+          {
+            title: 'Nombre',
+            key: 'nombre',
+            align: 'center',
+            render: (_, r) => (
+              <span className="text-body" style={{ fontSize: "0.82rem" }}>
+                {r.nombreCompleto || r.nombre}
+              </span>
+            ),
+          },
+          {
+            title: 'Identificación',
+            key: 'documento',
+            align: 'center',
+            render: (_, r) => (
+              <span style={{ fontSize: "0.82rem" }}>
+                {r.documento || '—'}
+              </span>
+            ),
+          },
+        ],
       }] : []),
       {
-        title: 'Fecha',
-        key: 'fecha',
-        render: (_, r) => (
-          <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
-            {r.fecha !== '—'
-              ? new Date(r.fecha + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short" })
-              : '—'}
-          </span>
-        ),
-      },
-      {
-        title: 'Escritorio',
-        key: 'salaEscritorio',
-        ellipsis: true,
-        render: (_, r) => (
-          <span className="text-body" style={{ fontSize: "0.82rem" }}>
-            {r.puestoId ? `Escritorio ${r.puestoId}` : '—'}
-          </span>
-        ),
-      },
-      {
-        title: 'Turno',
-        key: 'turno',
-        ellipsis: true,
-        render: (_, r) => {
-          const hMeta = HORARIO_META[r.horarioId];
-          const turnoTexto = r.turnoLabel || hMeta?.label || '—';
-          return (
-            <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
-              {turnoTexto}
-            </span>
-          );
-        },
+        title: 'Detalles de reserva',
+        align: 'center',
+        children: [
+          {
+            title: 'Fecha',
+            key: 'fecha',
+            align: 'center',
+            render: (_, r) => (
+              <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
+                {r.fecha !== '—'
+                  ? new Date(r.fecha + "T12:00:00").toLocaleDateString("es-CO", { day: "2-digit", month: "2-digit", year: "numeric" })
+                  : '—'}
+              </span>
+            ),
+          },
+          {
+            title: 'Escritorio',
+            key: 'salaEscritorio',
+            align: 'center',
+            render: (_, r) => (
+              <span className="text-body" style={{ fontSize: "0.82rem" }}>
+                {r.puestoId ?? '—'}
+              </span>
+            ),
+          },
+          {
+            title: 'Horario',
+            key: 'turno',
+            align: 'center',
+            render: (_, r) => {
+              const hMeta = HORARIO_META[r.horarioId];
+              if (!hMeta?.hora) return <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>—</span>;
+
+              // Convertir de formato 12h a 24h
+              const convertir12a24 = (hora12) => {
+                const partes = hora12.match(/(\d+):(\d+)\s*(am|pm|m)/i);
+                if (!partes) return hora12;
+                let [, horas, minutos, periodo] = partes;
+                horas = parseInt(horas);
+                periodo = (periodo || '').toLowerCase();
+
+                if (periodo === 'pm' || periodo === 'p') {
+                  if (horas !== 12) horas += 12;
+                } else if ((periodo === 'am' || periodo === 'a' || periodo === 'm') && horas === 12) {
+                  horas = 0;
+                }
+
+                return `${String(horas).padStart(2, '0')}:${minutos}`;
+              };
+
+              // Procesar horario (ej: "8:00 am – 5:00 pm")
+              const partes = hMeta.hora.split(/[–—-]/).map(p => p.trim());
+              const inicio = convertir12a24(partes[0]);
+              const fin = convertir12a24(partes[1]);
+
+              return (
+                <span className="text-body" style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
+                  {inicio} - {fin}
+                </span>
+              );
+            },
+          },
+        ],
       },
       {
         title: 'Estado',
         key: 'estado',
+        align: 'center',
         render: (_, r) => {
           const esCancelada = r.estado === 'Cancelada';
           const esPendiente = r.estado === 'Pendiente';
+          const colorMap = {
+            'Cancelada': '#c03a2bd0',
+            'Pendiente': '#f39d12d0',
+            'Confirmada': '#27ae5fd0'
+          };
           return (
             <Tag
-              style={{ marginInlineEnd: 0, borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, paddingInline: 10 }}
-              color={esCancelada ? 'error' : esPendiente ? 'warning' : 'success'}
+              style={{
+                marginInlineEnd: 0,
+                borderRadius: '999px',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                paddingInline: 10,
+                backgroundColor: colorMap[r.estado] || '#95a5a6',
+                color: '#fff',
+                border: 'none'
+              }}
             >
               {r.estado}
             </Tag>
@@ -889,23 +956,25 @@ const Panel = () => {
       {
         title: 'Motivo',
         key: 'motivo',
+        align: 'center',
         ellipsis: true,
         render: (_, r) => {
           const valor = r.estado === 'Cancelada'
-            ? (r.motivoCancelacion || r.motivoGestion || '—')
+            ? (r.motivoCancelacion || r.motivoGestion || 'Ninguno')
             : r.estado === 'Confirmada'
-              ? (r.motivoGestion || '—')
-              : '—';
+              ? (r.motivoGestion || 'Ninguno')
+              : 'Ninguno';
           return (
-            <span className="text-body" style={{ fontSize: "0.78rem", color: "#6B4A3A" }} title={valor}>
+            <span className="text-body" style={{ fontSize: "0.82rem" }} title={valor}>
               {valor}
             </span>
           );
         },
       },
       {
-        title: 'Acción',
+        title: 'Acciones',
         key: 'accion',
+        align: 'center',
         render: (_, r) => {
           const esCancelada = r.estado === 'Cancelada';
           const esPendiente = r.estado === 'Pendiente';
@@ -915,48 +984,40 @@ const Panel = () => {
           const cancelDisabled = cancelando === r.id || esCancelada || cancelConfirmId === r.id || reactivando === r.id;
           const reactivateDisabled = actionBusy;
 
+          const actionItems = [
+            {
+              key: 'confirmar',
+              label: 'Confirmar',
+              onClick: () => handleConfirmar(r.id),
+              disabled: confirmDisabled,
+            },
+            {
+              key: 'cancelar',
+              label: 'Cancelar',
+              onClick: () => solicitarCancelacion(r.id),
+              disabled: cancelDisabled,
+            },
+            ...(esAdmin && esCancelada ? [{
+              key: 'reactivar',
+              label: 'Reactivar',
+              onClick: () => handleReactivar(r.id),
+              disabled: reactivateDisabled,
+            }] : []),
+          ];
+
           return (
-            <div>
-              <Space size={8} wrap>
-                <Button
-                  size="small"
-                  onClick={() => handleConfirmar(r.id)}
-                  disabled={confirmDisabled}
-                  loading={confirmando === r.id}
-                >
-                  Confirmar
-                </Button>
-                <Button
-                  size="small"
-                  danger
-                  onClick={() => solicitarCancelacion(r.id)}
-                  disabled={cancelDisabled}
-                  loading={cancelando === r.id}
-                  icon={<Trash2 size={13} strokeWidth={2} />}
-                >
-                  {esCancelada ? "Cancelada" : "Cancelar"}
-                </Button>
-                {esAdmin && esCancelada && (
-                  <Button
-                    size="small"
-                    onClick={() => handleReactivar(r.id)}
-                    disabled={reactivateDisabled}
-                    loading={reactivando === r.id}
-                  >
-                    Reactivar
-                  </Button>
-                )}
-              </Space>
-              {esPendiente && (
-                <div style={{ marginTop: 6, fontSize: "0.68rem", color: "#8A6D3B", lineHeight: 1.2 }}>
-                  {esAdmin
-                    ? ''
-                    : (confirmMeta.remainingMinutes != null && confirmMeta.remainingMinutes > 0
-                        ? `Quedan ${confirmMeta.remainingMinutes} min para confirmar`
-                        : (confirmMeta.blockedMessage || ''))}
-                </div>
-              )}
-            </div>
+            <Dropdown
+              menu={{ items: actionItems }}
+              trigger={['click']}
+            >
+              <Button
+                type="default"
+                size="small"
+                style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.82rem' }}
+              >
+                Acciones <ChevronDown size={14} />
+              </Button>
+            </Dropdown>
           );
         },
       },
@@ -1002,45 +1063,14 @@ const Panel = () => {
       padding: isMobile ? "64px 16px 16px" : "76px 24px 28px",
       height: "100vh",
     }}>
-      <div
-        className="top-right-nav-actions"
-        style={{
-          top: isMobile ? "8px" : "16px",
-          right: isMobile ? "8px" : "24px",
-        }}
-      >
-        <div className="top-nav-btn-group">
-          <button
-            className="btn-outline top-nav-icon-btn"
-            onClick={() => navigate('/panel', { state: { datosEmpleado }, replace: true })}
-            disabled={isNavigating}
-            title={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
-            aria-label={esAdmin ? 'Panel Admin' : 'Mis Reservas'}
-          >
-            <Armchair size={14} strokeWidth={2.5} />
-          </button>
-          <button
-            className="btn-outline reservas-btn-atras top-nav-icon-btn"
-            onClick={handleGoBack}
-            disabled={isNavigating}
-            title="Volver"
-          >
-            <ArrowLeft size={14} strokeWidth={2.5} />
-          </button>
-          <button
-            className="btn-outline top-nav-icon-btn"
-            onClick={handleLogout}
-            disabled={isNavigating}
-            title="Cerrar sesión"
-            style={{
-              borderColor: "rgba(192,57,43,0.35)",
-              color: "#c0392b",
-            }}
-          >
-            <LogOut size={14} strokeWidth={2} />
-          </button>
-        </div>
-      </div>
+      <GlobalNavBar
+        onLogout={handleLogout}
+        onGoBack={handleGoBack}
+        onGoToPanel={() => navigate('/panel', { state: { datosEmpleado }, replace: true })}
+        isNavigating={isNavigating}
+        datosEmpleado={esAdmin ? datosEmpleado : null}
+        showMisReservas={false}
+      />
 
       <div style={{
         width: "100%",
@@ -1054,8 +1084,8 @@ const Panel = () => {
         minHeight: 0,
         overflow: "auto",
       }}>
-        {/* Tarjeta de Usuario */}
-        {isMobile && (
+        {/* Tarjeta de Usuario - Solo para usuarios normales */}
+        {isMobile && !esAdmin && (
           <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
             {(() => {
               const nombre = String(datosEmpleado?.nombre || '').trim();
@@ -1078,12 +1108,6 @@ const Panel = () => {
                   <h1 className="bienvenida-saludo" style={{ marginBottom: "10px" }}>
                     ¡Hola, {primerNombre}!
                   </h1>
-
-                  <div className="bienvenida-info" style={{ gap: "4px" }}>
-                    <div className="text-label">Cargo y Área</div>
-                    <div className="bienvenida-cargo">{cargo}</div>
-                    <div className="text-muted">{area}</div>
-                  </div>
 
                   {!esAdmin && (
                     <div style={{
@@ -1133,8 +1157,8 @@ const Panel = () => {
           </div>
         )}
 
-        {/* Tarjeta de Usuario (Desktop) */}
-        {!isMobile && (
+        {/* Tarjeta de Usuario (Desktop) - Solo para usuarios normales */}
+        {!isMobile && !esAdmin && (
           <div style={{ flex: "0 0 auto", display: "flex", justifyContent: "center" }}>
             {(() => {
               const nombre = String(datosEmpleado?.nombre || '').trim();
@@ -1157,12 +1181,6 @@ const Panel = () => {
                   <h1 className="bienvenida-saludo" style={{ marginBottom: "10px" }}>
                     ¡Hola, {primerNombre}!
                   </h1>
-
-                  <div className="bienvenida-info" style={{ gap: "4px" }}>
-                    <div className="text-label">Cargo y Área</div>
-                    <div className="bienvenida-cargo">{cargo}</div>
-                    <div className="text-muted">{area}</div>
-                  </div>
 
                   {!esAdmin && (
                     <div style={{
@@ -1222,67 +1240,31 @@ const Panel = () => {
           width: isMobile ? "100%" : "auto",
           overflow: "auto",
         }}>
-            {/* ── Cabecera ──────────────────────────────────── */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <h2 className="bienvenida-saludo" style={{ margin: 0, fontSize: "1.05rem" }}>Mis reservas</h2>
-              </div>
+          {/* ── Cabecera ──────────────────────────────────── */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <h2 className="bienvenida-saludo" style={{ margin: 0, fontSize: "1.05rem" }}>Mis reservas</h2>
+            </div>
 
-              {/* Fila 2 (admin): tabs Todas / Mis reservas / Otras */}
-              {esAdmin && (
-                <Segmented
-                  block={isMobile}
-                  value={adminTab}
-                  onChange={(value) => setAdminTab(String(value))}
-                  options={[
-                    { value: 'todos', label: 'Todas' },
-                    { value: 'mis', label: 'Mis reservas' },
-                    { value: 'otros', label: 'Otras' },
-                  ]}
-                />
-              )}
+            {/* Fila 2 (admin): tabs Todas / Mis reservas / Otras */}
+            {esAdmin && (
+              <Segmented
+                block={isMobile}
+                value={adminTab}
+                onChange={(value) => setAdminTab(String(value))}
+                options={[
+                  { value: 'todos', label: 'Todas' },
+                  { value: 'mis', label: 'Mis reservas' },
+                  { value: 'otros', label: 'Otras' },
+                ]}
+              />
+            )}
 
-              {/* Fila 3: filtros + buscador */}
-              {esAdmin && (
-                isMobile ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
-                    <div style={{ display: 'flex', gap: 6, width: '100%' }}>
-                      <Select
-                        value={filterEstado}
-                        onChange={setFilterEstado}
-                        size="small"
-                        options={[
-                          { value: 'todos', label: 'Estados' },
-                          { value: 'Pendiente', label: 'Pendiente' },
-                          { value: 'Confirmada', label: 'Confirmada' },
-                          { value: 'Cancelada', label: 'Cancelada' },
-                        ]}
-                        style={{ flex: '0 0 130px' }}
-                      />
-
-                      <Input
-                        value={searchQuery}
-                        onChange={e => setSearchQuery(e.target.value)}
-                        allowClear
-                        placeholder="Búsqueda"
-                        size="small"
-                        style={{ flex: 1 }}
-                      />
-                    </div>
-
-                    {(searchQuery || filterEstado !== 'todos' || adminTab !== 'todos') && (
-                      <Button
-                        onClick={() => { setSearchQuery(''); setFilterEstado('todos'); setAdminTab('todos'); }}
-                        danger
-                        size="small"
-                        block
-                      >
-                        Limpiar
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <Space wrap size={6} style={{ width: '100%' }}>
+            {/* Fila 3: filtros + buscador */}
+            {esAdmin && (
+              isMobile ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+                  <div style={{ display: 'flex', gap: 6, width: '100%' }}>
                     <Select
                       value={filterEstado}
                       onChange={setFilterEstado}
@@ -1293,9 +1275,7 @@ const Panel = () => {
                         { value: 'Confirmada', label: 'Confirmada' },
                         { value: 'Cancelada', label: 'Cancelada' },
                       ]}
-                      style={{
-                        minWidth: 140,
-                      }}
+                      style={{ flex: '0 0 130px' }}
                     />
 
                     <Input
@@ -1304,124 +1284,137 @@ const Panel = () => {
                       allowClear
                       placeholder="Búsqueda"
                       size="small"
-                      style={{
-                        flex: 1, minWidth: 150,
-                      }}
+                      style={{ flex: 1 }}
                     />
-                    {(searchQuery || filterEstado !== 'todos' || adminTab !== 'todos') && (
-                      <Button
-                        onClick={() => { setSearchQuery(''); setFilterEstado('todos'); setAdminTab('todos'); }}
-                        danger
-                        size="small"
-                      >
-                        Limpiar
-                      </Button>
-                    )}
-                  </Space>
-                )
-              )}
-            </div>
+                  </div>
 
-            {filteredReservations.length === 0 && (
-              <p className="text-muted" style={{ fontSize: "0.85rem", textAlign: "center", padding: "24px 0" }}>
-                {reservations.length === 0
-                  ? 'No hay reservas registradas.'
-                  : 'No hay reservas que coincidan con los filtros aplicados.'}
-              </p>
+                  {(searchQuery || filterEstado !== 'todos' || adminTab !== 'todos') && (
+                    <Button
+                      onClick={() => { setSearchQuery(''); setFilterEstado('todos'); setAdminTab('todos'); }}
+                      danger
+                      size="small"
+                      block
+                    >
+                      Limpiar
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <Space wrap size={6} style={{ width: '100%' }}>
+                  <Select
+                    value={filterEstado}
+                    onChange={setFilterEstado}
+                    size="small"
+                    options={[
+                      { value: 'todos', label: 'Estados' },
+                      { value: 'Pendiente', label: 'Pendiente' },
+                      { value: 'Confirmada', label: 'Confirmada' },
+                      { value: 'Cancelada', label: 'Cancelada' },
+                    ]}
+                    style={{
+                      minWidth: 140,
+                    }}
+                  />
+
+                  <Input
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    allowClear
+                    placeholder="Búsqueda"
+                    size="small"
+                    style={{
+                      flex: 1, minWidth: 150,
+                    }}
+                  />
+                  {(searchQuery || filterEstado !== 'todos' || adminTab !== 'todos') && (
+                    <Button
+                      onClick={() => { setSearchQuery(''); setFilterEstado('todos'); setAdminTab('todos'); }}
+                      danger
+                      size="small"
+                    >
+                      Limpiar
+                    </Button>
+                  )}
+                </Space>
+              )
             )}
-
-            {/* MOBILE */}
-            {isMobile && filteredReservations.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                {filteredReservations.map(r => {
-                  const confirmMeta = getConfirmMeta(r);
-                  const canAdminConfirm = esAdmin && r.estado === 'Pendiente';
-                  return (
-                    <ReservaCard
-                      key={r.id}
-                      r={r}
-                      cancelando={cancelando}
-                      confirmando={confirmando}
-                      reactivando={reactivando}
-                      onCancelar={solicitarCancelacion}
-                      onConfirmar={handleConfirmar}
-                      onReactivar={handleReactivar}
-                      canConfirm={canAdminConfirm || (!r.reactivadaPorAdmin && isNearPoint && confirmMeta.canByTime)}
-                      helperMessage={esAdmin && r.estado === 'Pendiente'
-                        ? (r.documento === documentoUsuario
-                            ? ''
-                            : '')
-                        : ''}
-                      showOwner={esAdmin}
-                      confirmBlockedMessage={confirmMeta.blockedMessage}
-                      remainingMinutes={confirmMeta.remainingMinutes}
-                    />
-                  );
-                })}
-              </div>
-            )}
-
-            {/* DESKTOP */}
-            {!isMobile && filteredReservations.length > 0 && (
-              <Table
-                size="small"
-                columns={desktopColumns}
-                dataSource={filteredReservations}
-                rowKey="id"
-                style={{ width: '100%' }}
-                scroll={{ x: 'max-content' }}
-                pagination={{
-                  pageSize: 8,
-                  showSizeChanger: false,
-                  hideOnSinglePage: true,
-                }}
-              />
-            )}
-
           </div>
+
+          {filteredReservations.length === 0 && (
+            <p className="text-muted" style={{ fontSize: "0.85rem", textAlign: "center", padding: "24px 0" }}>
+              {reservations.length === 0
+                ? 'No hay reservas registradas.'
+                : 'No hay reservas que coincidan con los filtros aplicados.'}
+            </p>
+          )}
+
+          {/* MOBILE */}
+          {isMobile && filteredReservations.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {filteredReservations.map(r => {
+                const confirmMeta = getConfirmMeta(r);
+                const canAdminConfirm = esAdmin && r.estado === 'Pendiente';
+                return (
+                  <ReservaCard
+                    key={r.id}
+                    r={r}
+                    cancelando={cancelando}
+                    confirmando={confirmando}
+                    reactivando={reactivando}
+                    onCancelar={solicitarCancelacion}
+                    onConfirmar={handleConfirmar}
+                    onReactivar={handleReactivar}
+                    canConfirm={canAdminConfirm || (!r.reactivadaPorAdmin && isNearPoint && confirmMeta.canByTime)}
+                    helperMessage={esAdmin && r.estado === 'Pendiente'
+                      ? (r.documento === documentoUsuario
+                        ? ''
+                        : '')
+                      : ''}
+                    showOwner={esAdmin}
+                    confirmBlockedMessage={confirmMeta.blockedMessage}
+                    remainingMinutes={confirmMeta.remainingMinutes}
+                  />
+                );
+              })}
+            </div>
+          )}
+
+          {/* DESKTOP */}
+          {!isMobile && filteredReservations.length > 0 && (
+            <Table
+              size="small"
+              columns={desktopColumns}
+              dataSource={filteredReservations}
+              rowKey="id"
+              bordered
+              style={{ width: '100%' }}
+              scroll={{ x: 'max-content' }}
+              pagination={{
+                pageSize: 8,
+                showSizeChanger: false,
+                hideOnSinglePage: true,
+              }}
+            />
+          )}
+
+        </div>
       </div>
 
       {cancelConfirmId != null && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: "16px",
-          }}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "420px",
-              background: "#fff",
-              borderRadius: "12px",
-              border: "1px solid rgba(80,54,41,0.15)",
-              boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
-              padding: "18px",
-            }}
-          >
-            <h3 style={{ margin: 0, color: "#503629", fontSize: "1rem", fontWeight: 700 }}>
-              Confirmar cancelación
-            </h3>
-            <p style={{ margin: "10px 0 0", color: "#6B4A3A", fontSize: "0.88rem" }}>
-              ¿Seguro de cancelar su reserva?
-            </p>
-            {reservaEnConfirmacion && (
-              <p style={{ margin: "8px 0 0", color: "#92614F", fontSize: "0.8rem" }}>
-                Escritorio {reservaEnConfirmacion.puestoId ?? '—'} · {reservaEnConfirmacion.fecha || '—'}
-              </p>
-            )}
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <div className="modal-content">
+              <h3 className="modal-title modal-title--warning">Confirmar cancelación</h3>
+              <p className="modal-message">¿Seguro de cancelar su reserva?</p>
+              {reservaEnConfirmacion && (
+                <p className="modal-detail">
+                  Escritorio {reservaEnConfirmacion.puestoId ?? '—'} · {reservaEnConfirmacion.fecha || '—'}
+                </p>
+              )}
+            </div>
 
-            <div style={{ marginTop: "12px" }}>
-              <label
-                htmlFor="cancel-reason"
-                style={{ display: "block", marginBottom: "6px", color: "#503629", fontSize: "0.78rem", fontWeight: 600 }}
-              >
+            <div className="modal-form-group">
+              <label htmlFor="cancel-reason" className="modal-label">
                 Motivo de cancelación
               </label>
               <textarea
@@ -1433,55 +1426,24 @@ const Panel = () => {
                 }}
                 placeholder="Escribe el motivo"
                 rows={3}
-                style={{
-                  width: "100%",
-                  resize: "vertical",
-                  borderRadius: "8px",
-                  border: `1px solid ${cancelReasonError ? 'rgba(192,57,43,0.6)' : 'rgba(80,54,41,0.25)'}`,
-                  padding: "8px 10px",
-                  fontSize: "0.82rem",
-                  fontFamily: "inherit",
-                  color: "#503629",
-                  boxSizing: "border-box",
-                }}
+                className={`modal-textarea ${cancelReasonError ? 'error' : ''}`}
               />
               {cancelReasonError && (
-                <div style={{ marginTop: "6px", fontSize: "0.74rem", color: "#c0392b" }}>
-                  {cancelReasonError}
-                </div>
+                <div className="modal-error-message">{cancelReasonError}</div>
               )}
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "16px" }}>
+            <div className="modal-buttons">
               <button
                 onClick={cerrarConfirmacionCancelacion}
-                style={{
-                  padding: "7px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(80,54,41,0.25)",
-                  background: "#fff",
-                  color: "#503629",
-                  fontSize: "0.82rem",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
+                className="modal-button"
+                style={{ background: '#f5f5f5', color: '#666' }}
               >
                 Cerrar
               </button>
               <button
                 onClick={confirmarCancelacion}
-                style={{
-                  padding: "7px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(220,53,69,0.35)",
-                  background: "rgba(220,53,69,0.1)",
-                  color: "#c0392b",
-                  fontSize: "0.82rem",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
+                className="modal-button modal-button--error"
               >
                 Aceptar
               </button>
@@ -1491,192 +1453,62 @@ const Panel = () => {
       )}
 
       {confirmadaExitosa && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1100,
-            padding: "16px",
-          }}
-          onClick={() => setConfirmadaExitosa(null)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: "400px",
-              background: "#F0FFF4",
-              borderRadius: "14px",
-              border: "1px solid rgba(34,139,34,0.2)",
-              boxShadow: "0 20px 48px rgba(34,139,34,0.1)",
-              padding: "22px 20px 18px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", marginBottom: "14px" }}>
-              <span style={{ fontSize: "1.4rem", lineHeight: 1, flexShrink: 0 }}>✅</span>
-              <div>
-                <h3 style={{ margin: 0, color: "#1a6b2a", fontSize: "1rem", fontWeight: 700 }}>
-                  Reserva confirmada
-                </h3>
-                <p style={{ margin: "8px 0 0", color: "#2d6a3f", fontSize: "0.86rem", lineHeight: 1.5 }}>
-                  {confirmadaExitosa.mensaje}
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <div className="modal-content">
+              <h3 className="modal-title modal-title--success">¡Excelente!</h3>
+              <p className="modal-message">{confirmadaExitosa.mensaje}</p>
+              {(confirmadaExitosa.puestoId || confirmadaExitosa.fecha) && (
+                <p className="modal-detail">
+                  {confirmadaExitosa.puestoId ? `Escritorio ${confirmadaExitosa.puestoId}` : ''}
+                  {confirmadaExitosa.puestoId && confirmadaExitosa.fecha ? ' · ' : ''}
+                  {confirmadaExitosa.fecha
+                    ? new Date(confirmadaExitosa.fecha + 'T12:00:00').toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' })
+                    : ''}
+                  {confirmadaExitosa.turnoLabel ? ` · ${confirmadaExitosa.turnoLabel}` : ''}
                 </p>
-                {(confirmadaExitosa.puestoId || confirmadaExitosa.fecha) && (
-                  <p style={{ margin: "6px 0 0", color: "#4a8c5c", fontSize: "0.78rem" }}>
-                    {confirmadaExitosa.puestoId ? `Escritorio ${confirmadaExitosa.puestoId}` : ''}
-                    {confirmadaExitosa.puestoId && confirmadaExitosa.fecha ? ' · ' : ''}
-                    {confirmadaExitosa.fecha
-                      ? new Date(confirmadaExitosa.fecha + 'T12:00:00').toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' })
-                      : ''}
-                    {confirmadaExitosa.turnoLabel ? ` · ${confirmadaExitosa.turnoLabel}` : ''}
-                  </p>
-                )}
-              </div>
+              )}
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button
-                onClick={() => setConfirmadaExitosa(null)}
-                style={{
-                  padding: "8px 20px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(34,139,34,0.3)",
-                  background: "rgba(34,139,34,0.1)",
-                  color: "#1a6b2a",
-                  fontSize: "0.84rem",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                Cerrar
-              </button>
-            </div>
+            <button
+              onClick={() => setConfirmadaExitosa(null)}
+              className="modal-button modal-button--success"
+            >
+              Cerrar
+            </button>
           </div>
         </div>
       )}
 
       {reactivadaExitosa && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1100,
-            padding: "16px",
-          }}
-          onClick={() => setReactivadaExitosa(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: "400px",
-              background: "#F0FFF4",
-              borderRadius: "14px",
-              border: "1px solid rgba(34,139,34,0.2)",
-              boxShadow: "0 20px 48px rgba(34,139,34,0.1)",
-              padding: "22px 20px 18px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", marginBottom: "14px" }}>
-              <span style={{ fontSize: "1.4rem", lineHeight: 1, flexShrink: 0 }}>✅</span>
-              <div>
-                <h3 style={{ margin: 0, color: "#1a6b2a", fontSize: "1rem", fontWeight: 700 }}>
-                  Reserva reactivada
-                </h3>
-                <p style={{ margin: "8px 0 0", color: "#2d6a3f", fontSize: "0.86rem", lineHeight: 1.5 }}>
-                  La reserva fue reactivada exitosamente como Pendiente.
-                </p>
-              </div>
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <div className="modal-content">
+              <h3 className="modal-title modal-title--success">¡Reactivada!</h3>
+              <p className="modal-message">La reserva fue reactivada exitosamente como Pendiente.</p>
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button
-                onClick={() => setReactivadaExitosa(false)}
-                style={{
-                  padding: "8px 20px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(34,139,34,0.3)",
-                  background: "rgba(34,139,34,0.1)",
-                  color: "#1a6b2a",
-                  fontSize: "0.84rem",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                Cerrar
-              </button>
-            </div>
+            <button
+              onClick={() => setReactivadaExitosa(false)}
+              className="modal-button modal-button--success"
+            >
+              Cerrar
+            </button>
           </div>
         </div>
       )}
 
       {conflictoReactivar && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.45)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1100,
-            padding: "16px",
-          }}
-          onClick={() => setConflictoReactivar(null)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: "400px",
-              background: "#FFF0F0",
-              borderRadius: "14px",
-              border: "1px solid rgba(220,53,69,0.2)",
-              boxShadow: "0 20px 48px rgba(220,53,69,0.1)",
-              padding: "22px 20px 18px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", marginBottom: "14px" }}>
-              <span style={{
-                fontSize: "1.4rem",
-                lineHeight: 1,
-                flexShrink: 0,
-              }}>⚠️</span>
-              <div>
-                <h3 style={{ margin: 0, color: "#a32020", fontSize: "1rem", fontWeight: 700 }}>
-                  No se puede reactivar
-                </h3>
-                <p style={{ margin: "8px 0 0", color: "#7a2c2c", fontSize: "0.86rem", lineHeight: 1.5 }}>
-                  {conflictoReactivar}
-                </p>
-              </div>
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <div className="modal-content">
+              <h3 className="modal-title modal-title--error">No se puede reactivar</h3>
+              <p className="modal-message">{conflictoReactivar}</p>
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button
-                onClick={() => setConflictoReactivar(null)}
-                style={{
-                  padding: "8px 20px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(220,53,69,0.35)",
-                  background: "rgba(220,53,69,0.1)",
-                  color: "#a32020",
-                  fontSize: "0.84rem",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                Cerrar
-              </button>
-            </div>
+            <button
+              onClick={() => setConflictoReactivar(null)}
+              className="modal-button modal-button--error"
+            >
+              Cerrar
+            </button>
           </div>
         </div>
       )}

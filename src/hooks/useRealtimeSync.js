@@ -1,145 +1,126 @@
-import { useEffect, useCallback, useRef } from 'react';
-import { io } from 'socket.io-client';
+import { useEffect, useRef, useCallback } from "react";
+import { io } from "socket.io-client";
 
 const WS_URL = import.meta.env.VITE_RESERVAS_WS_URL || 'https://macfer.crepesywaffles.com';
 const ENABLE_SOCKET = import.meta.env.VITE_ENABLE_SOCKET !== 'false';
+const ENABLE_POLLING = import.meta.env.VITE_ENABLE_REALTIME_POLLING === 'true'; // Desactivado por defecto
+const POLLING_VISIBLE_MS = Number(import.meta.env.VITE_REALTIME_POLL_MS || 7000);
+const POLLING_HIDDEN_MS = Number(import.meta.env.VITE_REALTIME_POLL_HIDDEN_MS || 15000);
+const SOCKET_EVENTS = [
+  'reserva3',
+  'working-reservas-updated',
+  'reservas-updated',
+  'reservation-updated',
+];
 
-const useRealtimeSync = (onSync) => {
-  const socketRef = useRef(null);
-  const syncDebounceRef = useRef(null);
+const SOCKET_EVENT = "reserva3";
 
-  // Función para disparar sincronización
-  const triggerSync = useCallback((source = 'manual') => {
-    if (syncDebounceRef.current) {
-      clearTimeout(syncDebounceRef.current);
-    }
+// ─────────────────────────────────────────────────────────────
+// Singleton Socket
+// ─────────────────────────────────────────────────────────────
+let socket = null;
 
-    syncDebounceRef.current = setTimeout(() => {
-      if (onSync) {
-        onSync();
+const getSocket = () => {
+  if (!socket) {
+    console.log("🔌 [useRealtimeSync] Conectando a:", WS_URL);
+
+    socket = io(WS_URL, {
+      transports: ["polling"],
+      upgrade: false,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+      forceNew: false,
+    });
+
+    socket.on("connect", () =>
+      console.log("✅ [Socket] Conectado - ID:", socket.id)
+    );
+
+    socket.on("disconnect", (reason) => {
+      console.log("❌ [Socket] Desconectado:", reason);
+      if (reason === "io server disconnect") socket.connect();
+    });
+
+    socket.on("connect_error", (err) =>
+      console.error("⚠️ [Socket] Error:", err.message)
+    );
+
+    socket.on("reconnect", (n) =>
+      console.log("🔄 [Socket] Reconectado en intento #", n)
+    );
+
+    // Debug: loguea eventos de reservas
+    socket.onAny((eventName, payload) => {
+      if (eventName.includes("reserva")) {
+        console.log(`📡 [Socket] Evento: ${eventName}`, payload ?? "");
       }
-      syncDebounceRef.current = null;
-    }, 120);
-  }, [onSync]);
+    });
+  }
+
+  return socket;
+};
+
+// ─────────────────────────────────────────────────────────────
+// Hook principal
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * useRealtimeSync
+ *
+ * Escucha el evento `reserva3` del servidor para sincronizar
+ * las reservas en tiempo real cuando se crea una nueva.
+ *
+ * @param {Function} refetch - Función para recargar las reservas
+ * @returns {{ socket, notifyChange, isConnected }}
+ */
+export default function useRealtimeSync(refetch) {
+  const refetchRef = useRef(refetch);
+  const lastRefetchRef = useRef(0);
 
   useEffect(() => {
-    const handleCustomSync = () => {
-      triggerSync('custom-event');
-    };
+    refetchRef.current = refetch;
+  }, [refetch]);
 
-    window.addEventListener('reservas-updated', handleCustomSync);
-    window.addEventListener('working-reservas-updated', handleCustomSync);
+  // ── Refetch con debounce ────────────────────────────────────
+  const doRefetch = useCallback((source) => {
+    const now = Date.now();
+    if (now - lastRefetchRef.current < 300) return;
+    lastRefetchRef.current = now;
 
-    return () => {
-      window.removeEventListener('reservas-updated', handleCustomSync);
-      window.removeEventListener('working-reservas-updated', handleCustomSync);
-    };
-  }, [triggerSync]);
+    console.log(`🔄 [Sync] Actualizando reservas | Fuente: ${source}`);
 
-  // Socket.IO Connection  
-  useEffect(() => {
-    if (!ENABLE_SOCKET) {
-      return;
-    }
-
-    let mounted = true;
-    let socket = null;
-    let hasShownError = false;
-
-    const connectSocket = () => {
-      if (!mounted) return;
-
-      try {
-        socket = io(WS_URL, {
-          reconnection: false,
-          timeout: 10000,
-          transports: ['polling', 'websocket'],
-          upgrade: true,
-          autoConnect: true,
-          path: '/socket.io/',
-        });
-
-        socketRef.current = socket;
-
-        socket.on('connect', () => {
-          hasShownError = false;
-          if (mounted) {
-            triggerSync('socket-connect');
-          }
-        });
-
-        socket.on('disconnect', () => {
-        });
-
-        socket.on('connect_error', () => {
-          if (!hasShownError && mounted) {
-            hasShownError = true;
-          }
-          if (socket) {
-            socket.off();
-            socket.close();
-          }
-        });
-
-        // Escuchar el evento "reserva3" que el backend emite cuando se crea una reserva
-        socket.on('reserva3', () => {
-          if (mounted) {
-            triggerSync('socket-reserva3');
-          }
-        });
-
-        // Mantener eventos adicionales por compatibilidad
-        socket.on('working-reservas-updated', () => {
-          if (mounted) {
-            triggerSync('socket-reservas-updated');
-          }
-        });
-
-        socket.on('reservas-updated', () => {
-          if (mounted) {
-            triggerSync('socket-reservas-general');
-          }
-        });
-
-      } catch (error) {
-        if (!hasShownError) {
-          hasShownError = true;
-        }
-      }
-    };
-
-    const timer = setTimeout(connectSocket, 800);
-
-    return () => {
-      mounted = false;
-      clearTimeout(timer);
-      
-      if (socket && socket.connected) {
-        socket.removeAllListeners();
-        socket.close();
-        socketRef.current = null;
-      }
-    };
-  }, [triggerSync]);
-
-  const notifyChange = useCallback(() => {
-    window.dispatchEvent(new CustomEvent('reservas-updated'));
-    window.dispatchEvent(new CustomEvent('working-reservas-updated'));
-
-    if (socketRef.current && socketRef.current.connected) {
-      socketRef.current.emit('working-reservas-updated', {
-        event: 'working-reservas-updated',
-        source: 'client',
-        timestamp: Date.now(),
-      });
+    if (typeof refetchRef.current === "function") {
+      refetchRef.current();
     }
   }, []);
 
-  return {
-    triggerSync,
-    notifyChange,
-    socket: socketRef.current,
-  };
-};
+  // ── Listener Socket.IO ──────────────────────────────────────
+  useEffect(() => {
+    const socketInstance = getSocket();
 
-export default useRealtimeSync;
+    const handleReserva = (payload) => {
+      doRefetch(`socket:${SOCKET_EVENT}`);
+    };
+
+    socketInstance.on(SOCKET_EVENT, handleReserva);
+
+    return () => {
+      socketInstance.off(SOCKET_EVENT, handleReserva);
+    };
+  }, [doRefetch]);
+
+  // ── notifyChange (para compatibilidad) ──────────────────────
+  const notifyChange = useCallback(() => {
+    // Solo dispara refetch local, el servidor no reenvía eventos del cliente
+    doRefetch("local:notifyChange");
+  }, [doRefetch]);
+
+  return {
+    socket: getSocket(),
+    notifyChange,
+    isConnected: socket?.connected ?? false,
+  };
+}
