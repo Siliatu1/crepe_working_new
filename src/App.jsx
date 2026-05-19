@@ -10,6 +10,7 @@ const Politicas = lazy(() => import('./assets/componentes/Politicas.jsx'))
 const Salas = lazy(() => import('./assets/componentes/Salas.jsx'))
 const Reservas = lazy(() => import('./assets/componentes/Reservas.jsx'))
 const Panel = lazy(() => import('./assets/componentes/Panel.jsx'))
+const New = lazy(() => import('./assets/componentes/New.jsx'))
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -58,6 +59,7 @@ function App() {
     <div className="App">
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
+          <Route path='/new' element={<New />} />
           <Route path="/" element={<Validar_cedula />} />
           <Route path="/bienvenida" element={<RouteGuard mode="bienvenida"><Bienvenida /></RouteGuard>} />
           <Route path="/politicas" element={<RouteGuard mode="politicas"><Politicas /></RouteGuard>} />
